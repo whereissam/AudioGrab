@@ -2,8 +2,17 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Literal
+from typing import Optional
 from pydantic import BaseModel, Field
+
+
+class Platform(str, Enum):
+    """Supported platforms."""
+
+    X_SPACES = "x_spaces"
+    APPLE_PODCASTS = "apple_podcasts"
+    SPOTIFY = "spotify"
+    AUTO = "auto"  # Auto-detect from URL
 
 
 class OutputFormat(str, Enum):
@@ -16,7 +25,7 @@ class OutputFormat(str, Enum):
 
 
 class QualityPreset(str, Enum):
-    """Quality presets for MP3 encoding."""
+    """Quality presets for encoding."""
 
     LOW = "low"
     MEDIUM = "medium"
@@ -34,12 +43,20 @@ class JobStatus(str, Enum):
 
 
 class DownloadRequest(BaseModel):
-    """Request to download a Twitter Space."""
+    """Request to download audio."""
 
     url: str = Field(
         ...,
-        description="Twitter Space URL",
-        examples=["https://x.com/i/spaces/1vOxwdyYrlqKB"],
+        description="Audio content URL",
+        examples=[
+            "https://x.com/i/spaces/1vOxwdyYrlqKB",
+            "https://podcasts.apple.com/us/podcast/show/id123456789",
+            "https://open.spotify.com/episode/abc123",
+        ],
+    )
+    platform: Platform = Field(
+        default=Platform.AUTO,
+        description="Platform (auto-detected if not specified)",
     )
     format: OutputFormat = Field(
         default=OutputFormat.M4A,
@@ -47,24 +64,29 @@ class DownloadRequest(BaseModel):
     )
     quality: QualityPreset = Field(
         default=QualityPreset.HIGH,
-        description="Quality preset for MP3 encoding",
+        description="Quality preset for encoding",
     )
 
 
-class SpaceInfo(BaseModel):
-    """Information about a Twitter Space."""
+class ContentInfo(BaseModel):
+    """Information about downloaded content."""
 
-    space_id: str
+    platform: Platform
+    content_id: str
     title: str
-    host_username: str | None
-    host_display_name: str | None
-    state: str
-    is_replay_available: bool
-    started_at: datetime | None
-    ended_at: datetime | None
-    duration_seconds: int | None
-    total_live_listeners: int
-    total_replay_watched: int
+    creator_name: Optional[str] = None
+    creator_username: Optional[str] = None
+    duration_seconds: Optional[int] = None
+    # Podcast-specific
+    show_name: Optional[str] = None
+    episode_number: Optional[int] = None
+    # Legacy X Spaces fields (for backward compatibility)
+    host_username: Optional[str] = None
+    host_display_name: Optional[str] = None
+
+
+# Backward compatibility alias
+SpaceInfo = ContentInfo
 
 
 class DownloadJob(BaseModel):
@@ -72,27 +94,36 @@ class DownloadJob(BaseModel):
 
     job_id: str
     status: JobStatus
+    platform: Optional[Platform] = None
     progress: float = Field(default=0.0, ge=0.0, le=1.0)
-    space_info: SpaceInfo | None = None
-    download_url: str | None = None
-    file_size_mb: float | None = None
-    error: str | None = None
+    content_info: Optional[ContentInfo] = None
+    # Legacy field for backward compatibility
+    space_info: Optional[ContentInfo] = None
+    download_url: Optional[str] = None
+    file_size_mb: Optional[float] = None
+    error: Optional[str] = None
     created_at: datetime
-    completed_at: datetime | None = None
+    completed_at: Optional[datetime] = None
 
 
 class MetadataResponse(BaseModel):
-    """Response for Space metadata lookup."""
+    """Response for content metadata lookup."""
 
     success: bool
-    space: SpaceInfo | None = None
-    error: str | None = None
+    platform: Optional[Platform] = None
+    content: Optional[ContentInfo] = None
+    # Legacy field
+    space: Optional[ContentInfo] = None
+    error: Optional[str] = None
 
 
 class HealthResponse(BaseModel):
     """Health check response."""
 
     status: str
+    platforms: dict[str, bool] = Field(
+        default_factory=dict,
+        description="Availability of each platform's dependencies",
+    )
     ffmpeg_available: bool
-    auth_configured: bool
     version: str

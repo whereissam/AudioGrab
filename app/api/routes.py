@@ -1,4 +1,4 @@
-"""FastAPI routes for the X Spaces Downloader API."""
+"""FastAPI routes for the AudioGrab API."""
 
 import logging
 import uuid
@@ -9,13 +9,17 @@ from typing import Dict
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse
 
-from ..core import SpaceDownloader, SpaceURLParser, SpaceNotFoundError
+from ..core.downloader import DownloaderFactory
+from ..core.converter import AudioConverter
+from ..core.base import Platform as CorePlatform
+from ..core.exceptions import ContentNotFoundError, UnsupportedPlatformError
 from .schemas import (
     DownloadRequest,
     DownloadJob,
     JobStatus,
-    SpaceInfo,
+    ContentInfo,
     HealthResponse,
+    Platform,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,6 +29,16 @@ router = APIRouter()
 jobs: Dict[str, DownloadJob] = {}
 
 
+def _core_platform_to_schema(platform: CorePlatform) -> Platform:
+    """Convert core Platform enum to schema Platform enum."""
+    mapping = {
+        CorePlatform.X_SPACES: Platform.X_SPACES,
+        CorePlatform.APPLE_PODCASTS: Platform.APPLE_PODCASTS,
+        CorePlatform.SPOTIFY: Platform.SPOTIFY,
+    }
+    return mapping.get(platform, Platform.AUTO)
+
+
 async def _process_download(job_id: str, request: DownloadRequest):
     """Background task to process a download."""
     job = jobs[job_id]
@@ -32,31 +46,34 @@ async def _process_download(job_id: str, request: DownloadRequest):
     job.progress = 0.1
 
     try:
-        downloader = SpaceDownloader()
+        # Get appropriate downloader
+        downloader = DownloaderFactory.get_downloader(request.url)
+        job.platform = _core_platform_to_schema(downloader.platform)
 
-        # Download using yt-dlp
+        # Download
         result = await downloader.download(
             url=request.url,
-            format=request.format.value,
+            output_format=request.format.value,
             quality=request.quality.value,
         )
 
         if result.success and result.file_path:
-            # Build space info from metadata
+            # Build content info from metadata
             if result.metadata:
-                job.space_info = SpaceInfo(
-                    space_id=result.metadata.space_id,
+                content_info = ContentInfo(
+                    platform=_core_platform_to_schema(result.metadata.platform),
+                    content_id=result.metadata.content_id,
                     title=result.metadata.title,
-                    host_username=result.metadata.host_username,
-                    host_display_name=result.metadata.host_display_name,
-                    state="Ended",
-                    is_replay_available=True,
-                    started_at=None,
-                    ended_at=None,
+                    creator_name=result.metadata.creator_name,
+                    creator_username=result.metadata.creator_username,
                     duration_seconds=int(result.metadata.duration_seconds) if result.metadata.duration_seconds else None,
-                    total_live_listeners=0,
-                    total_replay_watched=0,
+                    show_name=result.metadata.show_name,
+                    # Legacy fields for backward compatibility
+                    host_username=result.metadata.creator_username,
+                    host_display_name=result.metadata.creator_name,
                 )
+                job.content_info = content_info
+                job.space_info = content_info  # Backward compatibility
 
             job.status = JobStatus.COMPLETED
             job.progress = 1.0
@@ -67,16 +84,17 @@ async def _process_download(job_id: str, request: DownloadRequest):
             job._file_path = str(result.file_path)  # type: ignore
         else:
             job.status = JobStatus.FAILED
-            # Ensure error is always a string
             job.error = str(result.error) if result.error else "Download failed"
 
-    except SpaceNotFoundError as e:
+    except ContentNotFoundError as e:
         job.status = JobStatus.FAILED
-        job.error = f"Space not found: {e}"
+        job.error = f"Content not found: {e}"
+    except UnsupportedPlatformError as e:
+        job.status = JobStatus.FAILED
+        job.error = str(e)
     except Exception as e:
         logger.exception(f"Download error for job {job_id}")
         job.status = JobStatus.FAILED
-        # Ensure error is always a string
         error_msg = str(e) if e else "Download failed"
         job.error = error_msg if error_msg else "Download failed"
 
@@ -84,11 +102,17 @@ async def _process_download(job_id: str, request: DownloadRequest):
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint."""
+    from ..core.platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader
+
     return HealthResponse(
         status="healthy",
-        ffmpeg_available=SpaceDownloader.is_yt_dlp_available(),
-        auth_configured=True,  # Not needed for public Spaces
-        version="0.1.0",
+        platforms={
+            "x_spaces": XSpacesDownloader.is_available(),
+            "apple_podcasts": ApplePodcastsDownloader.is_available(),
+            "spotify": SpotifyDownloader.is_available(),
+        },
+        ffmpeg_available=AudioConverter.is_ffmpeg_available(),
+        version="0.2.0",
     )
 
 
@@ -98,17 +122,22 @@ async def start_download(
     background_tasks: BackgroundTasks,
 ):
     """
-    Start a download job for a Twitter Space.
+    Start a download job for audio content.
+
+    Supports X Spaces, Apple Podcasts, and Spotify.
+    Platform is auto-detected from URL if not specified.
 
     Returns a job ID that can be used to check status and retrieve the file.
     """
-    logger.info(f"Download request: url={request.url}, format={request.format}, quality={request.quality}")
+    logger.info(f"Download request: url={request.url}, platform={request.platform}, format={request.format}")
 
-    # Validate URL
-    if not SpaceURLParser.is_valid_space_url(request.url):
+    # Validate URL and detect platform
+    detected_platform = DownloaderFactory.detect_platform(request.url)
+
+    if not detected_platform:
         raise HTTPException(
             status_code=400,
-            detail="Invalid Twitter Space URL",
+            detail="Unsupported URL. Supported platforms: X Spaces, Apple Podcasts, Spotify",
         )
 
     # Create job
@@ -116,6 +145,7 @@ async def start_download(
     job = DownloadJob(
         job_id=job_id,
         status=JobStatus.PENDING,
+        platform=_core_platform_to_schema(detected_platform),
         progress=0.0,
         created_at=datetime.utcnow(),
     )
@@ -153,14 +183,24 @@ async def get_download_file(job_id: str):
     if not file_path or not Path(file_path).exists():
         raise HTTPException(status_code=404, detail="File not found")
 
-    # Determine filename for download
+    # Determine filename and media type
     path = Path(file_path)
     filename = path.name
+
+    media_type_map = {
+        ".m4a": "audio/mp4",
+        ".mp3": "audio/mpeg",
+        ".mp4": "video/mp4",
+        ".aac": "audio/aac",
+        ".ogg": "audio/ogg",
+        ".flac": "audio/flac",
+    }
+    media_type = media_type_map.get(path.suffix.lower(), "application/octet-stream")
 
     return FileResponse(
         path=file_path,
         filename=filename,
-        media_type="audio/mp4" if path.suffix == ".m4a" else "audio/mpeg",
+        media_type=media_type,
     )
 
 
@@ -182,3 +222,32 @@ async def cancel_download(job_id: str):
 
     del jobs[job_id]
     return {"status": "deleted", "job_id": job_id}
+
+
+@router.get("/platforms")
+async def get_platforms():
+    """Get list of supported platforms and their availability."""
+    from ..core.platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader
+
+    return {
+        "platforms": [
+            {
+                "id": "x_spaces",
+                "name": "X Spaces",
+                "available": XSpacesDownloader.is_available(),
+                "url_pattern": "x.com/i/spaces/... or twitter.com/i/spaces/...",
+            },
+            {
+                "id": "apple_podcasts",
+                "name": "Apple Podcasts",
+                "available": ApplePodcastsDownloader.is_available(),
+                "url_pattern": "podcasts.apple.com/...",
+            },
+            {
+                "id": "spotify",
+                "name": "Spotify",
+                "available": SpotifyDownloader.is_available(),
+                "url_pattern": "open.spotify.com/episode/... or /track/...",
+            },
+        ]
+    }

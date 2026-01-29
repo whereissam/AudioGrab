@@ -1,27 +1,42 @@
 """Core downloader functionality."""
 
 from .exceptions import (
-    XDownloaderError,
+    AudioGrabError,
+    XDownloaderError,  # Backward compatibility
     AuthenticationError,
-    SpaceNotFoundError,
-    SpaceNotAvailableError,
+    ContentNotFoundError,
+    SpaceNotFoundError,  # Backward compatibility
+    ContentNotAvailableError,
+    SpaceNotAvailableError,  # Backward compatibility
     DownloadError,
     FFmpegError,
+    ToolNotFoundError,
+    UnsupportedPlatformError,
 )
-from .parser import SpaceURLParser
-from .downloader import SpaceDownloader, SpaceMetadata, DownloadResult
+from .base import Platform, AudioMetadata, DownloadResult, PlatformDownloader
+from .downloader import DownloaderFactory, download_audio, get_metadata, SpaceDownloader
 
 __all__ = [
     # Exceptions
+    "AudioGrabError",
     "XDownloaderError",
     "AuthenticationError",
+    "ContentNotFoundError",
     "SpaceNotFoundError",
+    "ContentNotAvailableError",
     "SpaceNotAvailableError",
     "DownloadError",
     "FFmpegError",
-    # Classes
-    "SpaceURLParser",
-    "SpaceMetadata",
-    "SpaceDownloader",
+    "ToolNotFoundError",
+    "UnsupportedPlatformError",
+    # Base classes
+    "Platform",
+    "AudioMetadata",
     "DownloadResult",
+    "PlatformDownloader",
+    # Factory and functions
+    "DownloaderFactory",
+    "download_audio",
+    "get_metadata",
+    "SpaceDownloader",
 ]

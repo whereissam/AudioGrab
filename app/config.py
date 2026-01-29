@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Downloads
-    download_dir: str = "/tmp/xdownloader"
+    download_dir: str = "/tmp/audiograb"
     max_concurrent_downloads: int = 5
     cleanup_after_hours: int = 24
 

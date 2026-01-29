@@ -22,17 +22,17 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
     settings = get_settings()
-    logger.info("Starting X Spaces Downloader API")
+    logger.info("Starting AudioGrab API")
     logger.info(f"Auth configured: {settings.has_auth}")
     logger.info(f"Download directory: {settings.download_dir}")
     yield
-    logger.info("Shutting down X Spaces Downloader API")
+    logger.info("Shutting down AudioGrab API")
 
 
 app = FastAPI(
-    title="X Spaces Downloader API",
-    description="API for downloading Twitter/X Spaces audio recordings",
-    version="0.1.0",
+    title="AudioGrab API",
+    description="API for downloading audio from X Spaces, Apple Podcasts, and Spotify",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -53,10 +53,11 @@ app.include_router(api_router, prefix="/api", tags=["download"])
 async def root():
     """Root endpoint with API information."""
     return {
-        "name": "X Spaces Downloader API",
-        "version": "0.1.0",
+        "name": "AudioGrab API",
+        "version": "0.2.0",
         "docs": "/docs",
         "health": "/api/health",
+        "platforms": ["x_spaces", "apple_podcasts", "spotify"],
     }
 
 

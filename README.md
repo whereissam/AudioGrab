@@ -1,16 +1,18 @@
-# X (Twitter) Spaces Downloader
+# AudioGrab
 
 <p align="center">
-  <img src="frontend/public/xdownlader-brand.webp" alt="xdownloader" width="200">
+  <img src="frontend/public/logo.svg" alt="AudioGrab" width="200">
 </p>
 
-Download and convert Twitter/X Spaces audio recordings.
+Download audio from X Spaces, Apple Podcasts, and Spotify.
 
 ## Features
 
-- **Download Spaces** - Download any public Space with replay enabled
+- **X Spaces** - Download Twitter/X Spaces audio recordings
+- **Apple Podcasts** - Download podcast episodes via RSS feeds
+- **Spotify** - Download tracks and episodes via spotDL (YouTube matching)
 - **Format Conversion** - Convert between m4a, mp3, mp4, wav, flac, ogg
-- **Web UI** - Modern React frontend
+- **Web UI** - Modern React frontend with tabs for each platform
 - **CLI Tool** - Simple command-line interface
 - **REST API** - FastAPI backend for integrations
 - **Telegram Bot** - Download via Telegram chat
@@ -18,131 +20,101 @@ Download and convert Twitter/X Spaces audio recordings.
 ## Requirements
 
 - Python 3.10+
-- FFmpeg
-- yt-dlp
-
-```bash
-# macOS
-brew install ffmpeg yt-dlp
-```
+- FFmpeg (for audio conversion)
+- yt-dlp (for X Spaces)
+- spotDL (for Spotify, optional)
 
 ## Installation
 
 ```bash
-cd xdownloader
+# Clone the repository
+git clone https://github.com/yourusername/audiograb.git
+cd audiograb
+
+# Install with uv
 uv sync
+```
+
+### Install Dependencies
+
+```bash
+# macOS
+brew install ffmpeg yt-dlp
+
+# Install spotDL for Spotify support (optional)
+uv add spotdl
 ```
 
 ## Usage
 
-### Download a Space
-
-```bash
-# Download as m4a (default)
-uv run xdownloader https://x.com/i/spaces/1vOxwdyYrlqKB
-
-# Download as mp3
-uv run xdownloader download -f mp3 https://x.com/i/spaces/...
-
-# Custom output path
-uv run xdownloader download -o my_space.m4a https://x.com/i/spaces/...
-```
-
-### Convert Audio Format
-
-```bash
-# Convert m4a to mp3
-uv run xdownloader convert -f mp3 space.m4a
-
-# Convert to mp4
-uv run xdownloader convert -f mp4 space.m4a
-
-# Convert to wav (lossless)
-uv run xdownloader convert -f wav space.m4a
-
-# Convert with custom quality
-uv run xdownloader convert -f mp3 -q highest space.m4a
-
-# Delete original after conversion
-uv run xdownloader convert -f mp3 --delete-original space.m4a
-```
-
-**Supported formats:** mp3, mp4, aac, wav, ogg, flac
-
-**Quality presets:** low (64k), medium (128k), high (192k), highest (320k)
-
-### Run API Server
-
-```bash
-uv run xdownloader-api
-# API available at http://localhost:8000
-# Docs at http://localhost:8000/docs
-```
-
 ### Run Web UI
 
 ```bash
+# Start backend
+uv run audiograb-api
+# API available at http://localhost:8000
+
+# Start frontend (in another terminal)
 cd frontend
 bun install
 bun run dev
 # Frontend available at http://localhost:5173
 ```
 
+### CLI Usage
+
+```bash
+# Download X Space
+uv run audiograb "https://x.com/i/spaces/1vOxwdyYrlqKB"
+
+# Download Apple Podcast episode
+uv run audiograb "https://podcasts.apple.com/us/podcast/show/id123456789"
+
+# Download Spotify track/episode
+uv run audiograb "https://open.spotify.com/episode/abc123"
+
+# Specify format
+uv run audiograb "https://x.com/i/spaces/1vOxwdyYrlqKB" -f mp3
+
+# Specify quality
+uv run audiograb "https://x.com/i/spaces/1vOxwdyYrlqKB" -q highest
+```
+
+**Supported formats:** mp3, m4a, mp4, aac, wav, ogg, flac
+
+**Quality presets:** low (64k), medium (128k), high (192k), highest (320k)
+
 ### Run Telegram Bot
 
 ```bash
 # Set TELEGRAM_BOT_TOKEN in .env first
-uv run xdownloader-bot
-```
-
-### Python Library
-
-```python
-import asyncio
-from app.core import SpaceDownloader
-from app.core.converter import AudioConverter
-
-async def main():
-    # Download
-    downloader = SpaceDownloader()
-    result = await downloader.download(
-        url="https://x.com/i/spaces/1vOxwdyYrlqKB",
-        format="m4a"
-    )
-    print(f"Downloaded: {result.file_path}")
-
-    # Convert
-    converter = AudioConverter()
-    mp3_path = await converter.convert(
-        input_path=result.file_path,
-        output_format="mp3",
-        quality="high"
-    )
-    print(f"Converted: {mp3_path}")
-
-asyncio.run(main())
+uv run audiograb-bot
 ```
 
 ## Project Structure
 
 ```
-xdownloader/
+audiograb/
 ├── app/
 │   ├── core/
-│   │   ├── downloader.py   # yt-dlp based downloader
-│   │   ├── converter.py    # FFmpeg audio converter
-│   │   ├── parser.py       # URL parsing
+│   │   ├── base.py           # Abstract base classes
+│   │   ├── downloader.py     # Factory pattern downloader
+│   │   ├── converter.py      # FFmpeg audio converter
+│   │   ├── platforms/        # Platform-specific downloaders
+│   │   │   ├── xspaces.py    # X Spaces (yt-dlp)
+│   │   │   ├── apple_podcasts.py  # Apple Podcasts (RSS)
+│   │   │   └── spotify.py    # Spotify (spotDL)
 │   │   └── exceptions.py
-│   ├── api/                # FastAPI REST API
-│   ├── bot/                # Telegram bot
-│   ├── cli.py              # CLI interface
-│   └── main.py             # API entry point
-├── frontend/               # React Web UI
+│   ├── api/                  # FastAPI REST API
+│   ├── bot/                  # Telegram bot
+│   ├── cli.py                # CLI interface
+│   └── main.py               # API entry point
+├── frontend/                 # React Web UI
 │   ├── src/
-│   │   ├── components/     # UI components
-│   │   └── routes/         # Page routes
-│   └── public/             # Static assets
-├── docs/                   # Documentation
+│   │   ├── components/       # UI components
+│   │   └── routes/           # Page routes
+│   └── public/               # Static assets
+├── docs/                     # Documentation
 ├── tests/
 └── pyproject.toml
 ```
@@ -151,24 +123,37 @@ xdownloader/
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/health` | Health check |
 | POST | `/api/download` | Start download job |
 | GET | `/api/download/{job_id}` | Get job status |
-| GET | `/api/download/{job_id}/file` | Download file |
+| GET | `/api/download/{job_id}/file` | Download completed file |
+| DELETE | `/api/download/{job_id}` | Cancel job |
+| GET | `/api/health` | Health check |
+| GET | `/api/platforms` | List supported platforms |
 
-## Authentication
+## Supported Platforms
 
-**No authentication needed** for public Spaces with replay enabled.
+| Platform | URL Pattern | Tool Used |
+|----------|-------------|-----------|
+| X Spaces | `x.com/i/spaces/...` | yt-dlp |
+| Apple Podcasts | `podcasts.apple.com/...` | HTTP + RSS |
+| Spotify | `open.spotify.com/...` | spotDL |
 
-For private Spaces, set cookies in `.env`:
+## Configuration
+
+Create a `.env` file:
+
 ```env
-TWITTER_AUTH_TOKEN=your_auth_token
-TWITTER_CT0=your_ct0_cookie
+# Optional: Telegram bot
+TELEGRAM_BOT_TOKEN=your_bot_token
+
+# Server settings
+HOST=0.0.0.0
+PORT=8000
+DEBUG=false
+
+# Downloads
+DOWNLOAD_DIR=/tmp/audiograb
 ```
-
-## Documentation
-
-See [docs/](./docs/) for detailed documentation.
 
 ## License
 
