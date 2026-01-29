@@ -501,7 +501,9 @@ async def transcribe_uploaded_file(
     Supports: mp3, m4a, wav, mp4, webm, ogg, flac
     """
     from ..core.transcriber import AudioTranscriber
-    from ..config import settings
+    from ..config import get_settings
+
+    settings = get_settings()
 
     # Validate file extension
     allowed_extensions = {".mp3", ".m4a", ".wav", ".mp4", ".webm", ".ogg", ".flac", ".aac"}

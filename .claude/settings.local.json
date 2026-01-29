@@ -15,7 +15,6 @@
       "Bash(python:*)",
       "Bash(python3:*)",
       "Bash(uv pip install:*)",
-      "Bash(npm run build:*)",
       "Bash(uv run:*)",
       "Bash(curl:*)",
       "Bash(pkill:*)"
