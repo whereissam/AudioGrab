@@ -17,12 +17,25 @@ def _get_platform_downloaders() -> list[Type[PlatformDownloader]]:
     """Get list of platform downloader classes (lazy loaded)."""
     global _platform_downloaders
     if _platform_downloaders is None:
-        from .platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader, YouTubeDownloader
-        _platform_downloaders = [
+        from .platforms import (
             XSpacesDownloader,
             ApplePodcastsDownloader,
             SpotifyDownloader,
             YouTubeDownloader,
+            XiaoyuzhouDownloader,
+            XVideoDownloader,
+            YouTubeVideoDownloader,
+        )
+        _platform_downloaders = [
+            # Audio
+            XSpacesDownloader,
+            ApplePodcastsDownloader,
+            SpotifyDownloader,
+            YouTubeDownloader,
+            XiaoyuzhouDownloader,
+            # Video
+            XVideoDownloader,
+            YouTubeVideoDownloader,
         ]
     return _platform_downloaders
 
@@ -49,13 +62,26 @@ class DownloaderFactory:
     @classmethod
     def get_downloader_for_platform(cls, platform: Platform) -> PlatformDownloader:
         """Get downloader for specific platform."""
-        from .platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader, YouTubeDownloader
+        from .platforms import (
+            XSpacesDownloader,
+            ApplePodcastsDownloader,
+            SpotifyDownloader,
+            YouTubeDownloader,
+            XiaoyuzhouDownloader,
+            XVideoDownloader,
+            YouTubeVideoDownloader,
+        )
 
         mapping = {
+            # Audio
             Platform.X_SPACES: XSpacesDownloader,
             Platform.APPLE_PODCASTS: ApplePodcastsDownloader,
             Platform.SPOTIFY: SpotifyDownloader,
             Platform.YOUTUBE: YouTubeDownloader,
+            Platform.XIAOYUZHOU: XiaoyuzhouDownloader,
+            # Video
+            Platform.X_VIDEO: XVideoDownloader,
+            Platform.YOUTUBE_VIDEO: YouTubeVideoDownloader,
         }
 
         downloader_cls = mapping.get(platform)

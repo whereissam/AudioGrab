@@ -4,14 +4,20 @@
   <img src="frontend/public/logo.svg" alt="AudioGrab" width="200">
 </p>
 
-Download audio from X Spaces, Apple Podcasts, Spotify, and YouTube.
+Download audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, and more.
 
 ## Features
 
+### Audio Downloads
 - **X Spaces** - Download Twitter/X Spaces audio recordings
 - **Apple Podcasts** - Download podcast episodes via RSS feeds
 - **Spotify** - Download tracks and episodes via spotDL (YouTube matching)
 - **YouTube** - Extract audio from YouTube videos
+- **小宇宙 (Xiaoyuzhou)** - Download Chinese podcast episodes
+
+### Video Downloads
+- **X/Twitter** - Download videos from tweets
+- **YouTube** - Download YouTube videos (480p/720p/1080p)
 - **Format Conversion** - Convert between m4a, mp3, mp4, wav, flac, ogg
 - **Web UI** - Modern React frontend with tabs for each platform
 - **CLI Tool** - Simple command-line interface

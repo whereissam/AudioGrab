@@ -9,12 +9,17 @@ from typing import Optional
 
 
 class Platform(str, Enum):
-    """Supported audio platforms."""
+    """Supported platforms."""
 
+    # Audio platforms
     X_SPACES = "x_spaces"
     APPLE_PODCASTS = "apple_podcasts"
     SPOTIFY = "spotify"
     YOUTUBE = "youtube"
+    XIAOYUZHOU = "xiaoyuzhou"
+    # Video platforms
+    X_VIDEO = "x_video"
+    YOUTUBE_VIDEO = "youtube_video"
 
 
 @dataclass

@@ -9,10 +9,15 @@ from pydantic import BaseModel, Field
 class Platform(str, Enum):
     """Supported platforms."""
 
+    # Audio
     X_SPACES = "x_spaces"
     APPLE_PODCASTS = "apple_podcasts"
     SPOTIFY = "spotify"
     YOUTUBE = "youtube"
+    XIAOYUZHOU = "xiaoyuzhou"
+    # Video
+    X_VIDEO = "x_video"
+    YOUTUBE_VIDEO = "youtube_video"
     AUTO = "auto"  # Auto-detect from URL
 
 

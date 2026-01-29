@@ -57,7 +57,8 @@ async def root():
         "version": "0.2.0",
         "docs": "/docs",
         "health": "/api/health",
-        "platforms": ["x_spaces", "apple_podcasts", "spotify", "youtube"],
+        "audio": ["x_spaces", "apple_podcasts", "spotify", "youtube", "xiaoyuzhou"],
+        "video": ["x_video", "youtube_video"],
     }
 
 

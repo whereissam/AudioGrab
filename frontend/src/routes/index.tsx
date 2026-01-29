@@ -3,11 +3,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useState } from 'react'
-import { Download, Loader2, AlertCircle, ArrowLeft, Mic, FileAudio, Twitter, Podcast, Music, Youtube } from 'lucide-react'
+import { Download, Loader2, AlertCircle, ArrowLeft, Mic, FileAudio, FileVideo, Twitter, Podcast, Music, Youtube, Radio, Video } from 'lucide-react'
 
 type DownloadStatus = 'idle' | 'loading' | 'success' | 'error'
 type AudioFormat = 'm4a' | 'mp3' | 'mp4'
-type Platform = 'x_spaces' | 'apple_podcasts' | 'spotify' | 'youtube'
+type VideoFormat = 'mp4' | 'webm'
+type Platform = 'x_spaces' | 'apple_podcasts' | 'spotify' | 'youtube' | 'xiaoyuzhou' | 'x_video' | 'youtube_video'
+type MediaType = 'audio' | 'video'
 
 interface ContentInfo {
   title: string
@@ -19,11 +21,13 @@ interface ContentInfo {
   platform?: Platform
 }
 
-const PLATFORM_FORMATS: Record<Platform, { value: AudioFormat; label: string; desc: string }[]> = {
+const AUDIO_PLATFORMS: Platform[] = ['x_spaces', 'apple_podcasts', 'spotify', 'youtube', 'xiaoyuzhou']
+const VIDEO_PLATFORMS: Platform[] = ['x_video', 'youtube_video']
+
+const PLATFORM_FORMATS: Record<Platform, { value: string; label: string; desc: string }[]> = {
   x_spaces: [
     { value: 'm4a', label: 'M4A', desc: 'Original quality' },
     { value: 'mp3', label: 'MP3', desc: 'Most compatible' },
-    { value: 'mp4', label: 'MP4', desc: 'Video container' },
   ],
   apple_podcasts: [
     { value: 'm4a', label: 'M4A', desc: 'Original quality' },
@@ -37,6 +41,16 @@ const PLATFORM_FORMATS: Record<Platform, { value: AudioFormat; label: string; de
     { value: 'm4a', label: 'M4A', desc: 'Best quality' },
     { value: 'mp3', label: 'MP3', desc: 'Most compatible' },
   ],
+  xiaoyuzhou: [
+    { value: 'm4a', label: 'M4A', desc: 'Original quality' },
+    { value: 'mp3', label: 'MP3', desc: 'Most compatible' },
+  ],
+  x_video: [
+    { value: 'mp4', label: 'MP4', desc: 'Best quality' },
+  ],
+  youtube_video: [
+    { value: 'mp4', label: 'MP4', desc: 'Best quality' },
+  ],
 }
 
 const PLATFORM_PLACEHOLDERS: Record<Platform, string> = {
@@ -44,6 +58,9 @@ const PLATFORM_PLACEHOLDERS: Record<Platform, string> = {
   apple_podcasts: 'https://podcasts.apple.com/us/podcast/show-name/id123456789',
   spotify: 'https://open.spotify.com/episode/abc123',
   youtube: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+  xiaoyuzhou: 'https://www.xiaoyuzhoufm.com/episode/abc123',
+  x_video: 'https://x.com/user/status/123456789',
+  youtube_video: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
 }
 
 const PLATFORM_LABELS: Record<Platform, string> = {
@@ -51,7 +68,16 @@ const PLATFORM_LABELS: Record<Platform, string> = {
   apple_podcasts: 'Apple Podcasts',
   spotify: 'Spotify',
   youtube: 'YouTube',
+  xiaoyuzhou: '小宇宙',
+  x_video: 'X/Twitter',
+  youtube_video: 'YouTube',
 }
+
+const QUALITY_OPTIONS = [
+  { value: 'medium', label: '480p' },
+  { value: 'high', label: '720p' },
+  { value: 'highest', label: '1080p' },
+]
 
 export const Route = createFileRoute('/')({
   component: AudioGrabHome,
@@ -69,13 +95,29 @@ function formatDuration(seconds: number): string {
 }
 
 function AudioGrabHome() {
+  const [mediaType, setMediaType] = useState<MediaType>('audio')
   const [platform, setPlatform] = useState<Platform>('x_spaces')
   const [url, setUrl] = useState('')
-  const [format, setFormat] = useState<AudioFormat>('m4a')
+  const [format, setFormat] = useState<string>('m4a')
+  const [quality, setQuality] = useState<string>('high')
   const [status, setStatus] = useState<DownloadStatus>('idle')
   const [message, setMessage] = useState('')
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
   const [contentInfo, setContentInfo] = useState<ContentInfo | null>(null)
+
+  const handleMediaTypeChange = (newType: string) => {
+    setMediaType(newType as MediaType)
+    if (newType === 'audio') {
+      setPlatform('x_spaces')
+      setFormat('m4a')
+    } else {
+      setPlatform('x_video')
+      setFormat('mp4')
+    }
+    setUrl('')
+    setStatus('idle')
+    setMessage('')
+  }
 
   const handlePlatformChange = (newPlatform: string) => {
     setPlatform(newPlatform as Platform)
@@ -101,7 +143,7 @@ function AudioGrabHome() {
       const response = await fetch('/api/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, format, platform }),
+        body: JSON.stringify({ url, format, platform, quality }),
       })
 
       if (!response.ok) {
@@ -129,7 +171,7 @@ function AudioGrabHome() {
       // Poll for job completion
       const jobId = data.job_id
       let attempts = 0
-      const maxAttempts = 300 // 5 minutes for Spotify (can be slow)
+      const maxAttempts = 600 // 10 minutes for video downloads
 
       while (attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 1000))
@@ -142,7 +184,6 @@ function AudioGrabHome() {
           setMessage('Download complete!')
           setDownloadUrl(`/api/download/${jobId}/file`)
 
-          // Set content info (use content_info or space_info for backward compat)
           const info = statusData.content_info || statusData.space_info
           if (info) {
             setContentInfo({
@@ -156,7 +197,7 @@ function AudioGrabHome() {
             })
           } else {
             setContentInfo({
-              title: 'Downloaded Audio',
+              title: 'Downloaded Media',
               file_size_mb: statusData.file_size_mb,
               platform: statusData.platform,
             })
@@ -172,9 +213,8 @@ function AudioGrabHome() {
           throw new Error(errorMsg)
         }
 
-        // Update progress message
         if (attempts % 10 === 0) {
-          const progress = Math.min(Math.floor(attempts / 3), 95)
+          const progress = Math.min(Math.floor(attempts / 6), 95)
           setMessage(`Downloading from ${PLATFORM_LABELS[platform]}... ${progress}%`)
         }
 
@@ -204,43 +244,37 @@ function AudioGrabHome() {
     setUrl('')
   }
 
-  // Success view with content card
+  // Success view
   if (status === 'success' && contentInfo && downloadUrl) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
         <div className="w-full max-w-xl">
-          {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
               Download Ready
             </h1>
             <p className="text-muted-foreground">
-              Your audio is ready to download
+              Your {mediaType} is ready to download
             </p>
           </div>
 
-          {/* Content Card */}
           <div className="bg-primary rounded-2xl p-6 sm:p-8 mb-6 relative overflow-hidden">
-            {/* Icon in corner */}
             <div className="absolute top-4 right-4">
-              <Mic className="h-5 w-5 text-primary-foreground/60" />
+              {mediaType === 'audio' ? (
+                <Mic className="h-5 w-5 text-primary-foreground/60" />
+              ) : (
+                <Video className="h-5 w-5 text-primary-foreground/60" />
+              )}
             </div>
 
-            {/* Logo */}
             <div className="flex justify-center mb-4">
-              <img
-                src="/logo.svg"
-                alt="AudioGrab"
-                className="h-16 w-auto"
-              />
+              <img src="/logo.svg" alt="AudioGrab" className="h-16 w-auto" />
             </div>
 
-            {/* Title */}
             <h2 className="text-xl sm:text-2xl font-semibold text-primary-foreground text-center mb-3">
               {contentInfo.title}
             </h2>
 
-            {/* Meta info */}
             <div className="flex items-center justify-center gap-2 text-primary-foreground/70 text-sm flex-wrap">
               {contentInfo.show_name && (
                 <>
@@ -270,13 +304,8 @@ function AudioGrabHome() {
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex gap-3">
-            <Button
-              onClick={handleReset}
-              variant="outline"
-              className="flex-1 h-12 text-muted-foreground"
-            >
+            <Button onClick={handleReset} variant="outline" className="flex-1 h-12 text-muted-foreground">
               <ArrowLeft className="mr-2 h-5 w-5" />
               Back
             </Button>
@@ -292,150 +321,264 @@ function AudioGrabHome() {
     )
   }
 
-  // Default input view with tabs
+  // Main view
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
       <div className="w-full max-w-xl">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <img
-              src="/logo.svg"
-              alt="AudioGrab"
-              className="h-16 w-auto"
-            />
+            <img src="/logo.svg" alt="AudioGrab" className="h-16 w-auto" />
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
             AudioGrab
           </h1>
           <p className="text-muted-foreground">
-            Download audio from X Spaces, Apple Podcasts, and Spotify
+            Download audio and video from your favorite platforms
           </p>
         </div>
 
-        {/* Platform Tabs */}
-        <Tabs value={platform} onValueChange={handlePlatformChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-4">
-            <TabsTrigger value="x_spaces" className="flex items-center gap-1">
-              <Twitter className="h-4 w-4" />
-              <span className="hidden sm:inline">X Spaces</span>
+        {/* Media Type Tabs */}
+        <Tabs value={mediaType} onValueChange={handleMediaTypeChange} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="audio" className="flex items-center gap-2">
+              <FileAudio className="h-4 w-4" />
+              Audio
             </TabsTrigger>
-            <TabsTrigger value="apple_podcasts" className="flex items-center gap-1">
-              <Podcast className="h-4 w-4" />
-              <span className="hidden sm:inline">Podcasts</span>
-            </TabsTrigger>
-            <TabsTrigger value="spotify" className="flex items-center gap-1">
-              <Music className="h-4 w-4" />
-              <span className="hidden sm:inline">Spotify</span>
-            </TabsTrigger>
-            <TabsTrigger value="youtube" className="flex items-center gap-1">
-              <Youtube className="h-4 w-4" />
-              <span className="hidden sm:inline">YouTube</span>
+            <TabsTrigger value="video" className="flex items-center gap-2">
+              <FileVideo className="h-4 w-4" />
+              Video
             </TabsTrigger>
           </TabsList>
 
-          {/* Tab Content - Same form for all platforms */}
-          {(['x_spaces', 'apple_podcasts', 'spotify', 'youtube'] as Platform[]).map((p) => (
-            <TabsContent key={p} value={p}>
-              <div className="bg-card rounded-xl shadow-lg p-6 sm:p-8">
-                <div className="space-y-4">
-                  {/* URL Input */}
-                  <div>
-                    <label htmlFor="url-input" className="block text-sm font-medium text-foreground mb-2">
-                      {PLATFORM_LABELS[p]} URL
-                    </label>
-                    <Input
-                      id="url-input"
-                      type="url"
-                      placeholder={PLATFORM_PLACEHOLDERS[p]}
-                      value={url}
-                      onChange={(e) => {
-                        setUrl(e.target.value)
-                        if (status !== 'loading') {
-                          setStatus('idle')
-                          setMessage('')
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && status !== 'loading') {
-                          handleDownload()
-                        }
-                      }}
-                      disabled={status === 'loading'}
-                      className="h-12 text-base"
-                    />
-                  </div>
+          {/* Audio Tab */}
+          <TabsContent value="audio">
+            <Tabs value={platform} onValueChange={handlePlatformChange} className="w-full">
+              <TabsList className="grid w-full grid-cols-5 mb-4">
+                <TabsTrigger value="x_spaces" className="flex items-center gap-1 px-2">
+                  <Twitter className="h-4 w-4" />
+                  <span className="hidden lg:inline text-xs">Spaces</span>
+                </TabsTrigger>
+                <TabsTrigger value="apple_podcasts" className="flex items-center gap-1 px-2">
+                  <Podcast className="h-4 w-4" />
+                  <span className="hidden lg:inline text-xs">Apple</span>
+                </TabsTrigger>
+                <TabsTrigger value="spotify" className="flex items-center gap-1 px-2">
+                  <Music className="h-4 w-4" />
+                  <span className="hidden lg:inline text-xs">Spotify</span>
+                </TabsTrigger>
+                <TabsTrigger value="youtube" className="flex items-center gap-1 px-2">
+                  <Youtube className="h-4 w-4" />
+                  <span className="hidden lg:inline text-xs">YouTube</span>
+                </TabsTrigger>
+                <TabsTrigger value="xiaoyuzhou" className="flex items-center gap-1 px-2">
+                  <Radio className="h-4 w-4" />
+                  <span className="hidden lg:inline text-xs">小宇宙</span>
+                </TabsTrigger>
+              </TabsList>
 
-                  {/* Format Selector */}
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      <FileAudio className="inline h-4 w-4 mr-1" />
-                      Output Format
-                    </label>
-                    <div className={`grid gap-2 ${PLATFORM_FORMATS[p].length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                      {PLATFORM_FORMATS[p].map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setFormat(opt.value)}
-                          disabled={status === 'loading'}
-                          className={`p-3 rounded-lg border-2 transition-all ${
-                            format === opt.value
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border bg-background text-foreground hover:border-primary/50'
-                          } ${status === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                        >
-                          <div className="font-semibold">{opt.label}</div>
-                          <div className="text-xs text-muted-foreground">{opt.desc}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+              {AUDIO_PLATFORMS.map((p) => (
+                <TabsContent key={p} value={p}>
+                  <DownloadForm
+                    platform={p}
+                    url={url}
+                    setUrl={setUrl}
+                    format={format}
+                    setFormat={setFormat}
+                    status={status}
+                    message={message}
+                    onDownload={handleDownload}
+                  />
+                </TabsContent>
+              ))}
+            </Tabs>
+          </TabsContent>
 
-                  {/* Download Button */}
-                  <Button
-                    onClick={handleDownload}
-                    disabled={status === 'loading' || !url.trim()}
-                    className="w-full h-12 text-base"
-                    size="lg"
-                  >
-                    {status === 'loading' ? (
-                      <>
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Downloading...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="mr-2 h-5 w-5" />
-                        Download as {format.toUpperCase()}
-                      </>
-                    )}
-                  </Button>
+          {/* Video Tab */}
+          <TabsContent value="video">
+            <Tabs value={platform} onValueChange={handlePlatformChange} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="x_video" className="flex items-center gap-2">
+                  <Twitter className="h-4 w-4" />
+                  X/Twitter
+                </TabsTrigger>
+                <TabsTrigger value="youtube_video" className="flex items-center gap-2">
+                  <Youtube className="h-4 w-4" />
+                  YouTube
+                </TabsTrigger>
+              </TabsList>
 
-                  {/* Status Message */}
-                  {message && status !== 'success' && (
-                    <div
-                      className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
-                        status === 'error'
-                          ? 'bg-destructive/10 text-destructive'
-                          : 'bg-primary/10 text-primary'
-                      }`}
-                    >
-                      {status === 'error' && <AlertCircle className="h-4 w-4 flex-shrink-0" />}
-                      {status === 'loading' && <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />}
-                      <span>{message}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
-          ))}
+              {VIDEO_PLATFORMS.map((p) => (
+                <TabsContent key={p} value={p}>
+                  <DownloadForm
+                    platform={p}
+                    url={url}
+                    setUrl={setUrl}
+                    format={format}
+                    setFormat={setFormat}
+                    quality={quality}
+                    setQuality={setQuality}
+                    status={status}
+                    message={message}
+                    onDownload={handleDownload}
+                    isVideo
+                  />
+                </TabsContent>
+              ))}
+            </Tabs>
+          </TabsContent>
         </Tabs>
 
-        {/* Footer */}
         <p className="text-center text-xs text-muted-foreground mt-6">
           Supports public content with replay/download enabled
         </p>
+      </div>
+    </div>
+  )
+}
+
+interface DownloadFormProps {
+  platform: Platform
+  url: string
+  setUrl: (url: string) => void
+  format: string
+  setFormat: (format: string) => void
+  quality?: string
+  setQuality?: (quality: string) => void
+  status: DownloadStatus
+  message: string
+  onDownload: () => void
+  isVideo?: boolean
+}
+
+function DownloadForm({
+  platform,
+  url,
+  setUrl,
+  format,
+  setFormat,
+  quality,
+  setQuality,
+  status,
+  message,
+  onDownload,
+  isVideo,
+}: DownloadFormProps) {
+  return (
+    <div className="bg-card rounded-xl shadow-lg p-6 sm:p-8">
+      <div className="space-y-4">
+        {/* URL Input */}
+        <div>
+          <label htmlFor="url-input" className="block text-sm font-medium text-foreground mb-2">
+            {PLATFORM_LABELS[platform]} URL
+          </label>
+          <Input
+            id="url-input"
+            type="url"
+            placeholder={PLATFORM_PLACEHOLDERS[platform]}
+            value={url}
+            onChange={(e) => {
+              setUrl(e.target.value)
+              if (status !== 'loading') {
+                // Reset status on input change
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && status !== 'loading') {
+                onDownload()
+              }
+            }}
+            disabled={status === 'loading'}
+            className="h-12 text-base"
+          />
+        </div>
+
+        {/* Format Selector */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">
+            {isVideo ? <FileVideo className="inline h-4 w-4 mr-1" /> : <FileAudio className="inline h-4 w-4 mr-1" />}
+            Output Format
+          </label>
+          <div className={`grid gap-2 grid-cols-${PLATFORM_FORMATS[platform].length}`}>
+            {PLATFORM_FORMATS[platform].map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setFormat(opt.value)}
+                disabled={status === 'loading'}
+                className={`p-3 rounded-lg border-2 transition-all ${
+                  format === opt.value
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-background text-foreground hover:border-primary/50'
+                } ${status === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                <div className="font-semibold">{opt.label}</div>
+                <div className="text-xs text-muted-foreground">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Quality Selector (Video only) */}
+        {isVideo && setQuality && (
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Quality
+            </label>
+            <div className="grid gap-2 grid-cols-3">
+              {QUALITY_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setQuality(opt.value)}
+                  disabled={status === 'loading'}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    quality === opt.value
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-background text-foreground hover:border-primary/50'
+                  } ${status === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <div className="font-semibold">{opt.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Download Button */}
+        <Button
+          onClick={onDownload}
+          disabled={status === 'loading' || !url.trim()}
+          className="w-full h-12 text-base"
+          size="lg"
+        >
+          {status === 'loading' ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Downloading...
+            </>
+          ) : (
+            <>
+              <Download className="mr-2 h-5 w-5" />
+              Download {isVideo ? 'Video' : 'Audio'}
+            </>
+          )}
+        </Button>
+
+        {/* Status Message */}
+        {message && status !== 'success' && (
+          <div
+            className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
+              status === 'error'
+                ? 'bg-destructive/10 text-destructive'
+                : 'bg-primary/10 text-primary'
+            }`}
+          >
+            {status === 'error' && <AlertCircle className="h-4 w-4 flex-shrink-0" />}
+            {status === 'loading' && <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />}
+            <span>{message}</span>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -36,6 +36,9 @@ def _core_platform_to_schema(platform: CorePlatform) -> Platform:
         CorePlatform.APPLE_PODCASTS: Platform.APPLE_PODCASTS,
         CorePlatform.SPOTIFY: Platform.SPOTIFY,
         CorePlatform.YOUTUBE: Platform.YOUTUBE,
+        CorePlatform.XIAOYUZHOU: Platform.XIAOYUZHOU,
+        CorePlatform.X_VIDEO: Platform.X_VIDEO,
+        CorePlatform.YOUTUBE_VIDEO: Platform.YOUTUBE_VIDEO,
     }
     return mapping.get(platform, Platform.AUTO)
 
@@ -103,7 +106,15 @@ async def _process_download(job_id: str, request: DownloadRequest):
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint."""
-    from ..core.platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader, YouTubeDownloader
+    from ..core.platforms import (
+        XSpacesDownloader,
+        ApplePodcastsDownloader,
+        SpotifyDownloader,
+        YouTubeDownloader,
+        XiaoyuzhouDownloader,
+        XVideoDownloader,
+        YouTubeVideoDownloader,
+    )
 
     return HealthResponse(
         status="healthy",
@@ -112,9 +123,12 @@ async def health_check():
             "apple_podcasts": ApplePodcastsDownloader.is_available(),
             "spotify": SpotifyDownloader.is_available(),
             "youtube": YouTubeDownloader.is_available(),
+            "xiaoyuzhou": XiaoyuzhouDownloader.is_available(),
+            "x_video": XVideoDownloader.is_available(),
+            "youtube_video": YouTubeVideoDownloader.is_available(),
         },
         ffmpeg_available=AudioConverter.is_ffmpeg_available(),
-        version="0.2.0",
+        version="0.3.0",
     )
 
 
@@ -229,10 +243,18 @@ async def cancel_download(job_id: str):
 @router.get("/platforms")
 async def get_platforms():
     """Get list of supported platforms and their availability."""
-    from ..core.platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader, YouTubeDownloader
+    from ..core.platforms import (
+        XSpacesDownloader,
+        ApplePodcastsDownloader,
+        SpotifyDownloader,
+        YouTubeDownloader,
+        XiaoyuzhouDownloader,
+        XVideoDownloader,
+        YouTubeVideoDownloader,
+    )
 
     return {
-        "platforms": [
+        "audio": [
             {
                 "id": "x_spaces",
                 "name": "X Spaces",
@@ -253,9 +275,29 @@ async def get_platforms():
             },
             {
                 "id": "youtube",
-                "name": "YouTube",
+                "name": "YouTube Audio",
                 "available": YouTubeDownloader.is_available(),
-                "url_pattern": "youtube.com/watch?v=... or youtu.be/...",
+                "url_pattern": "youtube.com/watch?v=...",
             },
-        ]
+            {
+                "id": "xiaoyuzhou",
+                "name": "小宇宙",
+                "available": XiaoyuzhouDownloader.is_available(),
+                "url_pattern": "xiaoyuzhoufm.com/episode/...",
+            },
+        ],
+        "video": [
+            {
+                "id": "x_video",
+                "name": "X/Twitter Video",
+                "available": XVideoDownloader.is_available(),
+                "url_pattern": "x.com/user/status/...",
+            },
+            {
+                "id": "youtube_video",
+                "name": "YouTube Video",
+                "available": YouTubeVideoDownloader.is_available(),
+                "url_pattern": "youtube.com/watch?v=...",
+            },
+        ],
     }
