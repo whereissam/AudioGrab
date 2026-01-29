@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:pypi.org)",
+      "Bash(uv sync:*)",
+      "Bash(ffmpeg:*)",
+      "Bash(brew install:*)",
+      "Bash(uv run xdownloader:*)",
+      "Bash(uv run python:*)",
+      "Bash(yt-dlp:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}

@@ -1,89 +1,83 @@
 # X (Twitter) Spaces Downloader
 
-A Python backend for downloading Twitter/X Spaces audio recordings.
+Download and convert Twitter/X Spaces audio recordings.
 
 ## Features
 
-- **Core Library**: Async Python module for downloading Spaces
-- **REST API**: FastAPI backend for web integrations
-- **Telegram Bot**: Download Spaces directly via Telegram
-- **CLI Tool**: Command-line interface for quick downloads
+- **Download Spaces** - Download any public Space with replay enabled
+- **Format Conversion** - Convert between m4a, mp3, mp4, wav, flac, ogg
+- **CLI Tool** - Simple command-line interface
+- **REST API** - FastAPI backend for integrations
+- **Telegram Bot** - Download via Telegram chat
 
 ## Requirements
 
 - Python 3.10+
-- FFmpeg (must be in system PATH)
-- Valid Twitter/X authentication cookies
+- FFmpeg
+- yt-dlp
+
+```bash
+# macOS
+brew install ffmpeg yt-dlp
+```
 
 ## Installation
 
 ```bash
-# Clone the repository
 cd xdownloader
-
-# Install dependencies with uv
 uv sync
-
-# Or install in development mode
-uv sync --dev
 ```
-
-## Configuration
-
-Create a `.env` file from the example:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and add your Twitter cookies:
-
-```env
-TWITTER_AUTH_TOKEN=your_auth_token_here
-TWITTER_CT0=your_ct0_cookie_here
-```
-
-### Getting Cookies
-
-1. Log into Twitter/X in your browser
-2. Open DevTools (F12)
-3. Go to Application → Cookies → x.com
-4. Copy `auth_token` and `ct0` values
 
 ## Usage
 
-### CLI
+### Download a Space
 
 ```bash
-# Basic download
+# Download as m4a (default)
 uv run xdownloader https://x.com/i/spaces/1vOxwdyYrlqKB
 
-# Download as MP3
-uv run xdownloader -f mp3 https://x.com/i/spaces/1vOxwdyYrlqKB
+# Download as mp3
+uv run xdownloader download -f mp3 https://x.com/i/spaces/...
 
-# With custom output path
-uv run xdownloader -o my_space.m4a https://x.com/i/spaces/1vOxwdyYrlqKB
+# Custom output path
+uv run xdownloader download -o my_space.m4a https://x.com/i/spaces/...
 ```
 
-### FastAPI Server
+### Convert Audio Format
 
 ```bash
-# Run the API server
+# Convert m4a to mp3
+uv run xdownloader convert -f mp3 space.m4a
+
+# Convert to mp4
+uv run xdownloader convert -f mp4 space.m4a
+
+# Convert to wav (lossless)
+uv run xdownloader convert -f wav space.m4a
+
+# Convert with custom quality
+uv run xdownloader convert -f mp3 -q highest space.m4a
+
+# Delete original after conversion
+uv run xdownloader convert -f mp3 --delete-original space.m4a
+```
+
+**Supported formats:** mp3, mp4, aac, wav, ogg, flac
+
+**Quality presets:** low (64k), medium (128k), high (192k), highest (320k)
+
+### Run API Server
+
+```bash
 uv run xdownloader-api
-
-# Or with uvicorn directly
-uv run uvicorn app.main:app --reload
+# API available at http://localhost:8000
+# Docs at http://localhost:8000/docs
 ```
 
-API will be available at `http://localhost:8000` with docs at `/docs`.
-
-### Telegram Bot
+### Run Telegram Bot
 
 ```bash
-# Set bot token in .env
-# TELEGRAM_BOT_TOKEN=your_bot_token
-
-# Run the bot
+# Set TELEGRAM_BOT_TOKEN in .env first
 uv run xdownloader-bot
 ```
 
@@ -92,20 +86,46 @@ uv run xdownloader-bot
 ```python
 import asyncio
 from app.core import SpaceDownloader
+from app.core.converter import AudioConverter
 
 async def main():
+    # Download
     downloader = SpaceDownloader()
     result = await downloader.download(
         url="https://x.com/i/spaces/1vOxwdyYrlqKB",
         format="m4a"
     )
+    print(f"Downloaded: {result.file_path}")
 
-    if result.success:
-        print(f"Downloaded: {result.file_path}")
-    else:
-        print(f"Error: {result.error}")
+    # Convert
+    converter = AudioConverter()
+    mp3_path = await converter.convert(
+        input_path=result.file_path,
+        output_format="mp3",
+        quality="high"
+    )
+    print(f"Converted: {mp3_path}")
 
 asyncio.run(main())
+```
+
+## Project Structure
+
+```
+xdownloader/
+├── app/
+│   ├── core/
+│   │   ├── downloader.py   # yt-dlp based downloader
+│   │   ├── converter.py    # FFmpeg audio converter
+│   │   ├── parser.py       # URL parsing
+│   │   └── exceptions.py
+│   ├── api/                # FastAPI REST API
+│   ├── bot/                # Telegram bot
+│   ├── cli.py              # CLI interface
+│   └── main.py             # API entry point
+├── docs/                   # Documentation
+├── tests/
+└── pyproject.toml
 ```
 
 ## API Endpoints
@@ -116,46 +136,20 @@ asyncio.run(main())
 | POST | `/api/download` | Start download job |
 | GET | `/api/download/{job_id}` | Get job status |
 | GET | `/api/download/{job_id}/file` | Download file |
-| GET | `/api/space/{space_id}/metadata` | Get Space metadata |
 
-## Project Structure
+## Authentication
 
-```
-xdownloader/
-├── app/
-│   ├── core/           # Core download functionality
-│   │   ├── auth.py     # Authentication handling
-│   │   ├── client.py   # Twitter API client
-│   │   ├── downloader.py
-│   │   ├── merger.py   # FFmpeg audio processing
-│   │   └── parser.py   # URL/response parsing
-│   ├── api/            # FastAPI backend
-│   │   ├── routes.py
-│   │   └── schemas.py
-│   ├── bot/            # Telegram bot
-│   │   └── bot.py
-│   ├── cli.py          # CLI interface
-│   ├── config.py       # Configuration
-│   └── main.py         # FastAPI app
-├── docs/               # Documentation
-├── tests/              # Test suite
-└── pyproject.toml      # Project config & dependencies
+**No authentication needed** for public Spaces with replay enabled.
+
+For private Spaces, set cookies in `.env`:
+```env
+TWITTER_AUTH_TOKEN=your_auth_token
+TWITTER_CT0=your_ct0_cookie
 ```
 
 ## Documentation
 
-See the [docs](./docs/) folder for detailed documentation:
-
-- [API Endpoints Reference](./docs/api-endpoints.md)
-- [Authentication Guide](./docs/authentication.md)
-- [Architecture Details](./docs/architecture.md)
-- [Deployment Guide](./docs/deployment.md)
-
-## Testing
-
-```bash
-uv run pytest tests/
-```
+See [docs/](./docs/) for detailed documentation.
 
 ## License
 

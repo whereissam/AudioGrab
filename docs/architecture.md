@@ -2,13 +2,14 @@
 
 ## System Overview
 
-The X Spaces Downloader consists of three main components:
+The X Spaces Downloader consists of these main components:
 
-1. **Core Library** (`xdownloader/core/`) - Handles all Twitter API interactions and audio processing
-2. **FastAPI Backend** (`xdownloader/api/`) - REST API for external integrations
-3. **Telegram Bot** (`xdownloader/bot/`) - User-friendly chat interface
+1. **Core Library** (`app/core/`) - Downloads Spaces via yt-dlp and converts audio formats
+2. **FastAPI Backend** (`app/api/`) - REST API for external integrations
+3. **Telegram Bot** (`app/bot/`) - User-friendly chat interface
+4. **CLI** (`app/cli.py`) - Command-line interface
 
-## Download Flow
+## Download Flow (using yt-dlp)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -19,39 +20,30 @@ User Input: https://x.com/i/spaces/1vOxwdyYrlqKB
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ Step 1: Extract Space ID                                                 │
-│ ───────────────────────                                                 │
+│ Step 1: Validate URL & Extract Space ID                                  │
+│ ───────────────────────────────────────                                 │
 │ Input:  https://x.com/i/spaces/1vOxwdyYrlqKB                           │
 │ Output: 1vOxwdyYrlqKB                                                   │
-│ Method: Regex extraction                                                 │
+│ Method: Regex extraction via SpaceURLParser                             │
 └─────────────────────────────────────────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ Step 2: Fetch Space Metadata                                            │
-│ ──────────────────────────                                              │
-│ Endpoint: GET /graphql/{hash}/AudioSpaceById?variables={id}             │
-│ Output:   media_key = "28_2013482329990144000"                          │
-│           state = "Ended"                                               │
-│           is_replay_available = true                                    │
-│           title, host, duration, etc.                                   │
+│ Step 2: yt-dlp handles everything                                        │
+│ ─────────────────────────────────                                       │
+│ - Gets guest token from Twitter API                                     │
+│ - Fetches GraphQL metadata (AudioSpaceById)                             │
+│ - Gets m3u8 stream URL (live_video_stream/status)                      │
+│ - Downloads HLS segments via FFmpeg                                     │
+│ - Merges into single audio file                                         │
 └─────────────────────────────────────────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ Step 3: Get Stream URL                                                   │
-│ ─────────────────────                                                   │
-│ Endpoint: GET /1.1/live_video_stream/status/{media_key}                 │
-│ Output:   m3u8_url = "https://...pscp.tv/.../playlist.m3u8"            │
-└─────────────────────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ Step 4: Download & Merge Audio                                          │
-│ ─────────────────────────────                                           │
-│ Tool: FFmpeg                                                            │
-│ Command: ffmpeg -i {m3u8_url} -c copy -vn output.m4a                   │
-│ Or: Download segments concurrently, merge in memory                     │
+│ Step 3: Optional Format Conversion                                       │
+│ ─────────────────────────────────                                       │
+│ Tool: FFmpeg via AudioConverter                                         │
+│ Formats: mp3, mp4, aac, wav, ogg, flac                                 │
 └─────────────────────────────────────────────────────────────────────────┘
                           │
                           ▼
@@ -61,6 +53,15 @@ User Input: https://x.com/i/spaces/1vOxwdyYrlqKB
                    └─────────────┘
 ```
 
+## Why yt-dlp?
+
+Twitter's internal GraphQL API changes frequently (endpoint hashes, required variables).
+yt-dlp maintains these changes and handles:
+- Guest token generation
+- GraphQL schema updates
+- Rate limiting
+- Error recovery
+
 ## Module Structure
 
 ```
@@ -68,128 +69,102 @@ xdownloader/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py              # FastAPI application entry
+│   ├── cli.py               # CLI interface
 │   ├── config.py            # Configuration management
 │   │
-│   ├── core/                # Core download functionality
+│   ├── core/                # Core functionality
 │   │   ├── __init__.py
-│   │   ├── auth.py          # Authentication handling
-│   │   ├── client.py        # Twitter API client
-│   │   ├── downloader.py    # Main download orchestration
-│   │   ├── parser.py        # URL and response parsing
-│   │   └── merger.py        # FFmpeg audio merging
+│   │   ├── downloader.py    # yt-dlp based downloader
+│   │   ├── converter.py     # FFmpeg audio converter
+│   │   ├── parser.py        # URL parsing
+│   │   └── exceptions.py    # Custom exceptions
 │   │
 │   ├── api/                 # FastAPI routes
 │   │   ├── __init__.py
 │   │   ├── routes.py        # API endpoints
-│   │   ├── schemas.py       # Pydantic models
-│   │   └── dependencies.py  # Dependency injection
+│   │   └── schemas.py       # Pydantic models
 │   │
 │   └── bot/                 # Telegram bot
 │       ├── __init__.py
-│       ├── bot.py           # Bot initialization
-│       └── handlers.py      # Message handlers
+│       └── bot.py           # Bot implementation
 │
 ├── tests/
-│   ├── __init__.py
-│   ├── test_parser.py
-│   ├── test_client.py
-│   └── test_downloader.py
+│   └── test_parser.py
 │
 ├── docs/                    # Documentation
-├── requirements.txt
 ├── pyproject.toml
 └── README.md
 ```
 
 ## Core Components
 
-### 1. Auth Module (`core/auth.py`)
+### 1. SpaceDownloader (`core/downloader.py`)
 
-Handles credential management:
-
-```python
-class AuthManager:
-    """Manages Twitter authentication credentials."""
-
-    def __init__(self, auth_token: str, ct0: str):
-        self.auth_token = auth_token
-        self.ct0 = ct0
-
-    @classmethod
-    def from_env(cls) -> "AuthManager":
-        """Load credentials from environment variables."""
-        pass
-
-    @classmethod
-    def from_cookie_file(cls, path: str) -> "AuthManager":
-        """Load credentials from Netscape cookie file."""
-        pass
-
-    def get_headers(self) -> dict:
-        """Build authenticated request headers."""
-        pass
-```
-
-### 2. Twitter Client (`core/client.py`)
-
-Handles all Twitter API interactions:
-
-```python
-class TwitterClient:
-    """Async Twitter API client for Spaces."""
-
-    async def get_space_metadata(self, space_id: str) -> SpaceMetadata:
-        """Fetch AudioSpaceById GraphQL response."""
-        pass
-
-    async def get_stream_url(self, media_key: str) -> str:
-        """Get m3u8 playlist URL from media key."""
-        pass
-```
-
-### 3. Downloader (`core/downloader.py`)
-
-Orchestrates the full download process:
+Downloads Twitter Spaces using yt-dlp:
 
 ```python
 class SpaceDownloader:
-    """Main downloader orchestration."""
+    """Downloads Twitter Spaces using yt-dlp."""
 
     async def download(
         self,
         url: str,
-        output_path: str = None,
+        output_path: str | None = None,
+        format: str = "m4a",
         quality: str = "high",
-        format: str = "m4a"
     ) -> DownloadResult:
         """Download a Space from URL to file."""
         pass
+
+    async def get_metadata(self, url: str) -> SpaceMetadata | None:
+        """Get metadata without downloading."""
+        pass
 ```
 
-### 4. Merger (`core/merger.py`)
+### 2. AudioConverter (`core/converter.py`)
 
-Handles audio processing with FFmpeg:
+Converts audio between formats using FFmpeg:
 
 ```python
-class AudioMerger:
-    """FFmpeg-based audio processing."""
+class AudioConverter:
+    """FFmpeg-based audio format converter."""
 
-    async def merge_hls_stream(
+    async def convert(
         self,
-        m3u8_url: str,
-        output_path: str,
-        format: str = "m4a"
-    ) -> None:
-        """Download and merge HLS stream."""
+        input_path: str | Path,
+        output_path: str | Path | None = None,
+        output_format: str = "mp3",
+        quality: str = "high",
+        keep_original: bool = True,
+    ) -> Path:
+        """Convert audio file to another format."""
         pass
 
-    async def convert_to_mp3(
-        self,
-        input_path: str,
-        output_path: str,
-        bitrate: str = "192k"
-    ) -> None:
-        """Convert audio file to MP3."""
+    # Convenience methods
+    async def to_mp3(self, input_path, quality="high") -> Path: ...
+    async def to_mp4(self, input_path, quality="high") -> Path: ...
+    async def to_wav(self, input_path) -> Path: ...
+    async def to_flac(self, input_path) -> Path: ...
+```
+
+**Supported formats:** mp3, mp4, aac, wav, ogg, flac
+
+**Quality presets:** low (64k), medium (128k), high (192k), highest (320k)
+
+### 3. SpaceURLParser (`core/parser.py`)
+
+URL validation and parsing:
+
+```python
+class SpaceURLParser:
+    @classmethod
+    def extract_space_id(cls, url: str) -> str:
+        """Extract Space ID from URL."""
+        pass
+
+    @classmethod
+    def is_valid_space_url(cls, url: str) -> bool:
+        """Check if URL is a valid Twitter Space URL."""
         pass
 ```
 
