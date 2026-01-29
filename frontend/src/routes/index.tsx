@@ -3,11 +3,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useState } from 'react'
-import { Download, Loader2, AlertCircle, ArrowLeft, Mic, FileAudio, Twitter, Podcast, Music } from 'lucide-react'
+import { Download, Loader2, AlertCircle, ArrowLeft, Mic, FileAudio, Twitter, Podcast, Music, Youtube } from 'lucide-react'
 
 type DownloadStatus = 'idle' | 'loading' | 'success' | 'error'
 type AudioFormat = 'm4a' | 'mp3' | 'mp4'
-type Platform = 'x_spaces' | 'apple_podcasts' | 'spotify'
+type Platform = 'x_spaces' | 'apple_podcasts' | 'spotify' | 'youtube'
 
 interface ContentInfo {
   title: string
@@ -33,18 +33,24 @@ const PLATFORM_FORMATS: Record<Platform, { value: AudioFormat; label: string; de
     { value: 'mp3', label: 'MP3', desc: 'Most compatible' },
     { value: 'm4a', label: 'M4A', desc: 'AAC format' },
   ],
+  youtube: [
+    { value: 'm4a', label: 'M4A', desc: 'Best quality' },
+    { value: 'mp3', label: 'MP3', desc: 'Most compatible' },
+  ],
 }
 
 const PLATFORM_PLACEHOLDERS: Record<Platform, string> = {
   x_spaces: 'https://x.com/i/spaces/1vOxwdyYrlqKB',
   apple_podcasts: 'https://podcasts.apple.com/us/podcast/show-name/id123456789',
   spotify: 'https://open.spotify.com/episode/abc123',
+  youtube: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
 }
 
 const PLATFORM_LABELS: Record<Platform, string> = {
   x_spaces: 'X Spaces',
   apple_podcasts: 'Apple Podcasts',
   spotify: 'Spotify',
+  youtube: 'YouTube',
 }
 
 export const Route = createFileRoute('/')({
@@ -309,26 +315,27 @@ function AudioGrabHome() {
 
         {/* Platform Tabs */}
         <Tabs value={platform} onValueChange={handlePlatformChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="x_spaces" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-4 mb-4">
+            <TabsTrigger value="x_spaces" className="flex items-center gap-1">
               <Twitter className="h-4 w-4" />
               <span className="hidden sm:inline">X Spaces</span>
-              <span className="sm:hidden">X</span>
             </TabsTrigger>
-            <TabsTrigger value="apple_podcasts" className="flex items-center gap-2">
+            <TabsTrigger value="apple_podcasts" className="flex items-center gap-1">
               <Podcast className="h-4 w-4" />
-              <span className="hidden sm:inline">Apple</span>
-              <span className="sm:hidden">Apple</span>
+              <span className="hidden sm:inline">Podcasts</span>
             </TabsTrigger>
-            <TabsTrigger value="spotify" className="flex items-center gap-2">
+            <TabsTrigger value="spotify" className="flex items-center gap-1">
               <Music className="h-4 w-4" />
               <span className="hidden sm:inline">Spotify</span>
-              <span className="sm:hidden">Spotify</span>
+            </TabsTrigger>
+            <TabsTrigger value="youtube" className="flex items-center gap-1">
+              <Youtube className="h-4 w-4" />
+              <span className="hidden sm:inline">YouTube</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Tab Content - Same form for all platforms */}
-          {(['x_spaces', 'apple_podcasts', 'spotify'] as Platform[]).map((p) => (
+          {(['x_spaces', 'apple_podcasts', 'spotify', 'youtube'] as Platform[]).map((p) => (
             <TabsContent key={p} value={p}>
               <div className="bg-card rounded-xl shadow-lg p-6 sm:p-8">
                 <div className="space-y-4">

@@ -4,13 +4,14 @@
   <img src="frontend/public/logo.svg" alt="AudioGrab" width="200">
 </p>
 
-Download audio from X Spaces, Apple Podcasts, and Spotify.
+Download audio from X Spaces, Apple Podcasts, Spotify, and YouTube.
 
 ## Features
 
 - **X Spaces** - Download Twitter/X Spaces audio recordings
 - **Apple Podcasts** - Download podcast episodes via RSS feeds
 - **Spotify** - Download tracks and episodes via spotDL (YouTube matching)
+- **YouTube** - Extract audio from YouTube videos
 - **Format Conversion** - Convert between m4a, mp3, mp4, wav, flac, ogg
 - **Web UI** - Modern React frontend with tabs for each platform
 - **CLI Tool** - Simple command-line interface
@@ -73,6 +74,9 @@ uv run audiograb "https://podcasts.apple.com/us/podcast/show/id123456789"
 # Download Spotify track/episode
 uv run audiograb "https://open.spotify.com/episode/abc123"
 
+# Download YouTube audio
+uv run audiograb "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
 # Specify format
 uv run audiograb "https://x.com/i/spaces/1vOxwdyYrlqKB" -f mp3
 
@@ -103,7 +107,8 @@ audiograb/
 │   │   ├── platforms/        # Platform-specific downloaders
 │   │   │   ├── xspaces.py    # X Spaces (yt-dlp)
 │   │   │   ├── apple_podcasts.py  # Apple Podcasts (RSS)
-│   │   │   └── spotify.py    # Spotify (spotDL)
+│   │   │   ├── spotify.py    # Spotify (spotDL)
+│   │   │   └── youtube.py    # YouTube (yt-dlp)
 │   │   └── exceptions.py
 │   ├── api/                  # FastAPI REST API
 │   ├── bot/                  # Telegram bot
@@ -137,6 +142,7 @@ audiograb/
 | X Spaces | `x.com/i/spaces/...` | yt-dlp |
 | Apple Podcasts | `podcasts.apple.com/...` | HTTP + RSS |
 | Spotify | `open.spotify.com/...` | spotDL |
+| YouTube | `youtube.com/watch?v=...` | yt-dlp |
 
 ## Configuration
 

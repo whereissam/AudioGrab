@@ -57,7 +57,7 @@ async def root():
         "version": "0.2.0",
         "docs": "/docs",
         "health": "/api/health",
-        "platforms": ["x_spaces", "apple_podcasts", "spotify"],
+        "platforms": ["x_spaces", "apple_podcasts", "spotify", "youtube"],
     }
 
 

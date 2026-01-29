@@ -17,11 +17,12 @@ def _get_platform_downloaders() -> list[Type[PlatformDownloader]]:
     """Get list of platform downloader classes (lazy loaded)."""
     global _platform_downloaders
     if _platform_downloaders is None:
-        from .platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader
+        from .platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader, YouTubeDownloader
         _platform_downloaders = [
             XSpacesDownloader,
             ApplePodcastsDownloader,
             SpotifyDownloader,
+            YouTubeDownloader,
         ]
     return _platform_downloaders
 
@@ -48,12 +49,13 @@ class DownloaderFactory:
     @classmethod
     def get_downloader_for_platform(cls, platform: Platform) -> PlatformDownloader:
         """Get downloader for specific platform."""
-        from .platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader
+        from .platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader, YouTubeDownloader
 
         mapping = {
             Platform.X_SPACES: XSpacesDownloader,
             Platform.APPLE_PODCASTS: ApplePodcastsDownloader,
             Platform.SPOTIFY: SpotifyDownloader,
+            Platform.YOUTUBE: YouTubeDownloader,
         }
 
         downloader_cls = mapping.get(platform)

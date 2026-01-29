@@ -35,6 +35,7 @@ def _core_platform_to_schema(platform: CorePlatform) -> Platform:
         CorePlatform.X_SPACES: Platform.X_SPACES,
         CorePlatform.APPLE_PODCASTS: Platform.APPLE_PODCASTS,
         CorePlatform.SPOTIFY: Platform.SPOTIFY,
+        CorePlatform.YOUTUBE: Platform.YOUTUBE,
     }
     return mapping.get(platform, Platform.AUTO)
 
@@ -102,7 +103,7 @@ async def _process_download(job_id: str, request: DownloadRequest):
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint."""
-    from ..core.platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader
+    from ..core.platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader, YouTubeDownloader
 
     return HealthResponse(
         status="healthy",
@@ -110,6 +111,7 @@ async def health_check():
             "x_spaces": XSpacesDownloader.is_available(),
             "apple_podcasts": ApplePodcastsDownloader.is_available(),
             "spotify": SpotifyDownloader.is_available(),
+            "youtube": YouTubeDownloader.is_available(),
         },
         ffmpeg_available=AudioConverter.is_ffmpeg_available(),
         version="0.2.0",
@@ -227,7 +229,7 @@ async def cancel_download(job_id: str):
 @router.get("/platforms")
 async def get_platforms():
     """Get list of supported platforms and their availability."""
-    from ..core.platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader
+    from ..core.platforms import XSpacesDownloader, ApplePodcastsDownloader, SpotifyDownloader, YouTubeDownloader
 
     return {
         "platforms": [
@@ -235,7 +237,7 @@ async def get_platforms():
                 "id": "x_spaces",
                 "name": "X Spaces",
                 "available": XSpacesDownloader.is_available(),
-                "url_pattern": "x.com/i/spaces/... or twitter.com/i/spaces/...",
+                "url_pattern": "x.com/i/spaces/...",
             },
             {
                 "id": "apple_podcasts",
@@ -247,7 +249,13 @@ async def get_platforms():
                 "id": "spotify",
                 "name": "Spotify",
                 "available": SpotifyDownloader.is_available(),
-                "url_pattern": "open.spotify.com/episode/... or /track/...",
+                "url_pattern": "open.spotify.com/...",
+            },
+            {
+                "id": "youtube",
+                "name": "YouTube",
+                "available": YouTubeDownloader.is_available(),
+                "url_pattern": "youtube.com/watch?v=... or youtu.be/...",
             },
         ]
     }

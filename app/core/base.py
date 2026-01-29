@@ -14,6 +14,7 @@ class Platform(str, Enum):
     X_SPACES = "x_spaces"
     APPLE_PODCASTS = "apple_podcasts"
     SPOTIFY = "spotify"
+    YOUTUBE = "youtube"
 
 
 @dataclass
