@@ -1,6 +1,5 @@
 """FastAPI routes for the X Spaces Downloader API."""
 
-import asyncio
 import logging
 import uuid
 from datetime import datetime
@@ -10,24 +9,12 @@ from typing import Dict
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse
 
-from ..config import get_settings
-from ..core import (
-    AuthManager,
-    SpaceDownloader,
-    TwitterClient,
-    SpaceURLParser,
-    AuthenticationError,
-    SpaceNotFoundError,
-    SpaceNotAvailableError,
-    XDownloaderError,
-)
-from ..core.merger import AudioMerger
+from ..core import SpaceDownloader, SpaceURLParser, SpaceNotFoundError
 from .schemas import (
     DownloadRequest,
     DownloadJob,
     JobStatus,
     SpaceInfo,
-    MetadataResponse,
     HealthResponse,
 )
 
@@ -38,23 +25,6 @@ router = APIRouter()
 jobs: Dict[str, DownloadJob] = {}
 
 
-def _metadata_to_space_info(metadata) -> SpaceInfo:
-    """Convert SpaceMetadata to SpaceInfo schema."""
-    return SpaceInfo(
-        space_id=metadata.space_id,
-        title=metadata.title,
-        host_username=metadata.host_username,
-        host_display_name=metadata.host_display_name,
-        state=metadata.state,
-        is_replay_available=metadata.is_replay_available,
-        started_at=metadata.started_at,
-        ended_at=metadata.ended_at,
-        duration_seconds=metadata.duration_seconds,
-        total_live_listeners=metadata.total_live_listeners,
-        total_replay_watched=metadata.total_replay_watched,
-    )
-
-
 async def _process_download(job_id: str, request: DownloadRequest):
     """Background task to process a download."""
     job = jobs[job_id]
@@ -62,18 +32,9 @@ async def _process_download(job_id: str, request: DownloadRequest):
     job.progress = 0.1
 
     try:
-        settings = get_settings()
-        auth = AuthManager.from_env()
-        downloader = SpaceDownloader(auth=auth)
+        downloader = SpaceDownloader()
 
-        # Get metadata first
-        async with TwitterClient(auth) as client:
-            space_id = SpaceURLParser.extract_space_id(request.url)
-            metadata = await client.get_space_metadata(space_id)
-            job.space_info = _metadata_to_space_info(metadata)
-            job.progress = 0.3
-
-        # Download
+        # Download using yt-dlp
         result = await downloader.download(
             url=request.url,
             format=request.format.value,
@@ -81,6 +42,22 @@ async def _process_download(job_id: str, request: DownloadRequest):
         )
 
         if result.success and result.file_path:
+            # Build space info from metadata
+            if result.metadata:
+                job.space_info = SpaceInfo(
+                    space_id=result.metadata.space_id,
+                    title=result.metadata.title,
+                    host_username=result.metadata.host_username,
+                    host_display_name=result.metadata.host_display_name,
+                    state="Ended",
+                    is_replay_available=True,
+                    started_at=None,
+                    ended_at=None,
+                    duration_seconds=int(result.metadata.duration_seconds) if result.metadata.duration_seconds else None,
+                    total_live_listeners=0,
+                    total_replay_watched=0,
+                )
+
             job.status = JobStatus.COMPLETED
             job.progress = 1.0
             job.download_url = f"/api/download/{job_id}/file"
@@ -92,15 +69,9 @@ async def _process_download(job_id: str, request: DownloadRequest):
             job.status = JobStatus.FAILED
             job.error = result.error or "Download failed"
 
-    except AuthenticationError as e:
-        job.status = JobStatus.FAILED
-        job.error = f"Authentication error: {e}"
     except SpaceNotFoundError as e:
         job.status = JobStatus.FAILED
         job.error = f"Space not found: {e}"
-    except SpaceNotAvailableError as e:
-        job.status = JobStatus.FAILED
-        job.error = f"Space not available: {e}"
     except Exception as e:
         logger.exception(f"Download error for job {job_id}")
         job.status = JobStatus.FAILED
@@ -110,11 +81,10 @@ async def _process_download(job_id: str, request: DownloadRequest):
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint."""
-    settings = get_settings()
     return HealthResponse(
         status="healthy",
-        ffmpeg_available=AudioMerger.is_ffmpeg_available(),
-        auth_configured=settings.has_auth,
+        ffmpeg_available=SpaceDownloader.is_yt_dlp_available(),
+        auth_configured=True,  # Not needed for public Spaces
         version="0.1.0",
     )
 
@@ -134,14 +104,6 @@ async def start_download(
         raise HTTPException(
             status_code=400,
             detail="Invalid Twitter Space URL",
-        )
-
-    # Check auth configuration
-    settings = get_settings()
-    if not settings.has_auth:
-        raise HTTPException(
-            status_code=500,
-            detail="Server not configured with Twitter authentication",
         )
 
     # Create job
@@ -195,35 +157,6 @@ async def get_download_file(job_id: str):
         filename=filename,
         media_type="audio/mp4" if path.suffix == ".m4a" else "audio/mpeg",
     )
-
-
-@router.get("/space/{space_id}/metadata", response_model=MetadataResponse)
-async def get_space_metadata(space_id: str):
-    """Get metadata for a Twitter Space by ID."""
-    settings = get_settings()
-    if not settings.has_auth:
-        raise HTTPException(
-            status_code=500,
-            detail="Server not configured with Twitter authentication",
-        )
-
-    try:
-        auth = AuthManager.from_env()
-        async with TwitterClient(auth) as client:
-            metadata = await client.get_space_metadata(space_id)
-            return MetadataResponse(
-                success=True,
-                space=_metadata_to_space_info(metadata),
-            )
-    except SpaceNotFoundError as e:
-        return MetadataResponse(success=False, error=str(e))
-    except SpaceNotAvailableError as e:
-        return MetadataResponse(success=False, error=str(e))
-    except AuthenticationError as e:
-        raise HTTPException(status_code=401, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Metadata fetch error for {space_id}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/download/{job_id}")
