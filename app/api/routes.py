@@ -20,6 +20,10 @@ from .schemas import (
     ContentInfo,
     HealthResponse,
     Platform,
+    TranscribeRequest,
+    TranscriptionJob,
+    TranscriptionSegment as TranscriptionSegmentSchema,
+    TranscriptionOutputFormat,
 )
 
 logger = logging.getLogger(__name__)
@@ -27,6 +31,7 @@ router = APIRouter()
 
 # In-memory job storage (use Redis/database for production)
 jobs: Dict[str, DownloadJob] = {}
+transcription_jobs: Dict[str, TranscriptionJob] = {}
 
 
 def _core_platform_to_schema(platform: CorePlatform) -> Platform:
@@ -115,6 +120,7 @@ async def health_check():
         XVideoDownloader,
         YouTubeVideoDownloader,
     )
+    from ..core.transcriber import AudioTranscriber
 
     return HealthResponse(
         status="healthy",
@@ -128,6 +134,7 @@ async def health_check():
             "youtube_video": YouTubeVideoDownloader.is_available(),
         },
         ffmpeg_available=AudioConverter.is_ffmpeg_available(),
+        whisper_available=AudioTranscriber.is_available(),
         version="0.3.0",
     )
 
@@ -301,3 +308,179 @@ async def get_platforms():
             },
         ],
     }
+
+
+# ============ Transcription Endpoints ============
+
+
+async def _process_transcription(job_id: str, request: TranscribeRequest, audio_path: Path):
+    """Background task to process transcription."""
+    from ..core.transcriber import AudioTranscriber
+
+    job = transcription_jobs[job_id]
+    job.status = JobStatus.PROCESSING
+    job.progress = 0.1
+
+    try:
+        transcriber = AudioTranscriber(model_size=request.model.value)
+
+        task = "translate" if request.translate else "transcribe"
+        result = await transcriber.transcribe(
+            audio_path=audio_path,
+            language=request.language,
+            task=task,
+            vad_filter=True,
+        )
+
+        if result.success:
+            job.text = result.text
+            job.segments = [
+                TranscriptionSegmentSchema(
+                    start=seg.start,
+                    end=seg.end,
+                    text=seg.text,
+                )
+                for seg in (result.segments or [])
+            ]
+            job.language = result.language
+            job.language_probability = result.language_probability
+            job.duration_seconds = result.duration
+
+            # Format output based on requested format
+            if request.output_format == TranscriptionOutputFormat.SRT:
+                job.formatted_output = transcriber.format_as_srt(result.segments or [])
+            elif request.output_format == TranscriptionOutputFormat.VTT:
+                job.formatted_output = transcriber.format_as_vtt(result.segments or [])
+            elif request.output_format == TranscriptionOutputFormat.JSON:
+                import json
+                job.formatted_output = json.dumps({
+                    "text": result.text,
+                    "language": result.language,
+                    "segments": [
+                        {"start": s.start, "end": s.end, "text": s.text}
+                        for s in (result.segments or [])
+                    ]
+                }, ensure_ascii=False, indent=2)
+            else:
+                job.formatted_output = result.text
+
+            job.output_format = request.output_format
+            job.status = JobStatus.COMPLETED
+            job.progress = 1.0
+            job.completed_at = datetime.utcnow()
+        else:
+            job.status = JobStatus.FAILED
+            job.error = result.error or "Transcription failed"
+
+    except Exception as e:
+        logger.exception(f"Transcription error for job {job_id}")
+        job.status = JobStatus.FAILED
+        job.error = str(e) if str(e) else "Transcription failed"
+
+
+@router.post("/transcribe", response_model=TranscriptionJob)
+async def start_transcription(
+    request: TranscribeRequest,
+    background_tasks: BackgroundTasks,
+):
+    """
+    Start a transcription job.
+
+    You can either:
+    - Provide a URL to download and transcribe
+    - Provide a job_id of a completed download to transcribe
+
+    Supports the same platforms as download (X Spaces, YouTube, Podcasts, etc.)
+    """
+    from ..core.transcriber import AudioTranscriber
+
+    # Validate request
+    if not request.url and not request.job_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Either 'url' or 'job_id' must be provided",
+        )
+
+    audio_path = None
+    source_url = request.url
+    source_job_id = request.job_id
+
+    # If job_id is provided, get the file from the completed download
+    if request.job_id:
+        if request.job_id not in jobs:
+            raise HTTPException(status_code=404, detail="Download job not found")
+
+        download_job = jobs[request.job_id]
+        if download_job.status != JobStatus.COMPLETED:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Download job not completed (status: {download_job.status.value})",
+            )
+
+        file_path = getattr(download_job, "_file_path", None)
+        if not file_path or not Path(file_path).exists():
+            raise HTTPException(status_code=404, detail="Downloaded file not found")
+
+        audio_path = Path(file_path)
+        source_job_id = request.job_id
+
+    # If URL is provided, we need to download first
+    elif request.url:
+        detected_platform = DownloaderFactory.detect_platform(request.url)
+        if not detected_platform:
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported URL for transcription",
+            )
+
+        # Download the audio first
+        downloader = DownloaderFactory.get_downloader(request.url)
+        result = await downloader.download(
+            url=request.url,
+            output_format="m4a",
+            quality="high",
+        )
+
+        if not result.success or not result.file_path:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to download audio: {result.error}",
+            )
+
+        audio_path = result.file_path
+        source_url = request.url
+
+    # Create transcription job
+    job_id = str(uuid.uuid4())
+    job = TranscriptionJob(
+        job_id=job_id,
+        status=JobStatus.PENDING,
+        progress=0.0,
+        source_url=source_url,
+        source_job_id=source_job_id,
+        created_at=datetime.utcnow(),
+    )
+    transcription_jobs[job_id] = job
+
+    # Start background transcription
+    background_tasks.add_task(_process_transcription, job_id, request, audio_path)
+
+    return job
+
+
+@router.get("/transcribe/{job_id}", response_model=TranscriptionJob)
+async def get_transcription_status(job_id: str):
+    """Get the status of a transcription job."""
+    if job_id not in transcription_jobs:
+        raise HTTPException(status_code=404, detail="Transcription job not found")
+    return transcription_jobs[job_id]
+
+
+@router.delete("/transcribe/{job_id}")
+async def cancel_transcription(job_id: str):
+    """Cancel and remove a transcription job."""
+    if job_id not in transcription_jobs:
+        raise HTTPException(status_code=404, detail="Transcription job not found")
+
+    del transcription_jobs[job_id]
+    return {"status": "deleted", "job_id": job_id}

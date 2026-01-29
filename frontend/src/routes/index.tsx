@@ -3,13 +3,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useState } from 'react'
-import { Download, Loader2, AlertCircle, ArrowLeft, Mic, FileAudio, FileVideo, Twitter, Podcast, Music, Youtube, Radio, Video } from 'lucide-react'
+import { Download, Loader2, AlertCircle, ArrowLeft, Mic, FileAudio, FileVideo, FileText, Twitter, Podcast, Music, Youtube, Radio, Video, Copy, Check } from 'lucide-react'
 
 type DownloadStatus = 'idle' | 'loading' | 'success' | 'error'
-type AudioFormat = 'm4a' | 'mp3' | 'mp4'
-type VideoFormat = 'mp4' | 'webm'
 type Platform = 'x_spaces' | 'apple_podcasts' | 'spotify' | 'youtube' | 'xiaoyuzhou' | 'x_video' | 'youtube_video'
-type MediaType = 'audio' | 'video'
+type MediaType = 'audio' | 'video' | 'transcribe'
+type WhisperModel = 'tiny' | 'base' | 'small' | 'medium' | 'large-v3' | 'turbo'
+type TranscriptionFormat = 'text' | 'srt' | 'vtt' | 'json'
 
 interface ContentInfo {
   title: string
@@ -79,6 +79,31 @@ const QUALITY_OPTIONS = [
   { value: 'highest', label: '1080p' },
 ]
 
+const WHISPER_MODELS: { value: WhisperModel; label: string; desc: string }[] = [
+  { value: 'tiny', label: 'Tiny', desc: 'Fastest' },
+  { value: 'base', label: 'Base', desc: 'Balanced' },
+  { value: 'small', label: 'Small', desc: 'Better' },
+  { value: 'medium', label: 'Medium', desc: 'High quality' },
+  { value: 'large-v3', label: 'Large', desc: 'Best quality' },
+  { value: 'turbo', label: 'Turbo', desc: 'Fast + accurate' },
+]
+
+const TRANSCRIPTION_FORMATS: { value: TranscriptionFormat; label: string; desc: string }[] = [
+  { value: 'text', label: 'Text', desc: 'Plain text' },
+  { value: 'srt', label: 'SRT', desc: 'Subtitles' },
+  { value: 'vtt', label: 'VTT', desc: 'Web subtitles' },
+  { value: 'json', label: 'JSON', desc: 'With timestamps' },
+]
+
+interface TranscriptionResult {
+  text: string
+  language: string
+  language_probability: number
+  duration_seconds: number
+  formatted_output: string
+  output_format: TranscriptionFormat
+}
+
 export const Route = createFileRoute('/')({
   component: AudioGrabHome,
 })
@@ -105,18 +130,25 @@ function AudioGrabHome() {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
   const [contentInfo, setContentInfo] = useState<ContentInfo | null>(null)
 
+  // Transcription state
+  const [whisperModel, setWhisperModel] = useState<WhisperModel>('base')
+  const [transcriptionFormat, setTranscriptionFormat] = useState<TranscriptionFormat>('text')
+  const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null)
+  const [copied, setCopied] = useState(false)
+
   const handleMediaTypeChange = (newType: string) => {
     setMediaType(newType as MediaType)
     if (newType === 'audio') {
       setPlatform('x_spaces')
       setFormat('m4a')
-    } else {
+    } else if (newType === 'video') {
       setPlatform('x_video')
       setFormat('mp4')
     }
     setUrl('')
     setStatus('idle')
     setMessage('')
+    setTranscriptionResult(null)
   }
 
   const handlePlatformChange = (newPlatform: string) => {
@@ -241,10 +273,163 @@ function AudioGrabHome() {
     setMessage('')
     setDownloadUrl(null)
     setContentInfo(null)
+    setTranscriptionResult(null)
     setUrl('')
   }
 
-  // Success view
+  const handleTranscribe = async () => {
+    if (!url.trim()) {
+      setStatus('error')
+      setMessage('Please enter a valid URL')
+      return
+    }
+
+    setStatus('loading')
+    setMessage('Transcribing audio...')
+    setTranscriptionResult(null)
+
+    try {
+      const response = await fetch('/api/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          model: whisperModel,
+          output_format: transcriptionFormat,
+        }),
+      })
+
+      if (!response.ok) {
+        const text = await response.text()
+        let errorMsg = 'Transcription failed'
+        try {
+          const data = JSON.parse(text)
+          errorMsg = data.detail || errorMsg
+        } catch {
+          errorMsg = text || errorMsg
+        }
+        throw new Error(errorMsg)
+      }
+
+      const data = await response.json()
+      const jobId = data.job_id
+
+      // Poll for job completion
+      let attempts = 0
+      const maxAttempts = 1800 // 30 minutes for long audio
+
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000))
+
+        const statusResponse = await fetch(`/api/transcribe/${jobId}`)
+        const statusData = await statusResponse.json()
+
+        if (statusData.status === 'completed') {
+          setStatus('success')
+          setMessage('Transcription complete!')
+          setTranscriptionResult({
+            text: statusData.text,
+            language: statusData.language,
+            language_probability: statusData.language_probability,
+            duration_seconds: statusData.duration_seconds,
+            formatted_output: statusData.formatted_output,
+            output_format: statusData.output_format,
+          })
+          return
+        } else if (statusData.status === 'failed') {
+          throw new Error(statusData.error || 'Transcription failed')
+        }
+
+        if (attempts % 10 === 0) {
+          const progress = Math.min(Math.floor(attempts / 18), 95)
+          setMessage(`Transcribing audio... ${progress}%`)
+        }
+
+        attempts++
+      }
+
+      throw new Error('Transcription timed out')
+    } catch (error) {
+      setStatus('error')
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setMessage('Cannot connect to server. Make sure the backend is running.')
+      } else if (error instanceof Error) {
+        setMessage(error.message)
+      } else {
+        setMessage('Transcription failed')
+      }
+    }
+  }
+
+  const handleCopyTranscription = async () => {
+    if (transcriptionResult) {
+      await navigator.clipboard.writeText(transcriptionResult.formatted_output)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleDownloadTranscription = () => {
+    if (transcriptionResult) {
+      const ext = transcriptionFormat === 'json' ? 'json' : transcriptionFormat === 'text' ? 'txt' : transcriptionFormat
+      const blob = new Blob([transcriptionResult.formatted_output], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `transcription.${ext}`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+  }
+
+  // Transcription success view
+  if (status === 'success' && transcriptionResult) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
+              Transcription Complete
+            </h1>
+            <p className="text-muted-foreground">
+              Language: {transcriptionResult.language} ({(transcriptionResult.language_probability * 100).toFixed(0)}%) • Duration: {formatDuration(transcriptionResult.duration_seconds)}
+            </p>
+          </div>
+
+          <div className="bg-card rounded-xl shadow-lg p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                <span className="font-medium">Transcript</span>
+                <span className="text-xs text-muted-foreground uppercase">({transcriptionResult.output_format})</span>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleCopyTranscription}>
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="bg-muted rounded-lg p-4 max-h-80 overflow-y-auto">
+              <pre className="text-sm whitespace-pre-wrap font-mono">{transcriptionResult.formatted_output}</pre>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Button onClick={handleReset} variant="outline" className="flex-1 h-12 text-muted-foreground">
+              <ArrowLeft className="mr-2 h-5 w-5" />
+              Back
+            </Button>
+            <Button onClick={handleDownloadTranscription} className="flex-1 h-12">
+              <Download className="mr-2 h-5 w-5" />
+              Download
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Download success view
   if (status === 'success' && contentInfo && downloadUrl) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
@@ -340,7 +525,7 @@ function AudioGrabHome() {
 
         {/* Media Type Tabs */}
         <Tabs value={mediaType} onValueChange={handleMediaTypeChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsList className="grid w-full grid-cols-3 mb-4">
             <TabsTrigger value="audio" className="flex items-center gap-2">
               <FileAudio className="h-4 w-4" />
               Audio
@@ -348,6 +533,10 @@ function AudioGrabHome() {
             <TabsTrigger value="video" className="flex items-center gap-2">
               <FileVideo className="h-4 w-4" />
               Video
+            </TabsTrigger>
+            <TabsTrigger value="transcribe" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Transcribe
             </TabsTrigger>
           </TabsList>
 
@@ -426,6 +615,124 @@ function AudioGrabHome() {
                 </TabsContent>
               ))}
             </Tabs>
+          </TabsContent>
+
+          {/* Transcribe Tab */}
+          <TabsContent value="transcribe">
+            <div className="bg-card rounded-xl shadow-lg p-6 sm:p-8">
+              <div className="space-y-4">
+                {/* URL Input */}
+                <div>
+                  <label htmlFor="transcribe-url" className="block text-sm font-medium text-foreground mb-2">
+                    Audio/Video URL
+                  </label>
+                  <Input
+                    id="transcribe-url"
+                    type="url"
+                    placeholder="https://youtube.com/watch?v=... or any supported URL"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && status !== 'loading') {
+                        handleTranscribe()
+                      }
+                    }}
+                    disabled={status === 'loading'}
+                    className="h-12 text-base"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Supports: YouTube, X Spaces, Apple Podcasts, Spotify, 小宇宙
+                  </p>
+                </div>
+
+                {/* Model Selector */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    <Mic className="inline h-4 w-4 mr-1" />
+                    Whisper Model
+                  </label>
+                  <div className="grid gap-2 grid-cols-3 sm:grid-cols-6">
+                    {WHISPER_MODELS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setWhisperModel(opt.value)}
+                        disabled={status === 'loading'}
+                        className={`p-2 rounded-lg border-2 transition-all ${
+                          whisperModel === opt.value
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border bg-background text-foreground hover:border-primary/50'
+                        } ${status === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        <div className="font-semibold text-sm">{opt.label}</div>
+                        <div className="text-xs text-muted-foreground">{opt.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Output Format Selector */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    <FileText className="inline h-4 w-4 mr-1" />
+                    Output Format
+                  </label>
+                  <div className="grid gap-2 grid-cols-4">
+                    {TRANSCRIPTION_FORMATS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setTranscriptionFormat(opt.value)}
+                        disabled={status === 'loading'}
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          transcriptionFormat === opt.value
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border bg-background text-foreground hover:border-primary/50'
+                        } ${status === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        <div className="font-semibold">{opt.label}</div>
+                        <div className="text-xs text-muted-foreground">{opt.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Transcribe Button */}
+                <Button
+                  onClick={handleTranscribe}
+                  disabled={status === 'loading' || !url.trim()}
+                  className="w-full h-12 text-base"
+                  size="lg"
+                >
+                  {status === 'loading' ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Transcribing...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="mr-2 h-5 w-5" />
+                      Transcribe
+                    </>
+                  )}
+                </Button>
+
+                {/* Status Message */}
+                {message && status !== 'success' && (
+                  <div
+                    className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
+                      status === 'error'
+                        ? 'bg-destructive/10 text-destructive'
+                        : 'bg-primary/10 text-primary'
+                    }`}
+                  >
+                    {status === 'error' && <AlertCircle className="h-4 w-4 flex-shrink-0" />}
+                    {status === 'loading' && <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />}
+                    <span>{message}</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
 

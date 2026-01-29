@@ -132,4 +132,89 @@ class HealthResponse(BaseModel):
         description="Availability of each platform's dependencies",
     )
     ffmpeg_available: bool
+    whisper_available: bool = False
     version: str
+
+
+# ============ Transcription Schemas ============
+
+
+class WhisperModelSize(str, Enum):
+    """Available Whisper model sizes."""
+
+    TINY = "tiny"
+    BASE = "base"
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE_V2 = "large-v2"
+    LARGE_V3 = "large-v3"
+    TURBO = "turbo"
+
+
+class TranscriptionOutputFormat(str, Enum):
+    """Output format for transcription."""
+
+    TEXT = "text"
+    SRT = "srt"
+    VTT = "vtt"
+    JSON = "json"
+
+
+class TranscribeRequest(BaseModel):
+    """Request to transcribe audio."""
+
+    url: Optional[str] = Field(
+        default=None,
+        description="URL to download and transcribe (X Spaces, YouTube, Podcast, etc.)",
+    )
+    job_id: Optional[str] = Field(
+        default=None,
+        description="Job ID of a completed download to transcribe",
+    )
+    language: Optional[str] = Field(
+        default=None,
+        description="Language code (e.g., 'en', 'zh', 'ja'). Auto-detect if not specified.",
+    )
+    model: WhisperModelSize = Field(
+        default=WhisperModelSize.BASE,
+        description="Whisper model size (larger = more accurate but slower)",
+    )
+    output_format: TranscriptionOutputFormat = Field(
+        default=TranscriptionOutputFormat.TEXT,
+        description="Output format for transcription",
+    )
+    translate: bool = Field(
+        default=False,
+        description="Translate to English (if source is non-English)",
+    )
+
+
+class TranscriptionSegment(BaseModel):
+    """A segment of transcribed text with timestamps."""
+
+    start: float = Field(description="Start time in seconds")
+    end: float = Field(description="End time in seconds")
+    text: str = Field(description="Transcribed text")
+
+
+class TranscriptionJob(BaseModel):
+    """Transcription job status response."""
+
+    job_id: str
+    status: JobStatus
+    progress: float = Field(default=0.0, ge=0.0, le=1.0)
+    # Transcription results
+    text: Optional[str] = None
+    segments: Optional[list[TranscriptionSegment]] = None
+    language: Optional[str] = None
+    language_probability: Optional[float] = None
+    duration_seconds: Optional[float] = None
+    # Formatted output
+    formatted_output: Optional[str] = None
+    output_format: Optional[TranscriptionOutputFormat] = None
+    # Metadata
+    source_url: Optional[str] = None
+    source_job_id: Optional[str] = None
+    error: Optional[str] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
