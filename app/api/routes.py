@@ -6,8 +6,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
+import aiofiles
 
 from ..core.downloader import DownloaderFactory
 from ..core.converter import AudioConverter
@@ -484,3 +485,76 @@ async def cancel_transcription(job_id: str):
 
     del transcription_jobs[job_id]
     return {"status": "deleted", "job_id": job_id}
+
+
+@router.post("/transcribe/upload", response_model=TranscriptionJob)
+async def transcribe_uploaded_file(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    model: str = Form(default="base"),
+    output_format: str = Form(default="text"),
+    language: str = Form(default=None),
+):
+    """
+    Transcribe an uploaded audio file.
+
+    Supports: mp3, m4a, wav, mp4, webm, ogg, flac
+    """
+    from ..core.transcriber import AudioTranscriber
+    from ..config import settings
+
+    # Validate file extension
+    allowed_extensions = {".mp3", ".m4a", ".wav", ".mp4", ".webm", ".ogg", ".flac", ".aac"}
+    file_ext = Path(file.filename).suffix.lower() if file.filename else ""
+
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}",
+        )
+
+    # Save uploaded file
+    upload_dir = Path(settings.download_dir) / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    file_id = str(uuid.uuid4())
+    file_path = upload_dir / f"{file_id}{file_ext}"
+
+    async with aiofiles.open(file_path, "wb") as f:
+        content = await file.read()
+        await f.write(content)
+
+    # Create transcription job
+    job_id = str(uuid.uuid4())
+
+    # Map form values to schema enums
+    from .schemas import TranscriptionOutputFormat, WhisperModelSize
+
+    try:
+        output_format_enum = TranscriptionOutputFormat(output_format)
+    except ValueError:
+        output_format_enum = TranscriptionOutputFormat.TEXT
+
+    job = TranscriptionJob(
+        job_id=job_id,
+        status=JobStatus.PENDING,
+        progress=0.0,
+        source_url=f"upload://{file.filename}",
+        created_at=datetime.utcnow(),
+    )
+    transcription_jobs[job_id] = job
+
+    # Create a mock request object for the background task
+    class UploadTranscribeRequest:
+        def __init__(self):
+            self.model = WhisperModelSize(model) if model in [e.value for e in WhisperModelSize] else WhisperModelSize.BASE
+            self.output_format = output_format_enum
+            self.language = language if language else None
+            self.translate = False
+
+    request = UploadTranscribeRequest()
+
+    # Start background transcription
+    background_tasks.add_task(_process_transcription, job_id, request, file_path)
+
+    return job

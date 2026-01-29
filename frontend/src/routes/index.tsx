@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useState } from 'react'
-import { Download, Loader2, AlertCircle, ArrowLeft, Mic, FileAudio, FileVideo, FileText, Twitter, Podcast, Music, Youtube, Radio, Video, Copy, Check } from 'lucide-react'
+import { Download, Loader2, AlertCircle, ArrowLeft, Mic, FileAudio, FileVideo, FileText, Twitter, Podcast, Music, Youtube, Radio, Video, Copy, Check, Upload, Link } from 'lucide-react'
 
 type DownloadStatus = 'idle' | 'loading' | 'success' | 'error'
 type Platform = 'x_spaces' | 'apple_podcasts' | 'spotify' | 'youtube' | 'xiaoyuzhou' | 'x_video' | 'youtube_video'
@@ -135,6 +135,8 @@ function AudioGrabHome() {
   const [transcriptionFormat, setTranscriptionFormat] = useState<TranscriptionFormat>('text')
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null)
   const [copied, setCopied] = useState(false)
+  const [transcribeMode, setTranscribeMode] = useState<'url' | 'file'>('url')
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   const handleMediaTypeChange = (newType: string) => {
     setMediaType(newType as MediaType)
@@ -275,29 +277,52 @@ function AudioGrabHome() {
     setContentInfo(null)
     setTranscriptionResult(null)
     setUrl('')
+    setSelectedFile(null)
   }
 
   const handleTranscribe = async () => {
-    if (!url.trim()) {
+    if (transcribeMode === 'url' && !url.trim()) {
       setStatus('error')
       setMessage('Please enter a valid URL')
       return
     }
 
+    if (transcribeMode === 'file' && !selectedFile) {
+      setStatus('error')
+      setMessage('Please select a file')
+      return
+    }
+
     setStatus('loading')
-    setMessage('Transcribing audio...')
+    setMessage(transcribeMode === 'file' ? 'Uploading and transcribing...' : 'Transcribing audio...')
     setTranscriptionResult(null)
 
     try {
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url,
-          model: whisperModel,
-          output_format: transcriptionFormat,
-        }),
-      })
+      let response: Response
+
+      if (transcribeMode === 'file' && selectedFile) {
+        // Upload file
+        const formData = new FormData()
+        formData.append('file', selectedFile)
+        formData.append('model', whisperModel)
+        formData.append('output_format', transcriptionFormat)
+
+        response = await fetch('/api/transcribe/upload', {
+          method: 'POST',
+          body: formData,
+        })
+      } else {
+        // URL mode
+        response = await fetch('/api/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url,
+            model: whisperModel,
+            output_format: transcriptionFormat,
+          }),
+        })
+      }
 
       if (!response.ok) {
         const text = await response.text()
@@ -621,29 +646,102 @@ function AudioGrabHome() {
           <TabsContent value="transcribe">
             <div className="bg-card rounded-xl shadow-lg p-6 sm:p-8">
               <div className="space-y-4">
-                {/* URL Input */}
-                <div>
-                  <label htmlFor="transcribe-url" className="block text-sm font-medium text-foreground mb-2">
-                    Audio/Video URL
-                  </label>
-                  <Input
-                    id="transcribe-url"
-                    type="url"
-                    placeholder="https://youtube.com/watch?v=... or any supported URL"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && status !== 'loading') {
-                        handleTranscribe()
-                      }
-                    }}
-                    disabled={status === 'loading'}
-                    className="h-12 text-base"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Supports: YouTube, X Spaces, Apple Podcasts, Spotify, 小宇宙
-                  </p>
+                {/* Mode Toggle */}
+                <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setTranscribeMode('url')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      transcribeMode === 'url'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Link className="h-4 w-4" />
+                    From URL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTranscribeMode('file')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      transcribeMode === 'file'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Upload className="h-4 w-4" />
+                    Upload File
+                  </button>
                 </div>
+
+                {/* URL Input */}
+                {transcribeMode === 'url' && (
+                  <div>
+                    <label htmlFor="transcribe-url" className="block text-sm font-medium text-foreground mb-2">
+                      Audio/Video URL
+                    </label>
+                    <Input
+                      id="transcribe-url"
+                      type="url"
+                      placeholder="https://youtube.com/watch?v=... or any supported URL"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && status !== 'loading') {
+                          handleTranscribe()
+                        }
+                      }}
+                      disabled={status === 'loading'}
+                      className="h-12 text-base"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Supports: YouTube, X Spaces, Apple Podcasts, Spotify, 小宇宙
+                    </p>
+                  </div>
+                )}
+
+                {/* File Upload */}
+                {transcribeMode === 'file' && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Audio/Video File
+                    </label>
+                    <div
+                      className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                        selectedFile
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        accept=".mp3,.m4a,.wav,.mp4,.webm,.ogg,.flac,.aac"
+                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                        disabled={status === 'loading'}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      {selectedFile ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <FileAudio className="h-6 w-6 text-primary" />
+                          <span className="font-medium">{selectedFile.name}</span>
+                          <span className="text-sm text-muted-foreground">
+                            ({(selectedFile.size / 1024 / 1024).toFixed(1)} MB)
+                          </span>
+                        </div>
+                      ) : (
+                        <div>
+                          <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                          <p className="text-sm text-muted-foreground">
+                            Drop a file here or click to browse
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            MP3, M4A, WAV, MP4, WebM, OGG, FLAC
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Model Selector */}
                 <div>
@@ -700,7 +798,7 @@ function AudioGrabHome() {
                 {/* Transcribe Button */}
                 <Button
                   onClick={handleTranscribe}
-                  disabled={status === 'loading' || !url.trim()}
+                  disabled={status === 'loading' || (transcribeMode === 'url' ? !url.trim() : !selectedFile)}
                   className="w-full h-12 text-base"
                   size="lg"
                 >
