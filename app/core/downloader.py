@@ -122,18 +122,22 @@ class SpaceDownloader:
             else:
                 output_template = str(self.download_dir / "%(title)s [%(id)s].%(ext)s")
 
+            # For mp4, download as m4a first then convert
+            download_format = "m4a" if format == "mp4" else format
+            needs_conversion = format == "mp4"
+
             # Build yt-dlp command
             cmd = [
                 self._yt_dlp_path,
                 "--no-progress",
                 "-x",  # Extract audio
-                "--audio-format", format if format == "mp3" else "m4a",
+                "--audio-format", download_format if download_format == "mp3" else "m4a",
                 "-o", output_template,
                 "--print-json",  # Output JSON with metadata
             ]
 
             # Add quality for mp3
-            if format == "mp3":
+            if download_format == "mp3":
                 quality_map = {"low": "64K", "medium": "128K", "high": "192K", "highest": "320K"}
                 cmd.extend(["--audio-quality", quality_map.get(quality, "192K")])
 
@@ -193,6 +197,19 @@ class SpaceDownloader:
 
             if not file_path or not file_path.exists():
                 raise XDownloaderError("Download completed but output file not found")
+
+            # Convert to mp4 if needed
+            if needs_conversion:
+                from .converter import AudioConverter
+                logger.info(f"Converting to {format}...")
+                converter = AudioConverter()
+                converted_path = await converter.convert(
+                    input_path=file_path,
+                    output_format=format,
+                    quality=quality,
+                    keep_original=False,
+                )
+                file_path = converted_path
 
             # Get file info
             file_size = file_path.stat().st_size

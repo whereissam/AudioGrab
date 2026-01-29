@@ -2,9 +2,10 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useState } from 'react'
-import { Download, Loader2, Music, CheckCircle, AlertCircle, ArrowLeft, Mic } from 'lucide-react'
+import { Download, Loader2, AlertCircle, ArrowLeft, Mic, FileAudio } from 'lucide-react'
 
 type DownloadStatus = 'idle' | 'loading' | 'success' | 'error'
+type AudioFormat = 'm4a' | 'mp3' | 'mp4'
 
 interface SpaceInfo {
   title: string
@@ -13,6 +14,12 @@ interface SpaceInfo {
   duration_seconds?: number
   file_size_mb?: number
 }
+
+const FORMAT_OPTIONS: { value: AudioFormat; label: string; desc: string }[] = [
+  { value: 'm4a', label: 'M4A', desc: 'Original quality' },
+  { value: 'mp3', label: 'MP3', desc: 'Most compatible' },
+  { value: 'mp4', label: 'MP4', desc: 'Video container' },
+]
 
 export const Route = createFileRoute('/')({
   component: SpaceDownloader,
@@ -31,6 +38,7 @@ function formatDuration(seconds: number): string {
 
 function SpaceDownloader() {
   const [url, setUrl] = useState('')
+  const [format, setFormat] = useState<AudioFormat>('m4a')
   const [status, setStatus] = useState<DownloadStatus>('idle')
   const [message, setMessage] = useState('')
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
@@ -56,7 +64,7 @@ function SpaceDownloader() {
       const response = await fetch('/api/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, format: 'm4a' }),
+        body: JSON.stringify({ url, format }),
       })
 
       if (!response.ok) {
@@ -64,7 +72,16 @@ function SpaceDownloader() {
         let errorMsg = 'Download failed'
         try {
           const data = JSON.parse(text)
-          errorMsg = data.detail || errorMsg
+          // FastAPI validation errors return detail as an array of error objects
+          if (Array.isArray(data.detail)) {
+            errorMsg = data.detail.map((e: { msg?: string; loc?: string[] }) =>
+              e.msg || JSON.stringify(e)
+            ).join(', ')
+          } else if (typeof data.detail === 'string') {
+            errorMsg = data.detail
+          } else if (data.detail) {
+            errorMsg = JSON.stringify(data.detail)
+          }
         } catch {
           errorMsg = text || errorMsg
         }
@@ -106,7 +123,14 @@ function SpaceDownloader() {
           }
           return
         } else if (statusData.status === 'failed') {
-          throw new Error(statusData.error || 'Download failed')
+          // Extract error message - handle case where error might be an object
+          let errorMsg = 'Download failed'
+          if (typeof statusData.error === 'string') {
+            errorMsg = statusData.error
+          } else if (statusData.error && typeof statusData.error === 'object') {
+            errorMsg = statusData.error.message || statusData.error.detail || JSON.stringify(statusData.error)
+          }
+          throw new Error(errorMsg)
         }
 
         // Update progress message
@@ -122,8 +146,12 @@ function SpaceDownloader() {
       setStatus('error')
       if (error instanceof TypeError && error.message.includes('fetch')) {
         setMessage('Cannot connect to server. Make sure the backend is running.')
+      } else if (error instanceof Error) {
+        setMessage(error.message)
+      } else if (typeof error === 'string') {
+        setMessage(error)
       } else {
-        setMessage(error instanceof Error ? error.message : 'Download failed')
+        setMessage('Download failed')
       }
     }
   }
@@ -152,26 +180,28 @@ function SpaceDownloader() {
           </div>
 
           {/* Space Card */}
-          <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 sm:p-8 mb-6 relative overflow-hidden">
+          <div className="bg-primary rounded-2xl p-6 sm:p-8 mb-6 relative overflow-hidden">
             {/* Mic icon in corner */}
             <div className="absolute top-4 right-4">
-              <Mic className="h-5 w-5 text-white/60" />
+              <Mic className="h-5 w-5 text-primary-foreground/60" />
             </div>
 
-            {/* X Logo */}
+            {/* Logo */}
             <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">𝕏</span>
-              </div>
+              <img
+                src="/xdownlader-brand.webp"
+                alt="xdownloader"
+                className="h-16 w-auto"
+              />
             </div>
 
             {/* Title */}
-            <h2 className="text-xl sm:text-2xl font-semibold text-white text-center mb-3">
+            <h2 className="text-xl sm:text-2xl font-semibold text-primary-foreground text-center mb-3">
               {spaceInfo.title}
             </h2>
 
             {/* Meta info */}
-            <div className="flex items-center justify-center gap-2 text-white/70 text-sm">
+            <div className="flex items-center justify-center gap-2 text-primary-foreground/70 text-sm flex-wrap">
               {spaceInfo.host_display_name && (
                 <>
                   <span>@{spaceInfo.host_username || spaceInfo.host_display_name}</span>
@@ -184,8 +214,12 @@ function SpaceDownloader() {
                   <span>•</span>
                 </>
               )}
+              <span className="uppercase">{format}</span>
               {spaceInfo.file_size_mb && (
-                <span>{spaceInfo.file_size_mb.toFixed(1)} MB</span>
+                <>
+                  <span>•</span>
+                  <span>{spaceInfo.file_size_mb.toFixed(1)} MB</span>
+                </>
               )}
             </div>
           </div>
@@ -195,19 +229,17 @@ function SpaceDownloader() {
             <Button
               onClick={handleReset}
               variant="outline"
-              className="flex-1 h-12"
+              className="flex-1 h-12 text-muted-foreground"
             >
               <ArrowLeft className="mr-2 h-5 w-5" />
               Back
             </Button>
-            <a
-              href={downloadUrl}
-              download
-              className="flex-1 flex items-center justify-center gap-2 h-12 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors"
-            >
-              <Download className="h-5 w-5" />
-              Download
-            </a>
+            <Button asChild className="flex-1 h-12">
+              <a href={downloadUrl} download>
+                <Download className="mr-2 h-5 w-5" />
+                Download
+              </a>
+            </Button>
           </div>
         </div>
       </div>
@@ -221,9 +253,11 @@ function SpaceDownloader() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="p-4 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-              <Music className="h-10 w-10 text-blue-600 dark:text-blue-400" />
-            </div>
+            <img
+              src="/xdownlader-brand.webp"
+              alt="xdownloader"
+              className="h-16 w-auto"
+            />
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
             X Spaces Downloader
@@ -236,6 +270,7 @@ function SpaceDownloader() {
         {/* Input Card */}
         <div className="bg-card rounded-xl shadow-lg p-6 sm:p-8">
           <div className="space-y-4">
+            {/* URL Input */}
             <div>
               <label htmlFor="space-url" className="block text-sm font-medium text-foreground mb-2">
                 Space URL
@@ -262,6 +297,33 @@ function SpaceDownloader() {
               />
             </div>
 
+            {/* Format Selector */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                <FileAudio className="inline h-4 w-4 mr-1" />
+                Output Format
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {FORMAT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setFormat(opt.value)}
+                    disabled={status === 'loading'}
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      format === opt.value
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border bg-background text-foreground hover:border-primary/50'
+                    } ${status === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <div className="font-semibold">{opt.label}</div>
+                    <div className="text-xs text-muted-foreground">{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Download Button */}
             <Button
               onClick={handleDownload}
               disabled={status === 'loading' || !url.trim()}
@@ -276,7 +338,7 @@ function SpaceDownloader() {
               ) : (
                 <>
                   <Download className="mr-2 h-5 w-5" />
-                  Download
+                  Download as {format.toUpperCase()}
                 </>
               )}
             </Button>
@@ -286,8 +348,8 @@ function SpaceDownloader() {
               <div
                 className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
                   status === 'error'
-                    ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    ? 'bg-destructive/10 text-destructive'
+                    : 'bg-primary/10 text-primary'
                 }`}
               >
                 {status === 'error' && <AlertCircle className="h-4 w-4 flex-shrink-0" />}

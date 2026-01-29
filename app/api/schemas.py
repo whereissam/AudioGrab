@@ -2,7 +2,8 @@
 
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, Field, HttpUrl
+from typing import Literal
+from pydantic import BaseModel, Field
 
 
 class OutputFormat(str, Enum):
@@ -10,6 +11,7 @@ class OutputFormat(str, Enum):
 
     M4A = "m4a"
     MP3 = "mp3"
+    MP4 = "mp4"
     AAC = "aac"
 
 

@@ -67,7 +67,8 @@ async def _process_download(job_id: str, request: DownloadRequest):
             job._file_path = str(result.file_path)  # type: ignore
         else:
             job.status = JobStatus.FAILED
-            job.error = result.error or "Download failed"
+            # Ensure error is always a string
+            job.error = str(result.error) if result.error else "Download failed"
 
     except SpaceNotFoundError as e:
         job.status = JobStatus.FAILED
@@ -75,7 +76,9 @@ async def _process_download(job_id: str, request: DownloadRequest):
     except Exception as e:
         logger.exception(f"Download error for job {job_id}")
         job.status = JobStatus.FAILED
-        job.error = str(e)
+        # Ensure error is always a string
+        error_msg = str(e) if e else "Download failed"
+        job.error = error_msg if error_msg else "Download failed"
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -99,6 +102,8 @@ async def start_download(
 
     Returns a job ID that can be used to check status and retrieve the file.
     """
+    logger.info(f"Download request: url={request.url}, format={request.format}, quality={request.quality}")
+
     # Validate URL
     if not SpaceURLParser.is_valid_space_url(request.url):
         raise HTTPException(

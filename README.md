@@ -1,11 +1,16 @@
 # X (Twitter) Spaces Downloader
 
+<p align="center">
+  <img src="frontend/public/xdownlader-brand.webp" alt="xdownloader" width="200">
+</p>
+
 Download and convert Twitter/X Spaces audio recordings.
 
 ## Features
 
 - **Download Spaces** - Download any public Space with replay enabled
 - **Format Conversion** - Convert between m4a, mp3, mp4, wav, flac, ogg
+- **Web UI** - Modern React frontend
 - **CLI Tool** - Simple command-line interface
 - **REST API** - FastAPI backend for integrations
 - **Telegram Bot** - Download via Telegram chat
@@ -74,6 +79,15 @@ uv run xdownloader-api
 # Docs at http://localhost:8000/docs
 ```
 
+### Run Web UI
+
+```bash
+cd frontend
+bun install
+bun run dev
+# Frontend available at http://localhost:5173
+```
+
 ### Run Telegram Bot
 
 ```bash
@@ -123,6 +137,11 @@ xdownloader/
 │   ├── bot/                # Telegram bot
 │   ├── cli.py              # CLI interface
 │   └── main.py             # API entry point
+├── frontend/               # React Web UI
+│   ├── src/
+│   │   ├── components/     # UI components
+│   │   └── routes/         # Page routes
+│   └── public/             # Static assets
 ├── docs/                   # Documentation
 ├── tests/
 └── pyproject.toml
