@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AISettings } from '@/components/settings/AISettings'
+import { TranslationSettings } from '@/components/settings/TranslationSettings'
 
 export const Route = createFileRoute('/settings')({
   component: SettingsPage,
@@ -29,13 +30,18 @@ function SettingsPage() {
 
         {/* Content */}
         <Tabs defaultValue="ai" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="ai">AI Provider</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsTrigger value="ai">AI Summary</TabsTrigger>
+            <TabsTrigger value="translation">Translation</TabsTrigger>
             <TabsTrigger value="general">General</TabsTrigger>
           </TabsList>
 
           <TabsContent value="ai">
             <AISettings />
+          </TabsContent>
+
+          <TabsContent value="translation">
+            <TranslationSettings />
           </TabsContent>
 
           <TabsContent value="general">

@@ -696,3 +696,79 @@ class AITestResponse(BaseModel):
         default=None,
         description="Preview of the model's response",
     )
+
+
+# ============ Translation Schemas ============
+
+
+class TranslateRequest(BaseModel):
+    """Request to translate text."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        description="Text to translate",
+    )
+    source_lang: str = Field(
+        ...,
+        description="Source language code (e.g., 'en', 'ja', 'zh-Hans') or name (e.g., 'English', 'Japanese')",
+    )
+    target_lang: str = Field(
+        ...,
+        description="Target language code or name",
+    )
+    model: Optional[str] = Field(
+        default=None,
+        description="TranslateGemma model size: '4b', '12b', '27b', or 'latest'. Default: 4b",
+    )
+
+
+class TranslateFromJobRequest(BaseModel):
+    """Request to translate a completed transcription."""
+
+    job_id: str = Field(
+        ...,
+        description="Job ID of a completed transcription to translate",
+    )
+    target_lang: str = Field(
+        ...,
+        description="Target language code or name",
+    )
+    source_lang: Optional[str] = Field(
+        default=None,
+        description="Source language (auto-detected from transcription if not specified)",
+    )
+    model: Optional[str] = Field(
+        default=None,
+        description="TranslateGemma model size",
+    )
+
+
+class TranslateResponse(BaseModel):
+    """Response containing translated text."""
+
+    source_text: str = Field(description="Original text")
+    translated_text: str = Field(description="Translated text")
+    source_lang: str = Field(description="Source language code")
+    target_lang: str = Field(description="Target language code")
+    source_lang_name: str = Field(description="Source language name")
+    target_lang_name: str = Field(description="Target language name")
+    model: str = Field(description="Model used for translation")
+    tokens_used: Optional[int] = Field(
+        default=None,
+        description="Number of tokens used",
+    )
+
+
+class LanguageInfo(BaseModel):
+    """Information about a supported language."""
+
+    code: str = Field(description="Language code (e.g., 'en', 'zh-Hans')")
+    name: str = Field(description="Language name (e.g., 'English', 'Chinese (Simplified)')")
+
+
+class SupportedLanguagesResponse(BaseModel):
+    """Response containing all supported languages."""
+
+    languages: list[LanguageInfo]
+    total: int

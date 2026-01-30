@@ -11,6 +11,7 @@ from .annotation_routes import router as annotation_router
 from .storage_routes import router as storage_router
 from .cloud_routes import router as cloud_router
 from .ai_settings_routes import router as ai_settings_router
+from .translation_routes import router as translation_router
 
 # Create combined router
 router = APIRouter()
@@ -23,5 +24,6 @@ router.include_router(annotation_router)
 router.include_router(storage_router)
 router.include_router(cloud_router)
 router.include_router(ai_settings_router)
+router.include_router(translation_router)
 
 __all__ = ["router"]

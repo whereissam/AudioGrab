@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Download, ArrowLeft, Mic, Video, FileText, Copy, Check, Users, Sparkles, Loader2, ChevronDown } from 'lucide-react'
+import { Download, ArrowLeft, Mic, Video, FileText, Copy, Check, Users, Sparkles, Loader2, ChevronDown, Languages } from 'lucide-react'
 import { ContentInfo, TranscriptionResult, formatDuration } from './types'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
 const SUMMARY_TYPES = [
   { value: 'bullet_points', label: 'Bullet Points', desc: 'Key ideas as bullets' },
@@ -124,6 +124,32 @@ export function TranscriptionSuccess({
   const [summaryError, setSummaryError] = useState<string | null>(null)
   const [summaryCopied, setSummaryCopied] = useState(false)
 
+  // Translation state
+  const [languages, setLanguages] = useState<{ code: string; name: string }[]>([])
+  const [targetLang, setTargetLang] = useState<string>('')
+  const [translation, setTranslation] = useState<string | null>(null)
+  const [translationLoading, setTranslationLoading] = useState(false)
+  const [translationError, setTranslationError] = useState<string | null>(null)
+  const [translationCopied, setTranslationCopied] = useState(false)
+  const [translateAvailable, setTranslateAvailable] = useState(false)
+
+  // Fetch supported languages on mount
+  useEffect(() => {
+    fetch('/api/translate/languages')
+      .then(res => res.json())
+      .then(data => {
+        setLanguages(data.languages || [])
+      })
+      .catch(() => {})
+
+    fetch('/api/translate/available')
+      .then(res => res.json())
+      .then(data => {
+        setTranslateAvailable(data.available || false)
+      })
+      .catch(() => {})
+  }, [])
+
   // Extract unique speakers from segments
   const uniqueSpeakers = useMemo(() => {
     if (!result.segments) return []
@@ -202,6 +228,45 @@ export function TranscriptionSuccess({
     await navigator.clipboard.writeText(summary)
     setSummaryCopied(true)
     setTimeout(() => setSummaryCopied(false), 2000)
+  }
+
+  const handleTranslate = async () => {
+    if (!targetLang) return
+
+    setTranslationLoading(true)
+    setTranslationError(null)
+    setTranslation(null)
+
+    try {
+      const response = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: result.text,
+          source_lang: result.language || 'en',
+          target_lang: targetLang,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.detail || 'Translation failed')
+      }
+
+      const data = await response.json()
+      setTranslation(data.translated_text)
+    } catch (error) {
+      setTranslationError(error instanceof Error ? error.message : 'Translation failed')
+    } finally {
+      setTranslationLoading(false)
+    }
+  }
+
+  const handleCopyTranslation = async () => {
+    if (!translation) return
+    await navigator.clipboard.writeText(translation)
+    setTranslationCopied(true)
+    setTimeout(() => setTranslationCopied(false), 2000)
   }
 
   return (
@@ -341,6 +406,88 @@ export function TranscriptionSuccess({
             <div className="bg-muted rounded-lg p-3 sm:p-4 max-h-48 sm:max-h-60 overflow-y-auto">
               <div className="text-xs sm:text-sm whitespace-pre-wrap prose prose-sm dark:prose-invert max-w-none">
                 {summary}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Translation Section */}
+      <div className="bg-card rounded-xl shadow-lg p-3 sm:p-4 mb-3 sm:mb-6">
+        <div className="flex items-center gap-2 mb-3 sm:mb-4">
+          <Languages className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+          <span className="font-medium text-sm sm:text-base">Translate</span>
+          {!translateAvailable && (
+            <span className="text-xs text-muted-foreground">(TranslateGemma not installed)</span>
+          )}
+        </div>
+
+        {/* Language Selector */}
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-3 sm:mb-4">
+          <div className="flex-1">
+            <select
+              value={targetLang}
+              onChange={(e) => setTargetLang(e.target.value)}
+              disabled={translationLoading || !translateAvailable}
+              className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+            >
+              <option value="">Select target language...</option>
+              {languages.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button
+            onClick={handleTranslate}
+            disabled={translationLoading || !targetLang || !translateAvailable}
+            className="h-10 px-4"
+            variant={translation ? 'outline' : 'default'}
+          >
+            {translationLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <span className="text-sm">Translating...</span>
+              </>
+            ) : (
+              <>
+                <Languages className="mr-2 h-4 w-4" />
+                <span className="text-sm">{translation ? 'Re-translate' : 'Translate'}</span>
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Install hint */}
+        {!translateAvailable && (
+          <div className="bg-muted rounded-lg p-3 text-xs sm:text-sm text-muted-foreground">
+            To enable translation, install TranslateGemma:
+            <code className="block mt-1 bg-background px-2 py-1 rounded">ollama pull translategemma</code>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {translationError && (
+          <div className="bg-destructive/10 text-destructive rounded-lg p-2.5 sm:p-3 mb-3 sm:mb-4 text-xs sm:text-sm">
+            {translationError}
+          </div>
+        )}
+
+        {/* Translation Result */}
+        {translation && (
+          <div className="space-y-2 sm:space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs sm:text-sm text-muted-foreground">
+                {languages.find(l => l.code === targetLang)?.name || targetLang}
+              </span>
+              <Button variant="outline" size="sm" onClick={handleCopyTranslation} className="h-8 w-8 sm:h-9 sm:w-9 p-0">
+                {translationCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+            <div className="bg-muted rounded-lg p-3 sm:p-4 max-h-48 sm:max-h-60 overflow-y-auto">
+              <div className="text-xs sm:text-sm whitespace-pre-wrap">
+                {translation}
               </div>
             </div>
           </div>
