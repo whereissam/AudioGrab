@@ -54,8 +54,10 @@ brew install ffmpeg yt-dlp
 
 - [Architecture Details](./architecture.md)
 - [Deployment Guide](./deployment.md)
-- [API Reference](./api-endpoints.md) (for direct API usage)
+- [API Reference](./api-endpoints.md) (REST API endpoints)
 - [Authentication Guide](./authentication.md) (for private Spaces)
+- [Queue & Scheduling](./queue-scheduling.md) (batch downloads, priority queue)
+- [Webhooks & Annotations](./webhooks-annotations.md) (notifications, collaboration)
 
 ## License
 

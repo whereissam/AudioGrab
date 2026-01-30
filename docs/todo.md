@@ -8,7 +8,7 @@
 | Speaker Diarization | High | Very High | P1 ✅ |
 | Browser Extension | Medium | High | P2 ✅ |
 | LLM Summarization | Medium | Medium | P3 ✅ |
-| Watch Folders & Subscriptions | Medium | High | P4 |
+| Watch Folders & Subscriptions | Medium | High | P4 ✅ |
 | Audio Pre-processing | Medium | Medium | P5 ✅ |
 
 ---
@@ -113,30 +113,30 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 
 ---
 
-## P4: Watch Folders & Subscriptions
+## P4: Watch Folders & Subscriptions ✅ COMPLETED
 
 **Goal:** Automated archiving of RSS feeds and channels.
 
 ### Tasks
 
-- [ ] Create subscription model in database
-- [ ] Subscription types:
-  - [ ] RSS feed URL
-  - [ ] YouTube channel/playlist
+- [x] Create subscription model in database
+- [x] Subscription types:
+  - [x] RSS feed URL
+  - [x] YouTube channel/playlist
   - [ ] X user's Spaces (if API allows)
-- [ ] Background worker for checking subscriptions:
-  - [ ] Configurable check interval (default: 1 hour)
-  - [ ] Track last checked timestamp
-  - [ ] Track downloaded episode IDs to avoid duplicates
-- [ ] Subscription management API endpoints:
-  - [ ] `POST /subscriptions` - Add subscription
-  - [ ] `GET /subscriptions` - List subscriptions
-  - [ ] `DELETE /subscriptions/{id}` - Remove subscription
-  - [ ] `POST /subscriptions/{id}/check` - Force check now
-- [ ] Web UI subscription management page
-- [ ] Auto-transcribe option per subscription
-- [ ] Download limit (e.g., keep last N episodes)
-- [ ] Notification on new downloads (webhook/email)
+- [x] Background worker for checking subscriptions:
+  - [x] Configurable check interval (default: 1 hour)
+  - [x] Track last checked timestamp
+  - [x] Track downloaded episode IDs to avoid duplicates
+- [x] Subscription management API endpoints:
+  - [x] `POST /subscriptions` - Add subscription
+  - [x] `GET /subscriptions` - List subscriptions
+  - [x] `DELETE /subscriptions/{id}` - Remove subscription
+  - [x] `POST /subscriptions/{id}/check` - Force check now
+- [x] Web UI subscription management page
+- [x] Auto-transcribe option per subscription
+- [x] Download limit (e.g., keep last N episodes)
+- [x] Notification on new downloads (webhook/email)
 
 ---
 
@@ -164,13 +164,13 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 
 ## Future Ideas (Backlog)
 
-- [ ] Batch download from URL list/file
-- [ ] Download queue priority levels
-- [ ] Scheduled downloads (download at specific time)
+- [x] Batch download from URL list/file ✅
+- [x] Download queue priority levels ✅
+- [x] Scheduled downloads (download at specific time) ✅
 - [ ] Storage management (auto-cleanup old files)
 - [ ] Multi-language UI
 - [ ] Mobile-responsive Web UI improvements
 - [ ] Docker Compose with GPU support for transcription
-- [ ] Webhook notifications for job completion
+- [x] Webhook notifications for job completion ✅
 - [ ] Export to cloud storage (S3, Google Drive, Dropbox)
-- [ ] Collaborative annotations on transcripts
+- [x] Collaborative annotations on transcripts ✅

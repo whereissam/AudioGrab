@@ -1,3 +1,81 @@
+# API Endpoints Reference
+
+## AudioGrab REST API
+
+Full interactive documentation available at http://localhost:8000/docs (Swagger UI).
+
+### Core Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/health` | Health check |
+| GET | `/api/platforms` | List supported platforms |
+| POST | `/api/download` | Start download job |
+| GET | `/api/download/{job_id}` | Get download status |
+| GET | `/api/download/{job_id}/file` | Download completed file |
+| DELETE | `/api/download/{job_id}` | Cancel download |
+| POST | `/api/transcribe` | Start transcription from URL |
+| POST | `/api/transcribe/upload` | Upload file & transcribe |
+| GET | `/api/transcribe/{job_id}` | Get transcription status |
+| GET | `/api/jobs` | List all jobs |
+| POST | `/api/jobs/{id}/retry` | Retry failed job |
+
+### Batch & Queue Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/queue` | Get queue status |
+| PATCH | `/api/download/{job_id}/priority` | Update job priority (1-10) |
+| POST | `/api/batch/download` | Create batch from URL list |
+| POST | `/api/batch/upload` | Create batch from uploaded file |
+| GET | `/api/batch/{batch_id}` | Get batch status |
+| GET | `/api/batch/{batch_id}/jobs` | List jobs in batch |
+| DELETE | `/api/batch/{batch_id}` | Cancel batch |
+| GET | `/api/batch` | List all batches |
+
+### Schedule Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/schedule/download` | Schedule a download |
+| GET | `/api/schedule` | List scheduled downloads |
+| DELETE | `/api/schedule/{job_id}` | Cancel scheduled download |
+| PATCH | `/api/schedule/{job_id}` | Update schedule time/priority |
+
+### Webhook Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/webhooks/config` | Get webhook configuration |
+| POST | `/api/webhooks/test` | Test a webhook URL |
+| GET | `/api/webhooks/events` | List webhook event types |
+
+### Annotation Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/jobs/{job_id}/annotations` | Create annotation |
+| GET | `/api/jobs/{job_id}/annotations` | List annotations for job |
+| GET | `/api/annotations/{id}` | Get annotation with replies |
+| PUT | `/api/annotations/{id}` | Update annotation |
+| DELETE | `/api/annotations/{id}` | Delete annotation |
+| POST | `/api/annotations/{id}/reply` | Reply to annotation |
+| WS | `/api/jobs/{job_id}/annotations/ws` | WebSocket for real-time updates |
+
+### Subscription Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/subscriptions` | Create subscription |
+| GET | `/api/subscriptions` | List subscriptions |
+| GET | `/api/subscriptions/{id}` | Get subscription details |
+| PATCH | `/api/subscriptions/{id}` | Update subscription |
+| DELETE | `/api/subscriptions/{id}` | Delete subscription |
+| POST | `/api/subscriptions/{id}/check` | Force check for new content |
+| GET | `/api/subscriptions/{id}/items` | List subscription items |
+
+---
+
 # X/Twitter API Endpoints Reference
 
 This document details the internal X/Twitter API endpoints used for downloading Spaces.

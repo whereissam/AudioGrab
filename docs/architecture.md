@@ -77,7 +77,12 @@ xdownloader/
 │   │   ├── downloader.py    # yt-dlp based downloader
 │   │   ├── converter.py     # FFmpeg audio converter
 │   │   ├── transcriber.py   # Whisper transcription
-│   │   ├── job_store.py     # SQLite job persistence
+│   │   ├── job_store.py     # SQLite job persistence (+ batches, annotations)
+│   │   ├── queue_manager.py # Priority-based download queue
+│   │   ├── batch_manager.py # Batch download operations
+│   │   ├── scheduler.py     # Scheduled downloads worker
+│   │   ├── webhook_notifier.py    # Webhook delivery with retry
+│   │   ├── websocket_manager.py   # Real-time annotation updates
 │   │   ├── subscription_store.py   # SQLite subscription storage
 │   │   ├── subscription_fetcher.py # RSS/YouTube fetchers
 │   │   ├── subscription_worker.py  # Background subscription worker
@@ -87,9 +92,12 @@ xdownloader/
 │   ├── api/                 # FastAPI routes
 │   │   ├── __init__.py
 │   │   ├── routes.py        # Download/transcribe endpoints
-│   │   ├── subscription_routes.py  # Subscription endpoints
-│   │   ├── schemas.py       # Pydantic models
-│   │   └── subscription_schemas.py # Subscription models
+│   │   ├── batch_routes.py  # Batch download endpoints
+│   │   ├── schedule_routes.py     # Scheduled download endpoints
+│   │   ├── webhook_routes.py      # Webhook configuration
+│   │   ├── annotation_routes.py   # Annotation CRUD + WebSocket
+│   │   ├── subscription_routes.py # Subscription endpoints
+│   │   └── schemas.py       # Pydantic models
 │   │
 │   └── bot/                 # Telegram bot
 │       ├── __init__.py
@@ -99,10 +107,13 @@ xdownloader/
 │   └── src/
 │       ├── components/
 │       │   ├── downloader/  # Download components
-│       │   └── subscriptions/ # Subscription components
+│       │   │   └── BatchDownloadForm.tsx
+│       │   ├── queue/       # Queue view
+│       │   ├── schedule/    # Schedule modal
+│       │   ├── settings/    # Webhook settings
+│       │   ├── annotations/ # Annotation components
+│       │   └── subscriptions/
 │       └── routes/
-│           ├── index.tsx    # Home page
-│           └── subscriptions.tsx # Subscriptions page
 │
 ├── tests/
 │   └── test_parser.py
@@ -195,11 +206,52 @@ class SpaceURLParser:
 | POST | `/api/download` | Start download job |
 | GET | `/api/download/{job_id}` | Get download status |
 | GET | `/api/download/{job_id}/file` | Download completed file |
+| PATCH | `/api/download/{job_id}/priority` | Update job priority |
 | POST | `/api/transcribe` | Start transcription from URL |
 | POST | `/api/transcribe/upload` | Upload file & transcribe |
 | GET | `/api/transcribe/{job_id}` | Get transcription status |
 | GET | `/api/add?url=...` | Quick add (browser extension) |
 | GET | `/api/health` | Health check |
+
+#### Queue & Batch
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/queue` | Get queue status |
+| POST | `/api/batch/download` | Create batch from URL list |
+| POST | `/api/batch/upload` | Create batch from file |
+| GET | `/api/batch/{id}` | Get batch status |
+| GET | `/api/batch/{id}/jobs` | List jobs in batch |
+| DELETE | `/api/batch/{id}` | Cancel batch |
+
+#### Scheduling
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/schedule/download` | Schedule a download |
+| GET | `/api/schedule` | List scheduled downloads |
+| DELETE | `/api/schedule/{id}` | Cancel scheduled download |
+| PATCH | `/api/schedule/{id}` | Update schedule |
+
+#### Webhooks
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/webhooks/config` | Get webhook config |
+| POST | `/api/webhooks/test` | Test webhook URL |
+| GET | `/api/webhooks/events` | List event types |
+
+#### Annotations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/jobs/{id}/annotations` | Create annotation |
+| GET | `/api/jobs/{id}/annotations` | List annotations |
+| GET | `/api/annotations/{id}` | Get with replies |
+| PUT | `/api/annotations/{id}` | Update annotation |
+| DELETE | `/api/annotations/{id}` | Delete annotation |
+| POST | `/api/annotations/{id}/reply` | Reply to annotation |
+| WS | `/api/jobs/{id}/annotations/ws` | Real-time updates |
 
 #### Subscriptions
 
