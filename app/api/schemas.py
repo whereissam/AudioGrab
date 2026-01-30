@@ -84,6 +84,21 @@ class DownloadRequest(BaseModel):
         default=True,
         description="Keep the downloaded file after completion. Set to False for temp downloads.",
     )
+    # Priority & Scheduling
+    priority: int = Field(
+        default=5,
+        ge=1,
+        le=10,
+        description="Priority level (1=low, 5=normal, 10=high)",
+    )
+    scheduled_at: Optional[datetime] = Field(
+        default=None,
+        description="Schedule download for a specific time (ISO format)",
+    )
+    webhook_url: Optional[str] = Field(
+        default=None,
+        description="Webhook URL for job completion notification",
+    )
 
 
 class ContentInfo(BaseModel):
@@ -364,3 +379,237 @@ class SummaryResponse(BaseModel):
         default=None,
         description="Number of tokens used for generation",
     )
+
+
+# ============ Priority Queue Schemas ============
+
+
+class PriorityUpdate(BaseModel):
+    """Request to update job priority."""
+
+    priority: int = Field(
+        ...,
+        ge=1,
+        le=10,
+        description="New priority level (1=low, 10=high)",
+    )
+
+
+class QueueStatus(BaseModel):
+    """Current queue status."""
+
+    pending: int = Field(description="Number of jobs waiting in queue")
+    processing: int = Field(description="Number of jobs currently processing")
+    max_concurrent: int = Field(description="Maximum concurrent jobs")
+    processing_jobs: list[str] = Field(description="IDs of jobs being processed")
+    jobs: list[dict] = Field(description="Jobs in queue with priority info")
+
+
+# ============ Batch Schemas ============
+
+
+class BatchDownloadRequest(BaseModel):
+    """Request to create a batch download."""
+
+    urls: list[str] = Field(
+        ...,
+        min_length=1,
+        description="List of URLs to download",
+    )
+    name: Optional[str] = Field(
+        default=None,
+        description="Optional name for the batch",
+    )
+    priority: int = Field(
+        default=5,
+        ge=1,
+        le=10,
+        description="Priority level for all jobs in batch",
+    )
+    format: OutputFormat = Field(
+        default=OutputFormat.M4A,
+        description="Output format for all downloads",
+    )
+    quality: QualityPreset = Field(
+        default=QualityPreset.HIGH,
+        description="Quality preset for all downloads",
+    )
+    webhook_url: Optional[str] = Field(
+        default=None,
+        description="Webhook URL for batch completion notification",
+    )
+
+
+class BatchResponse(BaseModel):
+    """Response for batch creation."""
+
+    batch_id: str
+    name: Optional[str]
+    total_jobs: int
+    job_ids: list[str]
+    status: str
+    created_at: datetime
+
+
+class BatchStatus(BaseModel):
+    """Batch status response."""
+
+    batch_id: str
+    name: Optional[str]
+    total_jobs: int
+    completed_jobs: int
+    failed_jobs: int
+    status: str
+    webhook_url: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+
+# ============ Schedule Schemas ============
+
+
+class ScheduleDownloadRequest(BaseModel):
+    """Request to schedule a download."""
+
+    url: str = Field(
+        ...,
+        description="URL to download",
+    )
+    scheduled_at: datetime = Field(
+        ...,
+        description="When to start the download (ISO format)",
+    )
+    platform: Platform = Field(
+        default=Platform.AUTO,
+        description="Platform (auto-detected if not specified)",
+    )
+    format: OutputFormat = Field(
+        default=OutputFormat.M4A,
+        description="Output format",
+    )
+    quality: QualityPreset = Field(
+        default=QualityPreset.HIGH,
+        description="Quality preset",
+    )
+    priority: int = Field(
+        default=5,
+        ge=1,
+        le=10,
+        description="Priority level when scheduled time arrives",
+    )
+    webhook_url: Optional[str] = Field(
+        default=None,
+        description="Webhook URL for completion notification",
+    )
+
+
+class ScheduledJob(BaseModel):
+    """Scheduled job response."""
+
+    job_id: str
+    url: str
+    scheduled_at: datetime
+    priority: int
+    status: str
+    created_at: datetime
+
+
+# ============ Webhook Schemas ============
+
+
+class WebhookConfig(BaseModel):
+    """Webhook configuration."""
+
+    default_url: Optional[str] = Field(
+        default=None,
+        description="Default webhook URL for all jobs",
+    )
+    retry_attempts: int = Field(
+        default=3,
+        description="Number of retry attempts for failed webhooks",
+    )
+    retry_delay: int = Field(
+        default=60,
+        description="Delay between retries in seconds",
+    )
+
+
+class WebhookTestRequest(BaseModel):
+    """Request to test a webhook."""
+
+    url: str = Field(
+        ...,
+        description="Webhook URL to test",
+    )
+
+
+class WebhookTestResponse(BaseModel):
+    """Response from webhook test."""
+
+    success: bool
+    error: Optional[str] = None
+
+
+# ============ Annotation Schemas ============
+
+
+class CreateAnnotationRequest(BaseModel):
+    """Request to create an annotation."""
+
+    content: str = Field(
+        ...,
+        min_length=1,
+        description="Annotation content",
+    )
+    user_id: str = Field(
+        ...,
+        description="ID of the user creating the annotation",
+    )
+    user_name: Optional[str] = Field(
+        default=None,
+        description="Display name of the user",
+    )
+    segment_start: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="Start time of the transcript segment (seconds)",
+    )
+    segment_end: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="End time of the transcript segment (seconds)",
+    )
+    parent_id: Optional[str] = Field(
+        default=None,
+        description="ID of parent annotation if this is a reply",
+    )
+
+
+class UpdateAnnotationRequest(BaseModel):
+    """Request to update an annotation."""
+
+    content: str = Field(
+        ...,
+        min_length=1,
+        description="Updated annotation content",
+    )
+
+
+class AnnotationResponse(BaseModel):
+    """Annotation response."""
+
+    id: str
+    job_id: str
+    content: str
+    user_id: str
+    user_name: Optional[str] = None
+    segment_start: Optional[float] = None
+    segment_end: Optional[float] = None
+    parent_id: Optional[str] = None
+    replies: list["AnnotationResponse"] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+
+
+# Fix forward reference for nested annotations
+AnnotationResponse.model_rebuild()

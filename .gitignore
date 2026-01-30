@@ -72,3 +72,4 @@ temp/
 *.tmp
 data/
 output/
+faster-whisper/

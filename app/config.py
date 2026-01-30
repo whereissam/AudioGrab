@@ -77,6 +77,20 @@ class Settings(BaseSettings):
     subscription_max_concurrent: int = 2  # Max concurrent downloads per check
     subscription_webhook_url: str | None = None  # Optional webhook for notifications
 
+    # Webhooks
+    default_webhook_url: str | None = None  # Default webhook URL for job notifications
+    webhook_retry_attempts: int = 3  # Number of retry attempts for failed webhooks
+    webhook_retry_delay: int = 60  # Delay between retries in seconds
+
+    # Scheduler
+    scheduler_enabled: bool = True  # Enable scheduled downloads
+    scheduler_check_interval: int = 60  # Check interval in seconds
+
+    # Queue
+    queue_enabled: bool = True  # Enable priority queue processing
+    default_priority: int = 5  # Default priority level (1-10)
+    max_concurrent_queue_jobs: int = 5  # Max concurrent jobs in queue
+
     def get_download_path(self) -> Path:
         """Get download directory as Path, creating if needed."""
         path = Path(self.download_dir)

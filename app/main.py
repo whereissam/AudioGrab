@@ -64,7 +64,37 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to start subscription worker: {e}")
 
+    # Start queue manager
+    try:
+        from .core.queue_manager import start_queue_manager
+        await start_queue_manager()
+        logger.info("Queue manager started")
+    except Exception as e:
+        logger.error(f"Failed to start queue manager: {e}")
+
+    # Start scheduler worker
+    try:
+        from .core.scheduler import start_scheduler_worker
+        await start_scheduler_worker()
+        logger.info("Scheduler worker started")
+    except Exception as e:
+        logger.error(f"Failed to start scheduler worker: {e}")
+
     yield
+
+    # Stop scheduler worker
+    try:
+        from .core.scheduler import stop_scheduler_worker
+        await stop_scheduler_worker()
+    except Exception as e:
+        logger.error(f"Failed to stop scheduler worker: {e}")
+
+    # Stop queue manager
+    try:
+        from .core.queue_manager import stop_queue_manager
+        await stop_queue_manager()
+    except Exception as e:
+        logger.error(f"Failed to stop queue manager: {e}")
 
     # Stop subscription worker
     try:

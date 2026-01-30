@@ -11,6 +11,9 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# Current schema version for migrations
+SCHEMA_VERSION = 2
+
 
 class JobStatus(str, Enum):
     """Job status states."""
@@ -88,6 +91,16 @@ class JobStore:
                     progress REAL DEFAULT 0.0,
                     last_checkpoint TEXT,  -- JSON for transcription segments
 
+                    -- Priority & Batching (v2)
+                    priority INTEGER DEFAULT 5,
+                    batch_id TEXT,
+
+                    -- Scheduling (v2)
+                    scheduled_at TEXT,
+
+                    -- Webhooks (v2)
+                    webhook_url TEXT,
+
                     -- Timestamps
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
@@ -98,6 +111,68 @@ class JobStore:
             # Index for faster queries
             conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON jobs(status)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_job_type ON jobs(job_type)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_priority ON jobs(priority)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_batch_id ON jobs(batch_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_scheduled_at ON jobs(scheduled_at)")
+
+            # Batches table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS batches (
+                    batch_id TEXT PRIMARY KEY,
+                    name TEXT,
+                    total_jobs INTEGER DEFAULT 0,
+                    completed_jobs INTEGER DEFAULT 0,
+                    failed_jobs INTEGER DEFAULT 0,
+                    status TEXT DEFAULT 'pending',
+                    webhook_url TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+
+            # Annotations table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS annotations (
+                    id TEXT PRIMARY KEY,
+                    job_id TEXT NOT NULL,
+                    segment_start REAL,
+                    segment_end REAL,
+                    user_id TEXT NOT NULL,
+                    user_name TEXT,
+                    content TEXT NOT NULL,
+                    parent_id TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_annotations_job ON annotations(job_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_annotations_parent ON annotations(parent_id)")
+
+            # Run migrations for existing databases
+            self._migrate_schema(conn)
+
+    def _migrate_schema(self, conn: sqlite3.Connection):
+        """Run database migrations for schema updates."""
+        # Check existing columns in jobs table
+        cursor = conn.execute("PRAGMA table_info(jobs)")
+        existing_columns = {row[1] for row in cursor.fetchall()}
+
+        # Add missing columns (v2 schema)
+        migrations = [
+            ("priority", "INTEGER DEFAULT 5"),
+            ("batch_id", "TEXT"),
+            ("scheduled_at", "TEXT"),
+            ("webhook_url", "TEXT"),
+        ]
+
+        for col_name, col_type in migrations:
+            if col_name not in existing_columns:
+                try:
+                    conn.execute(f"ALTER TABLE jobs ADD COLUMN {col_name} {col_type}")
+                    logger.info(f"Added column {col_name} to jobs table")
+                except sqlite3.OperationalError:
+                    pass  # Column might already exist
 
     def create_job(
         self,
@@ -110,6 +185,10 @@ class JobStore:
         model_size: Optional[str] = None,
         language: Optional[str] = None,
         transcription_format: Optional[str] = None,
+        priority: int = 5,
+        batch_id: Optional[str] = None,
+        scheduled_at: Optional[str] = None,
+        webhook_url: Optional[str] = None,
     ) -> dict:
         """Create a new job."""
         now = datetime.utcnow().isoformat()
@@ -119,12 +198,14 @@ class JobStore:
                 INSERT INTO jobs (
                     job_id, job_type, status, source_url, platform,
                     output_format, quality, model_size, language, transcription_format,
+                    priority, batch_id, scheduled_at, webhook_url,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 job_id, job_type.value, JobStatus.PENDING.value,
                 source_url, platform, output_format, quality,
                 model_size, language, transcription_format,
+                priority, batch_id, scheduled_at, webhook_url,
                 now, now
             ))
 
@@ -324,6 +405,257 @@ class JobStore:
             if current_backup.exists():
                 shutil.copy2(current_backup, self.db_path)
             raise
+
+    # ============ Priority Queue Methods ============
+
+    def get_jobs_by_priority(
+        self,
+        statuses: Optional[list[JobStatus]] = None,
+        limit: int = 100,
+    ) -> list[dict]:
+        """Get jobs ordered by priority (high to low), then by creation time."""
+        if statuses is None:
+            statuses = [JobStatus.PENDING]
+
+        placeholders = ",".join("?" * len(statuses))
+        status_values = [s.value for s in statuses]
+
+        with self._get_conn() as conn:
+            rows = conn.execute(f"""
+                SELECT * FROM jobs
+                WHERE status IN ({placeholders})
+                  AND (scheduled_at IS NULL OR scheduled_at <= ?)
+                ORDER BY priority DESC, created_at ASC
+                LIMIT ?
+            """, (*status_values, datetime.utcnow().isoformat(), limit)).fetchall()
+
+            return [self._row_to_dict(row) for row in rows]
+
+    def update_priority(self, job_id: str, priority: int) -> Optional[dict]:
+        """Update a job's priority level."""
+        priority = max(1, min(10, priority))  # Clamp to 1-10
+        return self.update_job(job_id, priority=priority)
+
+    # ============ Scheduled Jobs Methods ============
+
+    def get_scheduled_jobs(self, before_time: Optional[str] = None) -> list[dict]:
+        """Get scheduled jobs that are due to run."""
+        if before_time is None:
+            before_time = datetime.utcnow().isoformat()
+
+        with self._get_conn() as conn:
+            rows = conn.execute("""
+                SELECT * FROM jobs
+                WHERE status = ?
+                  AND scheduled_at IS NOT NULL
+                  AND scheduled_at <= ?
+                ORDER BY scheduled_at ASC
+            """, (JobStatus.PENDING.value, before_time)).fetchall()
+
+            return [self._row_to_dict(row) for row in rows]
+
+    def clear_scheduled_at(self, job_id: str) -> Optional[dict]:
+        """Clear the scheduled_at field when a job is queued."""
+        return self.update_job(job_id, scheduled_at=None)
+
+    # ============ Batch Methods ============
+
+    def create_batch(
+        self,
+        batch_id: str,
+        name: Optional[str] = None,
+        total_jobs: int = 0,
+        webhook_url: Optional[str] = None,
+    ) -> dict:
+        """Create a new batch."""
+        now = datetime.utcnow().isoformat()
+
+        with self._get_conn() as conn:
+            conn.execute("""
+                INSERT INTO batches (batch_id, name, total_jobs, webhook_url, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (batch_id, name, total_jobs, webhook_url, now, now))
+
+        return self.get_batch(batch_id)
+
+    def get_batch(self, batch_id: str) -> Optional[dict]:
+        """Get batch by ID."""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM batches WHERE batch_id = ?", (batch_id,)
+            ).fetchone()
+
+            if row:
+                return dict(row)
+        return None
+
+    def get_batch_jobs(self, batch_id: str) -> list[dict]:
+        """Get all jobs in a batch."""
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM jobs WHERE batch_id = ? ORDER BY created_at ASC",
+                (batch_id,)
+            ).fetchall()
+
+            return [self._row_to_dict(row) for row in rows]
+
+    def update_batch_stats(self, batch_id: str) -> Optional[dict]:
+        """Recalculate and update batch statistics."""
+        jobs = self.get_batch_jobs(batch_id)
+        if not jobs:
+            return None
+
+        completed = sum(1 for j in jobs if j["status"] == JobStatus.COMPLETED.value)
+        failed = sum(1 for j in jobs if j["status"] == JobStatus.FAILED.value)
+        total = len(jobs)
+
+        # Determine batch status
+        if completed + failed == total:
+            status = "completed" if failed == 0 else "completed_with_errors"
+        elif completed + failed > 0:
+            status = "in_progress"
+        else:
+            status = "pending"
+
+        now = datetime.utcnow().isoformat()
+        with self._get_conn() as conn:
+            conn.execute("""
+                UPDATE batches
+                SET completed_jobs = ?, failed_jobs = ?, status = ?, updated_at = ?
+                WHERE batch_id = ?
+            """, (completed, failed, status, now, batch_id))
+
+        return self.get_batch(batch_id)
+
+    def delete_batch(self, batch_id: str) -> bool:
+        """Delete a batch (does not delete associated jobs)."""
+        with self._get_conn() as conn:
+            cursor = conn.execute("DELETE FROM batches WHERE batch_id = ?", (batch_id,))
+            return cursor.rowcount > 0
+
+    def get_all_batches(self, status: Optional[str] = None, limit: int = 50) -> list[dict]:
+        """Get all batches with optional status filter."""
+        with self._get_conn() as conn:
+            if status:
+                rows = conn.execute(
+                    "SELECT * FROM batches WHERE status = ? ORDER BY created_at DESC LIMIT ?",
+                    (status, limit)
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM batches ORDER BY created_at DESC LIMIT ?",
+                    (limit,)
+                ).fetchall()
+
+            return [dict(row) for row in rows]
+
+    # ============ Annotation Methods ============
+
+    def create_annotation(
+        self,
+        annotation_id: str,
+        job_id: str,
+        user_id: str,
+        content: str,
+        segment_start: Optional[float] = None,
+        segment_end: Optional[float] = None,
+        parent_id: Optional[str] = None,
+        user_name: Optional[str] = None,
+    ) -> dict:
+        """Create a new annotation."""
+        now = datetime.utcnow().isoformat()
+
+        with self._get_conn() as conn:
+            conn.execute("""
+                INSERT INTO annotations (
+                    id, job_id, user_id, content, segment_start, segment_end,
+                    parent_id, user_name, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                annotation_id, job_id, user_id, content, segment_start, segment_end,
+                parent_id, user_name, now, now
+            ))
+
+        return self.get_annotation(annotation_id)
+
+    def get_annotation(self, annotation_id: str) -> Optional[dict]:
+        """Get annotation by ID."""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM annotations WHERE id = ?", (annotation_id,)
+            ).fetchone()
+
+            if row:
+                return dict(row)
+        return None
+
+    def get_annotations_for_job(
+        self,
+        job_id: str,
+        segment_start: Optional[float] = None,
+        segment_end: Optional[float] = None,
+    ) -> list[dict]:
+        """Get all annotations for a job, optionally filtered by time range."""
+        with self._get_conn() as conn:
+            if segment_start is not None and segment_end is not None:
+                rows = conn.execute("""
+                    SELECT * FROM annotations
+                    WHERE job_id = ? AND parent_id IS NULL
+                      AND ((segment_start IS NULL) OR
+                           (segment_start <= ? AND segment_end >= ?))
+                    ORDER BY segment_start ASC, created_at ASC
+                """, (job_id, segment_end, segment_start)).fetchall()
+            else:
+                rows = conn.execute("""
+                    SELECT * FROM annotations
+                    WHERE job_id = ? AND parent_id IS NULL
+                    ORDER BY segment_start ASC, created_at ASC
+                """, (job_id,)).fetchall()
+
+            return [dict(row) for row in rows]
+
+    def get_annotation_replies(self, parent_id: str) -> list[dict]:
+        """Get replies to an annotation."""
+        with self._get_conn() as conn:
+            rows = conn.execute("""
+                SELECT * FROM annotations
+                WHERE parent_id = ?
+                ORDER BY created_at ASC
+            """, (parent_id,)).fetchall()
+
+            return [dict(row) for row in rows]
+
+    def get_annotation_with_replies(self, annotation_id: str) -> Optional[dict]:
+        """Get an annotation with all its replies."""
+        annotation = self.get_annotation(annotation_id)
+        if not annotation:
+            return None
+
+        annotation["replies"] = self.get_annotation_replies(annotation_id)
+        return annotation
+
+    def update_annotation(self, annotation_id: str, content: str) -> Optional[dict]:
+        """Update an annotation's content."""
+        now = datetime.utcnow().isoformat()
+
+        with self._get_conn() as conn:
+            cursor = conn.execute("""
+                UPDATE annotations SET content = ?, updated_at = ?
+                WHERE id = ?
+            """, (content, now, annotation_id))
+
+            if cursor.rowcount > 0:
+                return self.get_annotation(annotation_id)
+        return None
+
+    def delete_annotation(self, annotation_id: str) -> bool:
+        """Delete an annotation and its replies."""
+        with self._get_conn() as conn:
+            # Delete replies first
+            conn.execute("DELETE FROM annotations WHERE parent_id = ?", (annotation_id,))
+            # Delete the annotation
+            cursor = conn.execute("DELETE FROM annotations WHERE id = ?", (annotation_id,))
+            return cursor.rowcount > 0
 
     def _row_to_dict(self, row: sqlite3.Row) -> dict:
         """Convert database row to dictionary."""

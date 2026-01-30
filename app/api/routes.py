@@ -356,6 +356,54 @@ async def get_download_status(job_id: str):
     return jobs[job_id]
 
 
+@router.patch("/download/{job_id}/priority")
+async def update_download_priority(job_id: str, priority: int):
+    """
+    Update the priority of a pending download job.
+
+    Priority levels: 1 (lowest) to 10 (highest).
+    Only affects jobs that are still in the queue.
+    """
+    from .schemas import PriorityUpdate
+    from ..core.queue_manager import get_queue_manager
+    from ..core.job_store import get_job_store
+
+    if priority < 1 or priority > 10:
+        raise HTTPException(
+            status_code=400,
+            detail="Priority must be between 1 and 10",
+        )
+
+    # Update in queue
+    queue_manager = get_queue_manager()
+    updated = await queue_manager.update_priority(job_id, priority)
+
+    if not updated:
+        # Job might not be in queue, try updating in database directly
+        job_store = get_job_store()
+        job = job_store.get_job(job_id)
+
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        job_store.update_priority(job_id, priority)
+
+    return {
+        "job_id": job_id,
+        "priority": priority,
+        "status": "updated",
+    }
+
+
+@router.get("/queue")
+async def get_queue_status():
+    """Get the current download queue status."""
+    from ..core.queue_manager import get_queue_manager
+
+    queue_manager = get_queue_manager()
+    return queue_manager.get_queue_status()
+
+
 @router.get("/download/{job_id}/file")
 async def get_download_file(job_id: str):
     """Download the completed file for a job."""
