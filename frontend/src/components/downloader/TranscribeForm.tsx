@@ -135,7 +135,7 @@ export function TranscribeForm({
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
             {selectedFile ? (
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-muted-foreground">
                 <FileAudio className="h-6 w-6 text-primary flex-shrink-0" />
                 <span className="font-medium text-center break-all line-clamp-2 sm:line-clamp-1">{selectedFile.name}</span>
                 <span className="text-sm text-muted-foreground whitespace-nowrap">

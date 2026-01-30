@@ -323,7 +323,7 @@ export function TranscriptionSuccess({
         </div>
       )}
 
-      <div className="bg-card rounded-xl shadow-lg p-3 sm:p-6 mb-3 sm:mb-6">
+      <div className="bg-card rounded-xl shadow-lg p-3 sm:p-6 mb-3 sm:mb-6 text-muted-foreground">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -340,7 +340,7 @@ export function TranscriptionSuccess({
       </div>
 
       {/* Summarization Section */}
-      <div className="bg-card rounded-xl shadow-lg p-3 sm:p-4 mb-3 sm:mb-6">
+      <div className="bg-card rounded-xl shadow-lg p-3 sm:p-4 mb-3 sm:mb-6 text-muted-foreground">
         <div className="flex items-center gap-2 mb-3 sm:mb-4">
           <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
           <span className="font-medium text-sm sm:text-base">AI Summary</span>
@@ -413,7 +413,7 @@ export function TranscriptionSuccess({
       </div>
 
       {/* Translation Section */}
-      <div className="bg-card rounded-xl shadow-lg p-3 sm:p-4 mb-3 sm:mb-6">
+      <div className="bg-card rounded-xl shadow-lg p-3 sm:p-4 mb-3 sm:mb-6 text-muted-foreground">
         <div className="flex items-center gap-2 mb-3 sm:mb-4">
           <Languages className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
           <span className="font-medium text-sm sm:text-base">Translate</span>
