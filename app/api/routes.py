@@ -4,7 +4,7 @@ import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
@@ -315,7 +315,7 @@ async def get_platforms():
 
 
 async def _process_transcription(job_id: str, request: TranscribeRequest, audio_path: Path):
-    """Background task to process transcription."""
+    """Background task to process transcription with checkpoint support."""
     from ..core.transcriber import AudioTranscriber
 
     job = transcription_jobs[job_id]
@@ -331,6 +331,8 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
             language=request.language,
             task=task,
             vad_filter=True,
+            job_id=job_id,  # Enable checkpointing
+            output_format=request.output_format.value,
         )
 
         if result.success:
@@ -469,6 +471,16 @@ async def start_transcription(
     return job
 
 
+@router.get("/transcribe/resumable")
+async def list_resumable_transcriptions():
+    """List all transcription jobs that can be resumed."""
+    from ..core.transcriber import AudioTranscriber
+
+    transcriber = AudioTranscriber()
+    jobs = transcriber.get_resumable_jobs()
+    return {"resumable_jobs": jobs}
+
+
 @router.get("/transcribe/{job_id}", response_model=TranscriptionJob)
 async def get_transcription_status(job_id: str):
     """Get the status of a transcription job."""
@@ -484,6 +496,162 @@ async def cancel_transcription(job_id: str):
         raise HTTPException(status_code=404, detail="Transcription job not found")
 
     del transcription_jobs[job_id]
+    return {"status": "deleted", "job_id": job_id}
+
+
+@router.post("/transcribe/{job_id}/resume", response_model=TranscriptionJob)
+async def resume_transcription(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+):
+    """Resume a previously interrupted transcription job."""
+    from ..core.transcriber import AudioTranscriber
+    from ..core.checkpoint import CheckpointManager
+
+    checkpoint_manager = CheckpointManager()
+    checkpoint = checkpoint_manager.load(job_id)
+
+    if not checkpoint:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No checkpoint found for job {job_id}",
+        )
+
+    audio_path = Path(checkpoint.audio_path)
+    if not audio_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Audio file no longer exists: {checkpoint.audio_path}",
+        )
+
+    # Create or update job in memory
+    job = TranscriptionJob(
+        job_id=job_id,
+        status=JobStatus.PENDING,
+        progress=checkpoint.last_end_time / checkpoint.total_duration if checkpoint.total_duration else 0,
+        source_url=f"resume://{audio_path.name}",
+        created_at=datetime.fromisoformat(checkpoint.created_at),
+    )
+    transcription_jobs[job_id] = job
+
+    # Create mock request from checkpoint
+    class ResumeTranscribeRequest:
+        def __init__(self):
+            self.model = type("Model", (), {"value": checkpoint.model_size})()
+            self.output_format = type("Format", (), {"value": checkpoint.output_format})()
+            self.language = checkpoint.language
+            self.translate = checkpoint.task == "translate"
+
+    request = ResumeTranscribeRequest()
+
+    # Start background transcription (will resume from checkpoint)
+    background_tasks.add_task(_process_transcription, job_id, request, audio_path)
+
+    return job
+
+
+# ============ Job Management Endpoints ============
+
+
+@router.get("/jobs")
+async def list_all_jobs(
+    status: Optional[str] = None,
+    job_type: Optional[str] = None,
+    limit: int = 50,
+):
+    """List all jobs with optional filtering."""
+    from ..core.job_store import get_job_store, JobStatus as StoreJobStatus, JobType
+
+    job_store = get_job_store()
+
+    if status:
+        try:
+            status_enum = StoreJobStatus(status)
+            jobs = job_store.get_jobs_by_status(status_enum)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+    else:
+        # Get all jobs (recent first)
+        with job_store._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?",
+                (limit,)
+            ).fetchall()
+            jobs = [job_store._row_to_dict(row) for row in rows]
+
+    if job_type:
+        jobs = [j for j in jobs if j["job_type"] == job_type]
+
+    return {"jobs": jobs[:limit], "total": len(jobs)}
+
+
+@router.get("/jobs/resumable")
+async def list_resumable_jobs():
+    """List all jobs that can be resumed (failed or interrupted)."""
+    from ..core.job_store import get_job_store
+
+    job_store = get_job_store()
+    jobs = job_store.get_resumable_jobs()
+
+    return {
+        "resumable_jobs": jobs,
+        "total": len(jobs),
+    }
+
+
+@router.post("/jobs/{job_id}/retry")
+async def retry_job(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+):
+    """Retry a failed or interrupted job from its last successful phase."""
+    from ..core.job_store import get_job_store
+    from ..core.workflow import WorkflowProcessor
+
+    job_store = get_job_store()
+    job = job_store.get_job(job_id)
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job["status"] == "completed":
+        raise HTTPException(status_code=400, detail="Job already completed")
+
+    # Run retry in background
+    async def _retry():
+        processor = WorkflowProcessor(job_store)
+        await processor.retry_job(job_id)
+
+    background_tasks.add_task(_retry)
+
+    return {
+        "status": "retrying",
+        "job_id": job_id,
+        "previous_status": job["status"],
+    }
+
+
+@router.delete("/jobs/{job_id}")
+async def delete_job(job_id: str):
+    """Delete a job and its associated files."""
+    from ..core.job_store import get_job_store
+
+    job_store = get_job_store()
+    job = job_store.get_job(job_id)
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Delete associated files
+    for path_field in ["raw_file_path", "converted_file_path"]:
+        if job.get(path_field):
+            path = Path(job[path_field])
+            if path.exists():
+                path.unlink()
+
+    # Delete from database
+    job_store.delete_job(job_id)
+
     return {"status": "deleted", "job_id": job_id}
 
 

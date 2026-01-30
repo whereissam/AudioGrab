@@ -7,6 +7,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+from .checkpoint import CheckpointManager, TranscriptionCheckpoint
+
 logger = logging.getLogger(__name__)
 
 # Add faster-whisper to path if installed locally
@@ -70,6 +72,7 @@ class AudioTranscriber:
         model_size: str = "base",
         device: str = "auto",
         compute_type: str = "auto",
+        checkpoint_dir: Optional[Path] = None,
     ):
         """
         Initialize the transcriber.
@@ -78,10 +81,12 @@ class AudioTranscriber:
             model_size: Whisper model size (tiny, base, small, medium, large-v3, turbo)
             device: Device to use (auto, cpu, cuda)
             compute_type: Compute type (auto, int8, float16, float32)
+            checkpoint_dir: Directory for saving checkpoints
         """
         self.model_size = model_size
         self.device = device
         self.compute_type = compute_type
+        self.checkpoint_manager = CheckpointManager(checkpoint_dir)
 
     def _get_model(self):
         """Get or create the Whisper model (lazy loading with singleton pattern)."""
@@ -134,9 +139,12 @@ class AudioTranscriber:
         vad_filter: bool = True,
         word_timestamps: bool = False,
         initial_prompt: Optional[str] = None,
+        job_id: Optional[str] = None,
+        output_format: str = "text",
+        checkpoint_interval: int = 5,
     ) -> TranscriptionResult:
         """
-        Transcribe an audio file.
+        Transcribe an audio file with checkpoint support.
 
         Args:
             audio_path: Path to the audio file
@@ -145,6 +153,9 @@ class AudioTranscriber:
             vad_filter: Use VAD to filter silence
             word_timestamps: Include word-level timestamps
             initial_prompt: Optional prompt to guide transcription
+            job_id: Job ID for checkpoint tracking
+            output_format: Output format (text, srt, vtt, json)
+            checkpoint_interval: Save checkpoint every N segments
 
         Returns:
             TranscriptionResult with text and segments
@@ -157,12 +168,39 @@ class AudioTranscriber:
                 error=f"Audio file not found: {audio_path}",
             )
 
+        # Check for existing checkpoint to resume
+        checkpoint = None
+        resume_from = 0.0
+        existing_segments = []
+
+        if job_id:
+            checkpoint = self.checkpoint_manager.load(job_id)
+            if checkpoint:
+                resume_from = checkpoint.last_end_time
+                existing_segments = [
+                    TranscriptionSegment(
+                        start=s["start"],
+                        end=s["end"],
+                        text=s["text"],
+                    )
+                    for s in checkpoint.segments
+                ]
+                logger.info(
+                    f"Resuming job {job_id} from {resume_from:.2f}s "
+                    f"({len(existing_segments)} segments already done)"
+                )
+
         try:
             model = self._get_model()
 
             logger.info(f"Transcribing: {audio_path.name}")
 
-            # Run transcription (synchronous, but we wrap for async API)
+            # Get audio duration first for progress tracking
+            from faster_whisper.audio import decode_audio
+            audio_array = decode_audio(str(audio_path))
+            total_duration = len(audio_array) / 16000  # 16kHz sample rate
+
+            # Run transcription
             segments_generator, info = model.transcribe(
                 str(audio_path),
                 language=language,
@@ -173,11 +211,32 @@ class AudioTranscriber:
                 beam_size=5,
             )
 
-            # Collect segments
-            segments = []
-            full_text_parts = []
+            # Collect segments with checkpoint saving
+            segments = list(existing_segments)
+            full_text_parts = [s.text for s in existing_segments]
 
+            # Create or update checkpoint
+            if job_id:
+                checkpoint = TranscriptionCheckpoint(
+                    job_id=job_id,
+                    audio_path=str(audio_path),
+                    model_size=self.model_size,
+                    language=language,
+                    task=task,
+                    output_format=output_format,
+                    last_end_time=resume_from,
+                    segments=[{"start": s.start, "end": s.end, "text": s.text} for s in existing_segments],
+                    detected_language=info.language,
+                    language_probability=info.language_probability,
+                    total_duration=total_duration,
+                )
+
+            segment_count = len(existing_segments)
             for segment in segments_generator:
+                # Skip segments we've already processed (resume support)
+                if segment.end <= resume_from:
+                    continue
+
                 segments.append(
                     TranscriptionSegment(
                         start=segment.start,
@@ -186,8 +245,23 @@ class AudioTranscriber:
                     )
                 )
                 full_text_parts.append(segment.text.strip())
+                segment_count += 1
+
+                # Save checkpoint periodically
+                if job_id and segment_count % checkpoint_interval == 0:
+                    checkpoint.last_end_time = segment.end
+                    checkpoint.segments.append({
+                        "start": segment.start,
+                        "end": segment.end,
+                        "text": segment.text.strip(),
+                    })
+                    self.checkpoint_manager.save(checkpoint)
 
             full_text = " ".join(full_text_parts)
+
+            # Delete checkpoint on successful completion
+            if job_id:
+                self.checkpoint_manager.delete(job_id)
 
             logger.info(
                 f"Transcription complete: {len(segments)} segments, "
@@ -204,11 +278,24 @@ class AudioTranscriber:
             )
 
         except Exception as e:
+            # Save checkpoint on error so we can resume
+            if job_id and checkpoint:
+                self.checkpoint_manager.save(checkpoint)
+                logger.info(f"Saved checkpoint for job {job_id} after error")
+
             logger.exception(f"Transcription error: {e}")
             return TranscriptionResult(
                 success=False,
                 error=str(e),
             )
+
+    def get_resumable_jobs(self) -> list[dict]:
+        """Get list of jobs that can be resumed."""
+        return self.checkpoint_manager.get_resumable_jobs()
+
+    def can_resume(self, job_id: str) -> bool:
+        """Check if a job can be resumed."""
+        return self.checkpoint_manager.exists(job_id)
 
     @staticmethod
     def format_as_srt(segments: list[TranscriptionSegment]) -> str:
@@ -269,17 +356,19 @@ async def transcribe_audio(
     audio_path: str | Path,
     model_size: str = "base",
     language: Optional[str] = None,
+    job_id: Optional[str] = None,
 ) -> TranscriptionResult:
     """
-    Transcribe an audio file.
+    Transcribe an audio file with optional checkpoint support.
 
     Args:
         audio_path: Path to audio file
         model_size: Whisper model size
         language: Language code (auto-detect if None)
+        job_id: Job ID for checkpoint tracking (enables resume on failure)
 
     Returns:
         TranscriptionResult
     """
     transcriber = AudioTranscriber(model_size=model_size)
-    return await transcriber.transcribe(audio_path, language=language)
+    return await transcriber.transcribe(audio_path, language=language, job_id=job_id)

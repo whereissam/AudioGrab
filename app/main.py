@@ -25,8 +25,32 @@ async def lifespan(app: FastAPI):
     logger.info("Starting AudioGrab API")
     logger.info(f"Auth configured: {settings.has_auth}")
     logger.info(f"Download directory: {settings.download_dir}")
+
+    # Recover unfinished jobs from previous run
+    try:
+        from .core.workflow import recover_unfinished_jobs
+        from .core.job_store import get_job_store
+
+        job_store = get_job_store()
+        unfinished = job_store.get_unfinished_jobs()
+        if unfinished:
+            logger.info(f"Found {len(unfinished)} unfinished jobs - will recover in background")
+            # Don't await - let it run in background so server starts quickly
+            import asyncio
+            asyncio.create_task(recover_unfinished_jobs())
+    except Exception as e:
+        logger.error(f"Failed to start job recovery: {e}")
+
     yield
+
+    # Cleanup on shutdown
     logger.info("Shutting down AudioGrab API")
+    try:
+        from .core.job_store import get_job_store
+        job_store = get_job_store()
+        job_store.cleanup_old_jobs(days=7)
+    except Exception as e:
+        logger.error(f"Cleanup error: {e}")
 
 
 app = FastAPI(
