@@ -38,6 +38,8 @@ function AudioGrabHome() {
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null)
   const [transcribeMode, setTranscribeMode] = useState<'url' | 'file'>('url')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [diarize, setDiarize] = useState(false)
+  const [numSpeakers, setNumSpeakers] = useState<number | null>(null)
 
   const handleMediaTypeChange = (newType: string) => {
     setMediaType(newType as MediaType)
@@ -70,6 +72,8 @@ function AudioGrabHome() {
     setTranscriptionResult(null)
     setUrl('')
     setSelectedFile(null)
+    setDiarize(false)
+    setNumSpeakers(null)
   }
 
   const handleDownload = async () => {
@@ -157,12 +161,24 @@ function AudioGrabHome() {
         formData.append('file', selectedFile)
         formData.append('model', whisperModel)
         formData.append('output_format', transcriptionFormat)
+        if (diarize) {
+          formData.append('diarize', 'true')
+          if (numSpeakers) {
+            formData.append('num_speakers', numSpeakers.toString())
+          }
+        }
         response = await fetch('/api/transcribe/upload', { method: 'POST', body: formData })
       } else {
         response = await fetch('/api/transcribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, model: whisperModel, output_format: transcriptionFormat }),
+          body: JSON.stringify({
+            url,
+            model: whisperModel,
+            output_format: transcriptionFormat,
+            diarize,
+            num_speakers: numSpeakers,
+          }),
         })
       }
 
@@ -189,6 +205,8 @@ function AudioGrabHome() {
             duration_seconds: job.duration_seconds,
             formatted_output: job.formatted_output,
             output_format: job.output_format,
+            segments: job.segments,
+            diarized: job.segments?.some((s: { speaker?: string }) => s.speaker),
           })
           return
         } else if (job.status === 'failed') {
@@ -206,10 +224,11 @@ function AudioGrabHome() {
     }
   }
 
-  const handleDownloadTranscription = () => {
+  const handleDownloadTranscription = (renamedOutput?: string) => {
     if (!transcriptionResult) return
-    const ext = transcriptionFormat === 'json' ? 'json' : transcriptionFormat === 'text' ? 'txt' : transcriptionFormat
-    const blob = new Blob([transcriptionResult.formatted_output], { type: 'text/plain' })
+    const ext = transcriptionFormat === 'json' ? 'json' : transcriptionFormat === 'text' || transcriptionFormat === 'dialogue' ? 'txt' : transcriptionFormat
+    const content = renamedOutput || transcriptionResult.formatted_output
+    const blob = new Blob([content], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -359,6 +378,10 @@ function AudioGrabHome() {
                   setWhisperModel={setWhisperModel}
                   transcriptionFormat={transcriptionFormat}
                   setTranscriptionFormat={setTranscriptionFormat}
+                  diarize={diarize}
+                  setDiarize={setDiarize}
+                  numSpeakers={numSpeakers}
+                  setNumSpeakers={setNumSpeakers}
                   status={status}
                   message={message}
                   onTranscribe={handleTranscribe}

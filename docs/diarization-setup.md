@@ -141,6 +141,38 @@ SPEAKER_00: Let's dive right in.
 - **GPU**: Significantly faster with CUDA GPU (auto-detected)
 - **CPU**: Works but slower, especially for long audio
 
+## HuggingFace Token & Rate Limits
+
+**Good news:** You don't need to worry about rate limits for diarization.
+
+### Why No Rate Limits?
+
+The HuggingFace token is only used to **download gated models** to your machine. Once downloaded:
+
+| Action | Where it runs | Rate limits? |
+|--------|---------------|--------------|
+| Model download | HuggingFace servers | One-time only |
+| Transcription | Your local CPU/GPU | None |
+| Diarization | Your local CPU/GPU | None |
+
+All inference (transcription + diarization) runs **100% locally** after the initial model download. No ongoing API calls to HuggingFace.
+
+### HuggingFace Free Tier (for reference)
+
+If you use HuggingFace's **Inference API** (cloud-hosted models) for other projects, these limits apply:
+
+- **Free tier**: Hourly reset limits, limited monthly credits
+- **PRO ($9/month)**: 20x more monthly allowance
+- **Enterprise**: Highest rate limits
+
+But again, AudioGrab diarization runs locally - these limits don't apply.
+
+### Token Security
+
+- Your token only needs **read** access (not write)
+- Store it in `.env` or use `huggingface-cli login`
+- Never commit tokens to git (`.env` is in `.gitignore`)
+
 ## Troubleshooting
 
 ### "401 Unauthorized" Error

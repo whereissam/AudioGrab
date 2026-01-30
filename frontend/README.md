@@ -4,7 +4,7 @@
   <img src="public/logo.svg" alt="AudioGrab" width="200">
 </p>
 
-Modern React frontend for downloading audio from X Spaces, Apple Podcasts, and Spotify.
+Modern React frontend for downloading, transcribing, and analyzing audio from X Spaces, YouTube, Apple Podcasts, Spotify, and more.
 
 ## Tech Stack
 
@@ -50,31 +50,52 @@ bun run preview
 ```
 src/
 ├── components/
-│   └── ui/              # shadcn/ui components (Button, Input, Tabs)
+│   ├── ui/              # shadcn/ui components (Button, Input, Tabs)
+│   └── downloader/      # Download & transcription components
+│       ├── DownloadForm.tsx
+│       ├── TranscribeForm.tsx
+│       ├── SuccessViews.tsx
+│       └── types.ts
 ├── lib/
 │   └── utils.ts         # Utility functions
 ├── routes/
 │   ├── __root.tsx       # Root layout
-│   └── index.tsx        # Home page (multi-platform downloader)
+│   └── index.tsx        # Home page (Audio/Video/Transcribe tabs)
 ├── main.tsx
 └── index.css            # Theme configuration
 ```
 
 ## Features
 
-- **Multi-platform support** - Tabs for X Spaces, Apple Podcasts, Spotify
+### Download
+- **Multi-platform support** - X Spaces, Apple Podcasts, Spotify, YouTube, 小宇宙
+- **Audio & Video tabs** - Download audio or video separately
 - **Format selection** - M4A, MP3, MP4 (platform-dependent)
-- **Real-time download progress**
-- **Dark/light theme support**
-- **Responsive design**
+- **Quality options** - 480p, 720p, 1080p for video
+
+### Transcription
+- **URL or file upload** - Transcribe from any supported URL or upload local files
+- **Whisper model selection** - Tiny, Base, Small, Medium, Large-v3, Turbo
+- **Output formats** - Text, SRT, VTT, JSON, Dialogue
+- **Speaker diarization** - Identify different speakers (toggle + number of speakers)
+- **Speaker renaming** - Rename "Speaker 0" to "Host", "Guest", etc.
+
+### General
+- **Real-time progress** - Live status updates during processing
+- **Dark/light theme** - System preference or manual toggle
+- **Responsive design** - Works on mobile and desktop
+- **Copy & download** - Copy transcript to clipboard or download as file
 
 ## Supported Platforms
 
-| Platform | Formats | Notes |
-|----------|---------|-------|
-| X Spaces | M4A, MP3, MP4 | Uses yt-dlp |
-| Apple Podcasts | M4A, MP3 | Direct RSS download |
-| Spotify | MP3, M4A | Uses spotDL (YouTube matching) |
+| Platform | Audio | Video | Transcribe |
+|----------|-------|-------|------------|
+| X Spaces | M4A, MP3 | - | Yes |
+| X/Twitter | - | MP4 | Yes |
+| YouTube | M4A, MP3 | MP4 | Yes |
+| Apple Podcasts | M4A, MP3 | - | Yes |
+| Spotify | MP3, M4A | - | Yes |
+| 小宇宙 | M4A, MP3 | - | Yes |
 
 ## API Integration
 
@@ -85,7 +106,11 @@ The frontend communicates with the backend API:
 | `POST /api/download` | Start download job |
 | `GET /api/download/{job_id}` | Get job status |
 | `GET /api/download/{job_id}/file` | Download file |
-| `GET /api/platforms` | List supported platforms |
+| `POST /api/transcribe` | Start transcription from URL |
+| `POST /api/transcribe/upload` | Upload file & transcribe |
+| `GET /api/transcribe/{job_id}` | Get transcription status |
+| `GET /api/add?url=...` | Quick add (browser extension) |
+| `GET /api/health` | Check service availability |
 
 ## License
 

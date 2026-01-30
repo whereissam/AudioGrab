@@ -58,30 +58,30 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
   - [x] Plain text with speaker labels (`dialogue` format)
   - [x] SRT with speaker prefixes
   - [x] JSON with speaker IDs per segment
-- [ ] Add Web UI toggle for diarization
-- [ ] Handle speaker renaming (Speaker 0 → "Host", etc.)
+- [x] Add Web UI toggle for diarization
+- [x] Handle speaker renaming (Speaker 0 → "Host", etc.)
 - [x] Add speaker count option (`num_speakers` parameter)
 
 ---
 
-## P2: Browser Extension
+## P2: Browser Extension ✅ COMPLETED
 
 **Goal:** One-click download from browser to AudioGrab Web UI.
 
 ### Tasks
 
-- [ ] Create Chrome extension manifest v3
-- [ ] Create Firefox extension manifest
-- [ ] Extension features:
-  - [ ] Detect supported URLs (X Spaces, YouTube, etc.)
-  - [ ] Show AudioGrab icon when on supported page
-  - [ ] Click to send URL to AudioGrab API
-  - [ ] Configuration page for AudioGrab server URL
-- [ ] Create simple bookmarklet alternative:
+- [x] Create Chrome extension manifest v3
+- [x] Create Firefox extension manifest
+- [x] Extension features:
+  - [x] Detect supported URLs (X Spaces, YouTube, etc.)
+  - [x] Show AudioGrab icon when on supported page
+  - [x] Click to send URL to AudioGrab API
+  - [x] Configuration page for AudioGrab server URL
+- [x] Create simple bookmarklet alternative:
   ```javascript
-  javascript:(function(){window.open('http://localhost:8000/add?url='+encodeURIComponent(window.location.href))})()
+  javascript:(function(){var s='http://localhost:8000';window.open(s+'/api/add?url='+encodeURIComponent(window.location.href)+'&action=transcribe')})()
   ```
-- [ ] Add `/add` endpoint to API for browser integration
+- [x] Add `/add` endpoint to API for browser integration
 - [ ] Show notification/toast on successful queue
 - [ ] Optional: Show download progress in extension popup
 

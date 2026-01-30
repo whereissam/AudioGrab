@@ -1,0 +1,49 @@
+{
+  "manifest_version": 2,
+  "name": "AudioGrab",
+  "description": "Download and transcribe audio from X Spaces, YouTube, podcasts, and more",
+  "version": "1.0.0",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://x.com/*",
+        "*://twitter.com/*",
+        "*://www.youtube.com/*",
+        "*://youtube.com/*",
+        "*://podcasts.apple.com/*",
+        "*://open.spotify.com/*",
+        "*://www.xiaoyuzhoufm.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "audiograb@example.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}

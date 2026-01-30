@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, AlertCircle, Mic, FileAudio, FileText, Upload, Link } from 'lucide-react'
+import { Loader2, AlertCircle, Mic, FileAudio, FileText, Upload, Link, Users } from 'lucide-react'
 import {
   DownloadStatus,
   WhisperModel,
@@ -20,6 +20,10 @@ interface TranscribeFormProps {
   setWhisperModel: (model: WhisperModel) => void
   transcriptionFormat: TranscriptionFormat
   setTranscriptionFormat: (format: TranscriptionFormat) => void
+  diarize: boolean
+  setDiarize: (diarize: boolean) => void
+  numSpeakers: number | null
+  setNumSpeakers: (num: number | null) => void
   status: DownloadStatus
   message: string
   onTranscribe: () => void
@@ -36,6 +40,10 @@ export function TranscribeForm({
   setWhisperModel,
   transcriptionFormat,
   setTranscriptionFormat,
+  diarize,
+  setDiarize,
+  numSpeakers,
+  setNumSpeakers,
   status,
   message,
   onTranscribe,
@@ -171,12 +179,17 @@ export function TranscribeForm({
           <FileText className="inline h-4 w-4 mr-1" />
           Output Format
         </label>
-        <div className="grid gap-2 grid-cols-4">
+        <div className="grid gap-2 grid-cols-5">
           {TRANSCRIPTION_FORMATS.map((opt) => (
             <button
               key={opt.value}
               type="button"
-              onClick={() => setTranscriptionFormat(opt.value)}
+              onClick={() => {
+                setTranscriptionFormat(opt.value)
+                if (opt.value === 'dialogue') {
+                  setDiarize(true)
+                }
+              }}
               disabled={status === 'loading'}
               className={`p-3 rounded-lg border-2 transition-all ${
                 transcriptionFormat === opt.value
@@ -189,6 +202,46 @@ export function TranscribeForm({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Speaker Diarization */}
+      <div className="space-y-3">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={diarize}
+            onChange={(e) => setDiarize(e.target.checked)}
+            disabled={status === 'loading'}
+            className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+          />
+          <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Users className="h-4 w-4" />
+            Enable Speaker Diarization
+          </span>
+        </label>
+        {diarize && (
+          <div className="ml-7 flex items-center gap-3">
+            <label htmlFor="num-speakers" className="text-sm text-muted-foreground whitespace-nowrap">
+              Number of speakers (optional):
+            </label>
+            <Input
+              id="num-speakers"
+              type="number"
+              min={1}
+              max={20}
+              placeholder="Auto-detect"
+              value={numSpeakers ?? ''}
+              onChange={(e) => setNumSpeakers(e.target.value ? parseInt(e.target.value) : null)}
+              disabled={status === 'loading'}
+              className="w-24 h-8"
+            />
+          </div>
+        )}
+        {diarize && (
+          <p className="ml-7 text-xs text-muted-foreground">
+            Identifies different speakers in the audio. Requires HuggingFace token.
+          </p>
+        )}
       </div>
 
       {/* Transcribe Button */}

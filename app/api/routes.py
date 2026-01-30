@@ -168,6 +168,92 @@ async def health_check():
     )
 
 
+@router.get("/add")
+async def quick_add(
+    url: str,
+    action: str = "transcribe",
+    background_tasks: BackgroundTasks = None,
+):
+    """
+    Quick add endpoint for browser extension and bookmarklet.
+
+    Accepts a URL and action (transcribe or download) via query parameters.
+    Starts the appropriate job and returns the job ID.
+
+    Example: /api/add?url=https://youtube.com/watch?v=abc&action=transcribe
+    """
+    from fastapi import BackgroundTasks as BT
+
+    if background_tasks is None:
+        background_tasks = BT()
+
+    # Detect platform from URL
+    detected_platform = DownloaderFactory.detect_platform(url)
+
+    if not detected_platform:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported URL. Supported: X Spaces, YouTube, Apple Podcasts, Spotify, 小宇宙",
+        )
+
+    job_id = str(uuid.uuid4())
+
+    if action == "download":
+        # Create download job
+        job = DownloadJob(
+            job_id=job_id,
+            status=JobStatus.PENDING,
+            platform=_core_platform_to_schema(detected_platform),
+            progress=0.0,
+            created_at=datetime.utcnow(),
+        )
+        jobs[job_id] = job
+
+        # Create download request
+        request = DownloadRequest(url=url)
+        background_tasks.add_task(_process_download, job_id, request)
+
+        return {
+            "job_id": job_id,
+            "action": "download",
+            "status": "pending",
+            "message": f"Download started for {detected_platform.value}",
+        }
+    else:
+        # Create transcription job (default action)
+        job = TranscriptionJob(
+            job_id=job_id,
+            status=JobStatus.PENDING,
+            progress=0.0,
+            source_url=url,
+            created_at=datetime.utcnow(),
+        )
+        transcription_jobs[job_id] = job
+
+        # Create transcribe request with defaults
+        from .schemas import WhisperModelSize
+
+        class QuickTranscribeRequest:
+            def __init__(self):
+                self.url = url
+                self.model = WhisperModelSize.BASE
+                self.output_format = TranscriptionOutputFormat.TEXT
+                self.language = None
+                self.translate = False
+                self.diarize = False
+                self.num_speakers = None
+
+        request = QuickTranscribeRequest()
+        background_tasks.add_task(_process_transcription, job_id, request, None)
+
+        return {
+            "job_id": job_id,
+            "action": "transcribe",
+            "status": "pending",
+            "message": f"Transcription started for {detected_platform.value}",
+        }
+
+
 @router.post("/download", response_model=DownloadJob)
 async def start_download(
     request: DownloadRequest,
@@ -842,6 +928,8 @@ async def transcribe_uploaded_file(
     model: str = Form(default="base"),
     output_format: str = Form(default="text"),
     language: str = Form(default=None),
+    diarize: str = Form(default="false"),
+    num_speakers: str = Form(default=None),
 ):
     """
     Transcribe an uploaded audio file.
@@ -901,6 +989,8 @@ async def transcribe_uploaded_file(
             self.output_format = output_format_enum
             self.language = language if language else None
             self.translate = False
+            self.diarize = diarize.lower() == "true"
+            self.num_speakers = int(num_speakers) if num_speakers and num_speakers.isdigit() else None
 
     request = UploadTranscribeRequest()
 
