@@ -1,10 +1,11 @@
-"""LLM-powered summarization service for transcripts."""
+"""LLM-powered summarization service for transcripts using LiteLLM."""
 
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
+
+from litellm import acompletion
 
 logger = logging.getLogger(__name__)
 
@@ -28,187 +29,86 @@ class SummaryResult:
     tokens_used: Optional[int] = None
 
 
-class LLMProvider(ABC):
-    """Abstract base class for LLM providers."""
+class LiteLLMProvider:
+    """Unified LLM provider using LiteLLM for multiple backends.
 
-    @abstractmethod
+    LiteLLM model format examples:
+      - ollama/llama3.2 - Local Ollama
+      - gpt-4o-mini - OpenAI
+      - claude-3-haiku-20240307 - Anthropic
+      - groq/llama-3.1-70b-versatile - Groq
+      - deepseek/deepseek-chat - DeepSeek
+      - openai/custom-model with custom base_url - OpenAI-compatible
+    """
+
+    def __init__(
+        self,
+        model: str,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        provider: str = "litellm",
+    ):
+        self.model = model
+        self.api_key = api_key
+        self.base_url = base_url
+        self._provider = provider
+        self._available: Optional[bool] = None
+
     async def generate(self, prompt: str, system_prompt: str = "") -> tuple[str, int]:
-        """Generate a response from the LLM.
+        """Generate a response from the LLM using LiteLLM.
 
         Returns:
             Tuple of (response_text, tokens_used)
         """
-        pass
-
-    @abstractmethod
-    def is_available(self) -> bool:
-        """Check if this provider is available."""
-        pass
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Provider name."""
-        pass
-
-    @property
-    @abstractmethod
-    def model_name(self) -> str:
-        """Model name being used."""
-        pass
-
-
-class OllamaProvider(LLMProvider):
-    """Ollama local LLM provider."""
-
-    def __init__(self, base_url: str = "http://localhost:11434", model: str = "llama3.2"):
-        self.base_url = base_url.rstrip("/")
-        self.model = model
-        self._available: Optional[bool] = None
-
-    async def generate(self, prompt: str, system_prompt: str = "") -> tuple[str, int]:
-        import httpx
-
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "stream": False,
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
+        kwargs = {
+            "model": self.model,
+            "messages": messages,
+        }
 
-        content = data.get("message", {}).get("content", "")
-        tokens = data.get("eval_count", 0) + data.get("prompt_eval_count", 0)
+        if self.api_key:
+            kwargs["api_key"] = self.api_key
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+
+        response = await acompletion(**kwargs)
+        content = response.choices[0].message.content
+        tokens = response.usage.total_tokens if response.usage else 0
         return content, tokens
 
     def is_available(self) -> bool:
+        """Check if this provider is available."""
         if self._available is not None:
             return self._available
 
-        try:
-            import httpx
-            with httpx.Client(timeout=5.0) as client:
-                response = client.get(f"{self.base_url}/api/tags")
-                self._available = response.status_code == 200
-        except Exception:
-            self._available = False
+        # For Ollama, check connectivity
+        if self.model.startswith("ollama/"):
+            try:
+                import httpx
+                base_url = self.base_url or "http://localhost:11434"
+                with httpx.Client(timeout=5.0) as client:
+                    response = client.get(f"{base_url.rstrip('/')}/api/tags")
+                    self._available = response.status_code == 200
+            except Exception:
+                self._available = False
+        else:
+            # For cloud providers, just check if API key is set (if required)
+            self._available = True
 
         return self._available
 
     @property
     def name(self) -> str:
-        return "ollama"
+        """Provider name."""
+        return self._provider
 
     @property
     def model_name(self) -> str:
-        return self.model
-
-
-class OpenAIProvider(LLMProvider):
-    """OpenAI API provider (also supports compatible endpoints)."""
-
-    def __init__(
-        self,
-        api_key: str,
-        model: str = "gpt-4o-mini",
-        base_url: Optional[str] = None,
-    ):
-        self.api_key = api_key
-        self.model = model
-        self.base_url = base_url
-
-    async def generate(self, prompt: str, system_prompt: str = "") -> tuple[str, int]:
-        import httpx
-
-        base = self.base_url or "https://api.openai.com/v1"
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
-
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                f"{base}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-
-        content = data["choices"][0]["message"]["content"]
-        tokens = data.get("usage", {}).get("total_tokens", 0)
-        return content, tokens
-
-    def is_available(self) -> bool:
-        return bool(self.api_key)
-
-    @property
-    def name(self) -> str:
-        if self.base_url:
-            return "openai_compatible"
-        return "openai"
-
-    @property
-    def model_name(self) -> str:
-        return self.model
-
-
-class AnthropicProvider(LLMProvider):
-    """Anthropic Claude API provider."""
-
-    def __init__(self, api_key: str, model: str = "claude-3-haiku-20240307"):
-        self.api_key = api_key
-        self.model = model
-
-    async def generate(self, prompt: str, system_prompt: str = "") -> tuple[str, int]:
-        import httpx
-
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": self.api_key,
-                    "anthropic-version": "2023-06-01",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": self.model,
-                    "max_tokens": 4096,
-                    "system": system_prompt if system_prompt else "You are a helpful assistant.",
-                    "messages": [{"role": "user", "content": prompt}],
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-
-        content = data["content"][0]["text"]
-        tokens = data.get("usage", {}).get("input_tokens", 0) + data.get("usage", {}).get("output_tokens", 0)
-        return content, tokens
-
-    def is_available(self) -> bool:
-        return bool(self.api_key)
-
-    @property
-    def name(self) -> str:
-        return "anthropic"
-
-    @property
-    def model_name(self) -> str:
+        """Model name being used."""
         return self.model
 
 
@@ -300,49 +200,134 @@ class TranscriptSummarizer:
     CHUNK_SIZE = 6000  # ~6000 words per chunk
     OVERLAP = 500  # Overlap between chunks for context
 
-    def __init__(self, provider: Optional[LLMProvider] = None):
+    def __init__(self, provider: Optional[LiteLLMProvider] = None):
         self.provider = provider
 
     @classmethod
     def from_settings(cls) -> "TranscriptSummarizer":
-        """Create summarizer from application settings."""
+        """Create summarizer from application settings or database config."""
         from ..config import get_settings
+        from .job_store import get_job_store
         settings = get_settings()
 
-        provider: Optional[LLMProvider] = None
+        provider: Optional[LiteLLMProvider] = None
 
+        # Try to get settings from database first
+        try:
+            job_store = get_job_store()
+            ai_settings = job_store.get_ai_settings()
+            if ai_settings:
+                model = cls._build_litellm_model(
+                    ai_settings["provider"],
+                    ai_settings["model"]
+                )
+                provider = LiteLLMProvider(
+                    model=model,
+                    api_key=ai_settings.get("api_key"),
+                    base_url=ai_settings.get("base_url"),
+                    provider=ai_settings["provider"],
+                )
+                return cls(provider=provider)
+        except Exception as e:
+            logger.debug(f"Could not load AI settings from database: {e}")
+
+        # Fall back to environment settings
         if settings.llm_provider == "ollama":
-            provider = OllamaProvider(
+            model = f"ollama/{settings.ollama_model}"
+            provider = LiteLLMProvider(
+                model=model,
                 base_url=settings.ollama_base_url,
-                model=settings.ollama_model,
+                provider="ollama",
             )
         elif settings.llm_provider == "openai" and settings.openai_api_key:
-            provider = OpenAIProvider(
-                api_key=settings.openai_api_key,
+            provider = LiteLLMProvider(
                 model=settings.openai_model,
+                api_key=settings.openai_api_key,
                 base_url=settings.openai_base_url,
+                provider="openai",
             )
         elif settings.llm_provider == "openai_compatible" and settings.openai_api_key:
-            provider = OpenAIProvider(
+            model = f"openai/{settings.openai_model}"
+            provider = LiteLLMProvider(
+                model=model,
                 api_key=settings.openai_api_key,
-                model=settings.openai_model,
                 base_url=settings.openai_base_url,
+                provider="custom",
             )
         elif settings.llm_provider == "anthropic" and settings.anthropic_api_key:
-            provider = AnthropicProvider(
-                api_key=settings.anthropic_api_key,
+            provider = LiteLLMProvider(
                 model=settings.anthropic_model,
+                api_key=settings.anthropic_api_key,
+                provider="anthropic",
+            )
+        elif settings.llm_provider == "groq" and settings.groq_api_key:
+            model = f"groq/{settings.groq_model}"
+            provider = LiteLLMProvider(
+                model=model,
+                api_key=settings.groq_api_key,
+                provider="groq",
+            )
+        elif settings.llm_provider == "deepseek" and settings.deepseek_api_key:
+            model = f"deepseek/{settings.deepseek_model}"
+            provider = LiteLLMProvider(
+                model=model,
+                api_key=settings.deepseek_api_key,
+                provider="deepseek",
+            )
+        elif settings.llm_provider == "gemini" and settings.gemini_api_key:
+            model = f"gemini/{settings.gemini_model}"
+            provider = LiteLLMProvider(
+                model=model,
+                api_key=settings.gemini_api_key,
+                provider="gemini",
             )
 
         return cls(provider=provider)
 
     @staticmethod
+    def _build_litellm_model(provider: str, model: str) -> str:
+        """Build the LiteLLM model string from provider and model name."""
+        if provider == "ollama":
+            return f"ollama/{model}"
+        elif provider == "groq":
+            return f"groq/{model}"
+        elif provider == "deepseek":
+            return f"deepseek/{model}"
+        elif provider == "gemini":
+            return f"gemini/{model}"
+        elif provider == "custom":
+            return f"openai/{model}"
+        else:
+            # OpenAI and Anthropic models don't need prefix
+            return model
+
+    @staticmethod
     def is_available() -> bool:
         """Check if any summarization provider is available."""
         from ..config import get_settings
+        from .job_store import get_job_store
         settings = get_settings()
 
-        # Check Ollama
+        # Check database settings first
+        try:
+            job_store = get_job_store()
+            ai_settings = job_store.get_ai_settings()
+            if ai_settings:
+                provider = ai_settings["provider"]
+                if provider == "ollama":
+                    import httpx
+                    base_url = ai_settings.get("base_url") or "http://localhost:11434"
+                    with httpx.Client(timeout=5.0) as client:
+                        response = client.get(f"{base_url.rstrip('/')}/api/tags")
+                        if response.status_code == 200:
+                            return True
+                else:
+                    # Cloud providers with API key
+                    return bool(ai_settings.get("api_key"))
+        except Exception:
+            pass
+
+        # Fall back to environment settings
         if settings.llm_provider == "ollama":
             try:
                 import httpx
@@ -359,6 +344,18 @@ class TranscriptSummarizer:
 
         # Check Anthropic
         if settings.llm_provider == "anthropic" and settings.anthropic_api_key:
+            return True
+
+        # Check Groq
+        if settings.llm_provider == "groq" and settings.groq_api_key:
+            return True
+
+        # Check DeepSeek
+        if settings.llm_provider == "deepseek" and settings.deepseek_api_key:
+            return True
+
+        # Check Gemini
+        if settings.llm_provider == "gemini" and settings.gemini_api_key:
             return True
 
         return False

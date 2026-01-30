@@ -184,5 +184,63 @@
 @layer base {
   body {
     letter-spacing: var(--tracking-normal);
-    }
+  }
+
+  /* Safe area padding for mobile devices with notches */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
+  }
+
+  /* Minimum touch target sizes per WCAG guidelines (48x48px) */
+  .touch-target {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  /* Prevent text selection on interactive elements */
+  .no-select {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Hardware-accelerated transforms for smooth animations */
+  .will-change-transform {
+    will-change: transform;
+  }
+
+  /* Smooth scrolling with momentum on iOS */
+  .scroll-smooth-ios {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Mobile-specific breakpoint utilities */
+@media (max-width: 639px) {
+  /* Larger tap targets on mobile */
+  button, a, [role="button"] {
+    min-height: 44px;
+  }
+
+  /* Prevent zoom on input focus */
+  input, select, textarea {
+    font-size: 16px;
+  }
+}
+
+/* Extra small screens (less than 400px) */
+@media (max-width: 400px) {
+  .xs\:hidden {
+    display: none;
+  }
+  .xs\:text-xs {
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
 }

@@ -331,7 +331,9 @@ class LLMProvider(str, Enum):
     OLLAMA = "ollama"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
-    OPENAI_COMPATIBLE = "openai_compatible"
+    GROQ = "groq"
+    DEEPSEEK = "deepseek"
+    CUSTOM = "custom"  # OpenAI-compatible endpoints
 
 
 class SummarizeRequest(BaseModel):
@@ -613,3 +615,84 @@ class AnnotationResponse(BaseModel):
 
 # Fix forward reference for nested annotations
 AnnotationResponse.model_rebuild()
+
+
+# ============ AI Settings Schemas ============
+
+
+class AIProvider(str, Enum):
+    """Available AI providers for settings."""
+
+    OLLAMA = "ollama"
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    GROQ = "groq"
+    DEEPSEEK = "deepseek"
+    GEMINI = "gemini"
+    CUSTOM = "custom"
+
+
+class AISettingsRequest(BaseModel):
+    """Request to save AI provider settings."""
+
+    provider: AIProvider
+    model: str = Field(
+        ...,
+        description="Model name/identifier",
+    )
+    api_key: Optional[str] = Field(
+        default=None,
+        description="API key for cloud providers",
+    )
+    base_url: Optional[str] = Field(
+        default=None,
+        description="Base URL for custom endpoints or Ollama",
+    )
+
+
+class AISettingsResponse(BaseModel):
+    """Response containing current AI settings."""
+
+    provider: AIProvider
+    model: str
+    base_url: Optional[str] = None
+    has_api_key: bool = Field(
+        description="Whether an API key is configured (key itself not exposed)"
+    )
+
+
+class AIProviderInfo(BaseModel):
+    """Information about an AI provider."""
+
+    name: str
+    display_name: str
+    models: list[str]
+    requires_api_key: bool
+    default_base_url: Optional[str] = None
+
+
+class AIProvidersResponse(BaseModel):
+    """Response containing all available AI providers."""
+
+    providers: list[AIProviderInfo]
+
+
+class AITestRequest(BaseModel):
+    """Request to test AI provider connection."""
+
+    provider: AIProvider
+    model: str
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
+
+
+class AITestResponse(BaseModel):
+    """Response from AI provider connection test."""
+
+    success: bool
+    error: Optional[str] = None
+    response_time_ms: Optional[float] = None
+    response_preview: Optional[str] = Field(
+        default=None,
+        description="Preview of the model's response",
+    )

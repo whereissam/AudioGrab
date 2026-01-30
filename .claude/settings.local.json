@@ -23,7 +23,9 @@
       "Bash(lsof:*)",
       "Bash(bun run build)",
       "Bash(find:*)",
-      "Bash(jq . curl -s -X DELETE \"http://localhost:8000/api/subscriptions/5cfc56d8-4b51-4c9a-914b-d48c549b77fa\")"
+      "Bash(xargs:*)",
+      "Bash(uv lock:*)",
+      "Bash(python:*)"
     ]
   }
 }

@@ -10,6 +10,10 @@
 | LLM Summarization | Medium | Medium | P3 ✅ |
 | Watch Folders & Subscriptions | Medium | High | P4 ✅ |
 | Audio Pre-processing | Medium | Medium | P5 ✅ |
+| AI Provider Manager | Medium | High | P6 |
+| Sentiment & Vibe Analysis | Medium | Medium | P7 |
+| Social Media Clip Generator | High | High | P8 |
+| AI Translation & Dubbing | Very High | Very High | P9 |
 
 ---
 
@@ -162,6 +166,152 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 
 ---
 
+## P6: AI Provider Manager (LiteLLM Integration)
+
+**Goal:** Create an AI-agnostic gateway supporting multiple LLM providers through a unified interface.
+
+### Tasks
+
+- [ ] Add `litellm` dependency for universal LLM API translation
+- [ ] Update `app/core/summarizer.py` to use LiteLLM:
+  - [ ] Support OpenAI-compatible API format
+  - [ ] Handle provider-specific authentication
+- [ ] Supported AI backends:
+  - [ ] **Ollama** (Local Llama 3) - Privacy-first, free, runs locally
+  - [ ] **OpenAI** (GPT-4, GPT-4o) - High quality cloud option
+  - [ ] **Anthropic** (Claude 3.5 Sonnet) - Best for long-form transcript reasoning
+  - [ ] **Groq** (Cloud Llama 3) - Fast inference (500+ tokens/sec)
+  - [ ] **DeepSeek** - Budget-friendly for high-volume summarization
+  - [ ] **Custom OpenAI-compatible endpoints** (LM Studio, etc.)
+- [ ] Create AI Settings management:
+  - [ ] `POST /settings/ai` - Save AI provider configuration
+  - [ ] `GET /settings/ai` - Get current AI settings
+  - [ ] Store API keys securely in SQLite `settings` table
+- [ ] Web UI Settings tab:
+  - [ ] Provider dropdown (OpenAI, Ollama, Anthropic, Groq, Custom)
+  - [ ] API key input field
+  - [ ] Base URL field (for custom/local endpoints)
+  - [ ] Model selection per provider
+  - [ ] Test connection button
+- [ ] Docker Compose setup for AudioGrab + Ollama together
+
+---
+
+## P7: Sentiment & Vibe Analysis
+
+**Goal:** Generate emotional timeline showing the "emotional heat" of audio content.
+
+### Tasks
+
+- [ ] Create sentiment analysis service (`app/core/sentiment_analyzer.py`)
+- [ ] Research and select sentiment analysis approach:
+  - [ ] LLM-based sentiment prompts (most flexible)
+  - [ ] FinBERT (financial sentiment, good for podcast discussions)
+  - [ ] General sentiment models from HuggingFace
+- [ ] Sentiment tagging types:
+  - [ ] Positive/Negative/Neutral
+  - [ ] Bullish/Bearish (for financial content)
+  - [ ] Aggressive/Calm (for debates)
+  - [ ] Excitement level (0-100)
+- [ ] Analyze transcript segments:
+  - [ ] Process each transcript segment individually
+  - [ ] Aggregate scores over time windows
+  - [ ] Identify "heated" moments and debates
+- [ ] Web UI visualization:
+  - [ ] Emotional timeline/heatmap alongside transcript
+  - [ ] Color-coded segments (red=heated, green=positive, etc.)
+  - [ ] Click on timeline to jump to that moment
+  - [ ] Summary of overall emotional arc
+- [ ] API endpoints:
+  - [ ] `POST /jobs/{id}/analyze-sentiment` - Run sentiment analysis
+  - [ ] `GET /jobs/{id}/sentiment` - Get sentiment results
+- [ ] Export sentiment data with transcript
+
+---
+
+## P8: Social Media Clip Generator
+
+**Goal:** Automatically identify viral-worthy moments and generate clips for social media.
+
+### Tasks
+
+- [ ] Create clip generator service (`app/core/clip_generator.py`)
+- [ ] AI-powered clip identification:
+  - [ ] Feed transcript to LLM with prompt for finding hook-worthy segments
+  - [ ] Identify most controversial/insightful 15-60 second segments
+  - [ ] Score clips by "viral potential"
+  - [ ] Consider speaker energy/sentiment in selection
+- [ ] Clip metadata generation:
+  - [ ] Auto-generate catchy captions
+  - [ ] Suggest relevant hashtags
+  - [ ] Create hook text for the first 3 seconds
+- [ ] Clip extraction:
+  - [ ] Extract audio segment with FFmpeg
+  - [ ] Generate timestamps for video editing
+  - [ ] Support multiple aspect ratios (9:16 for TikTok/Reels, 1:1 for Instagram)
+- [ ] Web UI "Generate Viral Clips" feature:
+  - [ ] Button in transcription view
+  - [ ] Preview suggested clips with timestamps
+  - [ ] Edit/adjust clip boundaries
+  - [ ] Download clips individually or as batch
+  - [ ] Copy caption/hashtags to clipboard
+- [ ] API endpoints:
+  - [ ] `POST /jobs/{id}/generate-clips` - Generate clip suggestions
+  - [ ] `GET /jobs/{id}/clips` - List generated clips
+  - [ ] `POST /jobs/{id}/clips/{clip_id}/export` - Export specific clip
+- [ ] Platform-specific formatting:
+  - [ ] TikTok (9:16, max 3 min)
+  - [ ] Instagram Reels (9:16, max 90 sec)
+  - [ ] YouTube Shorts (9:16, max 60 sec)
+  - [ ] Twitter/X (16:9, max 2:20)
+
+---
+
+## P9: AI Translation & Dubbing
+
+**Goal:** Translate transcripts and re-voice content in different languages while preserving speaker characteristics.
+
+### Tasks
+
+- [ ] Create translation service (`app/core/translator.py`)
+- [ ] Translation pipeline:
+  - [ ] Use existing transcription as source
+  - [ ] LLM-based translation (supports context and nuance)
+  - [ ] Preserve speaker labels and timestamps
+  - [ ] Handle technical terms and proper nouns
+- [ ] Supported language pairs:
+  - [ ] Chinese (小宇宙) → English
+  - [ ] English → Spanish/French/German/Japanese
+  - [ ] Auto-detect source language
+- [ ] Text-to-Speech (TTS) integration:
+  - [ ] Research TTS options:
+    - [ ] Coqui TTS (open source)
+    - [ ] OpenVoice (voice cloning)
+    - [ ] ElevenLabs API (high quality)
+    - [ ] Azure Speech Services
+  - [ ] Voice cloning from original speaker
+  - [ ] Maintain original pacing and timing
+- [ ] Create dubbing service (`app/core/dubber.py`):
+  - [ ] Sync translated speech with original timing
+  - [ ] Handle speed adjustments for different language lengths
+  - [ ] Mix dubbed audio with original background sounds (optional)
+- [ ] Web UI translation features:
+  - [ ] "Translate" button in transcription view
+  - [ ] Language selector dropdown
+  - [ ] Preview translated text before TTS
+  - [ ] "Generate Dubbed Audio" button
+  - [ ] Side-by-side original/translated view
+- [ ] API endpoints:
+  - [ ] `POST /jobs/{id}/translate` - Translate transcript
+  - [ ] `GET /jobs/{id}/translation/{lang}` - Get translation
+  - [ ] `POST /jobs/{id}/dub` - Generate dubbed audio
+- [ ] Export options:
+  - [ ] Translated transcript (TXT, SRT, VTT)
+  - [ ] Dubbed audio file
+  - [ ] Bilingual subtitle file
+
+---
+
 ## Future Ideas (Backlog)
 
 - [x] Batch download from URL list/file ✅
@@ -174,3 +324,8 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 - [x] Webhook notifications for job completion ✅
 - [ ] Export to cloud storage (S3, Google Drive, Dropbox)
 - [x] Collaborative annotations on transcripts ✅
+- [ ] Real-time transcription (live audio streams)
+- [ ] Podcast RSS feed generation from downloaded content
+- [ ] Audio fingerprinting for duplicate detection
+- [ ] Integration with note-taking apps (Notion, Obsidian)
+- [ ] Voice search within transcripts

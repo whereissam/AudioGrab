@@ -80,7 +80,25 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to start scheduler worker: {e}")
 
+    # Start storage manager
+    try:
+        from .core.storage_manager import get_storage_manager
+        storage_manager = get_storage_manager()
+        if settings.storage_cleanup_enabled:
+            await storage_manager.start_background_cleanup()
+            logger.info("Storage manager started")
+    except Exception as e:
+        logger.error(f"Failed to start storage manager: {e}")
+
     yield
+
+    # Stop storage manager
+    try:
+        from .core.storage_manager import get_storage_manager
+        storage_manager = get_storage_manager()
+        await storage_manager.stop_background_cleanup()
+    except Exception as e:
+        logger.error(f"Failed to stop storage manager: {e}")
 
     # Stop scheduler worker
     try:

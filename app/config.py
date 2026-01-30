@@ -58,11 +58,20 @@ class Settings(BaseSettings):
     max_concurrent_downloads: int = 5
     cleanup_after_hours: int = 24
 
+    # Storage Management
+    max_storage_gb: float | None = None  # Maximum storage limit for download dir
+    min_free_space_gb: float | None = None  # Minimum free disk space to maintain
+    storage_cleanup_interval: int = 3600  # Cleanup check interval in seconds
+    storage_cleanup_enabled: bool = True  # Enable background cleanup
+
     # Speaker Diarization (pyannote)
     huggingface_token: str | None = None
 
+    # Remote Whisper Service (for Docker/GPU transcription)
+    whisper_service_url: str | None = None  # e.g., "http://whisper:8001"
+
     # LLM Summarization
-    llm_provider: str = "ollama"  # ollama, openai, anthropic, openai_compatible
+    llm_provider: str = "ollama"  # ollama, openai, anthropic, groq, deepseek, custom
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2"
     openai_api_key: str | None = None
@@ -70,6 +79,12 @@ class Settings(BaseSettings):
     openai_base_url: str | None = None  # For OpenAI-compatible endpoints
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-3-haiku-20240307"
+    groq_api_key: str | None = None
+    groq_model: str = "llama-3.1-70b-versatile"
+    deepseek_api_key: str | None = None
+    deepseek_model: str = "deepseek-chat"
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-1.5-flash"
 
     # Subscription Worker
     subscription_worker_enabled: bool = True
@@ -90,6 +105,21 @@ class Settings(BaseSettings):
     queue_enabled: bool = True  # Enable priority queue processing
     default_priority: int = 5  # Default priority level (1-10)
     max_concurrent_queue_jobs: int = 5  # Max concurrent jobs in queue
+
+    # Cloud Storage - S3/S3-Compatible
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: str | None = None
+    s3_bucket: str | None = None
+    s3_region: str = "us-east-1"
+    s3_endpoint_url: str | None = None  # For S3-compatible services (MinIO, etc.)
+
+    # Cloud Storage - Google Drive
+    google_drive_client_id: str | None = None
+    google_drive_client_secret: str | None = None
+
+    # Cloud Storage - Dropbox
+    dropbox_app_key: str | None = None
+    dropbox_app_secret: str | None = None
 
     def get_download_path(self) -> Path:
         """Get download directory as Path, creating if needed."""

@@ -149,6 +149,56 @@ class JobStore:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_annotations_job ON annotations(job_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_annotations_parent ON annotations(parent_id)")
 
+            # Cloud providers table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS cloud_providers (
+                    id TEXT PRIMARY KEY,
+                    provider_type TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    credentials TEXT,
+                    settings TEXT,
+                    is_default INTEGER DEFAULT 0,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+
+            # Export jobs table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS export_jobs (
+                    id TEXT PRIMARY KEY,
+                    job_id TEXT,
+                    file_path TEXT NOT NULL,
+                    provider_id TEXT NOT NULL,
+                    destination_path TEXT,
+                    status TEXT DEFAULT 'pending',
+                    progress REAL DEFAULT 0.0,
+                    bytes_uploaded INTEGER DEFAULT 0,
+                    total_bytes INTEGER DEFAULT 0,
+                    cloud_url TEXT,
+                    error TEXT,
+                    created_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    FOREIGN KEY (provider_id) REFERENCES cloud_providers(id)
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_export_jobs_status ON export_jobs(status)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_export_jobs_job ON export_jobs(job_id)")
+
+            # AI settings table
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS ai_settings (
+                    id INTEGER PRIMARY KEY,
+                    provider TEXT NOT NULL DEFAULT 'ollama',
+                    model TEXT NOT NULL DEFAULT 'llama3.2',
+                    api_key TEXT,
+                    base_url TEXT,
+                    is_default INTEGER DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+
             # Run migrations for existing databases
             self._migrate_schema(conn)
 
@@ -670,6 +720,62 @@ class JobStore:
                     pass
 
         return d
+
+    # ============ AI Settings Methods ============
+
+    def get_ai_settings(self) -> Optional[dict]:
+        """Get the current AI provider settings."""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM ai_settings WHERE is_default = 1 ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+
+            if row:
+                return dict(row)
+        return None
+
+    def save_ai_settings(
+        self,
+        provider: str,
+        model: str,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ) -> dict:
+        """Save AI provider settings.
+
+        Args:
+            provider: Provider name (ollama, openai, anthropic, groq, deepseek, custom)
+            model: Model name/identifier
+            api_key: API key for cloud providers
+            base_url: Base URL for custom endpoints or Ollama
+
+        Returns:
+            The saved settings
+        """
+        now = datetime.utcnow().isoformat()
+
+        with self._get_conn() as conn:
+            # Check if settings exist
+            existing = conn.execute(
+                "SELECT id FROM ai_settings WHERE is_default = 1"
+            ).fetchone()
+
+            if existing:
+                # Update existing settings
+                conn.execute("""
+                    UPDATE ai_settings
+                    SET provider = ?, model = ?, api_key = ?, base_url = ?, updated_at = ?
+                    WHERE is_default = 1
+                """, (provider, model, api_key, base_url, now))
+            else:
+                # Insert new settings
+                conn.execute("""
+                    INSERT INTO ai_settings (provider, model, api_key, base_url, is_default, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, 1, ?, ?)
+                """, (provider, model, api_key, base_url, now, now))
+
+        logger.info(f"Saved AI settings: provider={provider}, model={model}")
+        return self.get_ai_settings()
 
 
 # Global instance

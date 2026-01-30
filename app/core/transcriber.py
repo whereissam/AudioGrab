@@ -7,6 +7,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+import httpx
+
 from .checkpoint import CheckpointManager, TranscriptionCheckpoint
 
 logger = logging.getLogger(__name__)
@@ -74,6 +76,7 @@ class AudioTranscriber:
         device: str = "auto",
         compute_type: str = "auto",
         checkpoint_dir: Optional[Path] = None,
+        remote_service_url: Optional[str] = None,
     ):
         """
         Initialize the transcriber.
@@ -83,11 +86,84 @@ class AudioTranscriber:
             device: Device to use (auto, cpu, cuda)
             compute_type: Compute type (auto, int8, float16, float32)
             checkpoint_dir: Directory for saving checkpoints
+            remote_service_url: URL of remote whisper service (for GPU transcription)
         """
         self.model_size = model_size
         self.device = device
         self.compute_type = compute_type
         self.checkpoint_manager = CheckpointManager(checkpoint_dir)
+        self.remote_service_url = remote_service_url or self._get_remote_service_url()
+
+    def _get_remote_service_url(self) -> Optional[str]:
+        """Get remote whisper service URL from config."""
+        try:
+            from ..config import get_settings
+            return get_settings().whisper_service_url
+        except Exception:
+            return None
+
+    async def _transcribe_remote(
+        self,
+        audio_path: Path,
+        language: Optional[str] = None,
+        task: str = "transcribe",
+        vad_filter: bool = True,
+        word_timestamps: bool = False,
+        initial_prompt: Optional[str] = None,
+    ) -> TranscriptionResult:
+        """Transcribe using remote whisper service."""
+        try:
+            async with httpx.AsyncClient(timeout=600.0) as client:
+                response = await client.post(
+                    f"{self.remote_service_url}/transcribe",
+                    json={
+                        "audio_path": str(audio_path),
+                        "language": language,
+                        "task": task,
+                        "vad_filter": vad_filter,
+                        "word_timestamps": word_timestamps,
+                        "initial_prompt": initial_prompt,
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                if not data.get("success"):
+                    return TranscriptionResult(
+                        success=False,
+                        error=data.get("error", "Remote transcription failed"),
+                    )
+
+                segments = [
+                    TranscriptionSegment(
+                        start=s["start"],
+                        end=s["end"],
+                        text=s["text"],
+                    )
+                    for s in data.get("segments", [])
+                ]
+
+                return TranscriptionResult(
+                    success=True,
+                    text=data.get("text"),
+                    segments=segments,
+                    language=data.get("language"),
+                    language_probability=data.get("language_probability"),
+                    duration=data.get("duration"),
+                )
+
+        except httpx.HTTPError as e:
+            logger.error(f"Remote transcription HTTP error: {e}")
+            return TranscriptionResult(
+                success=False,
+                error=f"Remote transcription failed: {e}",
+            )
+        except Exception as e:
+            logger.exception(f"Remote transcription error: {e}")
+            return TranscriptionResult(
+                success=False,
+                error=str(e),
+            )
 
     def _get_model(self):
         """Get or create the Whisper model (lazy loading with singleton pattern)."""
@@ -143,6 +219,7 @@ class AudioTranscriber:
         job_id: Optional[str] = None,
         output_format: str = "text",
         checkpoint_interval: int = 5,
+        use_remote: Optional[bool] = None,
     ) -> TranscriptionResult:
         """
         Transcribe an audio file with checkpoint support.
@@ -156,6 +233,7 @@ class AudioTranscriber:
             initial_prompt: Optional prompt to guide transcription
             job_id: Job ID for checkpoint tracking
             output_format: Output format (text, srt, vtt, json)
+            use_remote: Force use of remote service (None=auto, True=force, False=local)
             checkpoint_interval: Save checkpoint every N segments
 
         Returns:
@@ -167,6 +245,23 @@ class AudioTranscriber:
             return TranscriptionResult(
                 success=False,
                 error=f"Audio file not found: {audio_path}",
+            )
+
+        # Use remote service if available and not explicitly disabled
+        should_use_remote = (
+            use_remote is True or
+            (use_remote is None and self.remote_service_url)
+        )
+
+        if should_use_remote and self.remote_service_url:
+            logger.info(f"Using remote whisper service at {self.remote_service_url}")
+            return await self._transcribe_remote(
+                audio_path=audio_path,
+                language=language,
+                task=task,
+                vad_filter=vad_filter,
+                word_timestamps=word_timestamps,
+                initial_prompt=initial_prompt,
             )
 
         # Check for existing checkpoint to resume
