@@ -150,6 +150,7 @@ class HealthResponse(BaseModel):
     ffmpeg_available: bool
     whisper_available: bool = False
     diarization_available: bool = False
+    summarization_available: bool = False
     version: str
 
 
@@ -264,4 +265,73 @@ class TranscriptionJob(BaseModel):
     audio_file: Optional[str] = Field(
         default=None,
         description="Path to audio file (if keep_audio was True)",
+    )
+
+
+# ============ Summarization Schemas ============
+
+
+class SummaryType(str, Enum):
+    """Types of summaries that can be generated."""
+
+    BULLET_POINTS = "bullet_points"
+    CHAPTERS = "chapters"
+    KEY_TOPICS = "key_topics"
+    ACTION_ITEMS = "action_items"
+    FULL = "full"
+
+
+class LLMProvider(str, Enum):
+    """Available LLM providers."""
+
+    OLLAMA = "ollama"
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    OPENAI_COMPATIBLE = "openai_compatible"
+
+
+class SummarizeRequest(BaseModel):
+    """Request to summarize text."""
+
+    text: str = Field(
+        ...,
+        description="Text to summarize (typically a transcript)",
+    )
+    summary_type: SummaryType = Field(
+        default=SummaryType.BULLET_POINTS,
+        description="Type of summary to generate",
+    )
+    provider: Optional[LLMProvider] = Field(
+        default=None,
+        description="LLM provider to use. If not specified, uses configured default.",
+    )
+    model: Optional[str] = Field(
+        default=None,
+        description="Model to use. If not specified, uses configured default for the provider.",
+    )
+
+
+class SummarizeFromJobRequest(BaseModel):
+    """Request to summarize a completed transcription job."""
+
+    job_id: str = Field(
+        ...,
+        description="Job ID of a completed transcription to summarize",
+    )
+    summary_type: SummaryType = Field(
+        default=SummaryType.BULLET_POINTS,
+        description="Type of summary to generate",
+    )
+
+
+class SummaryResponse(BaseModel):
+    """Response containing a generated summary."""
+
+    summary_type: SummaryType
+    content: str = Field(description="The generated summary")
+    model: str = Field(description="Model used for generation")
+    provider: str = Field(description="Provider used for generation")
+    tokens_used: Optional[int] = Field(
+        default=None,
+        description="Number of tokens used for generation",
     )

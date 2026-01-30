@@ -1,21 +1,35 @@
 """FastAPI application entry point."""
 
-import logging
 import uvicorn
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from .config import get_settings
 from .api import router as api_router
+from .api.ratelimit import limiter
+from .api.middleware import TimeoutMiddleware, RequestIDMiddleware
+from .logging_config import configure_logging, get_logger
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
+# Configure structured logging
+_settings = get_settings()
+configure_logging(json_logs=not _settings.debug, log_level="DEBUG" if _settings.debug else "INFO")
+logger = get_logger(__name__)
+
+# Initialize Sentry if configured
+if _settings.sentry_dsn:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=_settings.sentry_dsn,
+        environment=_settings.sentry_environment,
+        traces_sample_rate=_settings.sentry_traces_sample_rate,
+        send_default_pii=False,  # Don't send PII
+    )
+    logger.info("sentry_initialized", environment=_settings.sentry_environment)
 
 
 @asynccontextmanager
@@ -23,7 +37,9 @@ async def lifespan(app: FastAPI):
     """Application lifespan handler."""
     settings = get_settings()
     logger.info("Starting AudioGrab API")
-    logger.info(f"Auth configured: {settings.has_auth}")
+    logger.info(f"Server: {settings.host}:{settings.port}")
+    logger.info(f"API auth: {'enabled (X-API-Key required)' if settings.api_key else 'disabled (open access)'}")
+    logger.info(f"Twitter auth: {settings.has_auth}")
     logger.info(f"Download directory: {settings.download_dir}")
 
     # Recover unfinished jobs from previous run
@@ -69,14 +85,29 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # CORS middleware
+_settings = get_settings()
+_cors_origins = (
+    ["*"] if _settings.cors_origins == "*"
+    else [o.strip() for o in _settings.cors_origins.split(",") if o.strip()]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["X-API-Key", "Content-Type", "Authorization"],
 )
+
+# Timeout middleware
+app.add_middleware(TimeoutMiddleware)
+
+# Request ID middleware (for tracing)
+app.add_middleware(RequestIDMiddleware)
 
 # Include API routes
 app.include_router(api_router, prefix="/api", tags=["download"])

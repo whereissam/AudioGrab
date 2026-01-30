@@ -1,8 +1,18 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Download, ArrowLeft, Mic, Video, FileText, Copy, Check, Users, Pencil } from 'lucide-react'
+import { Download, ArrowLeft, Mic, Video, FileText, Copy, Check, Users, Pencil, Sparkles, Loader2, ChevronDown } from 'lucide-react'
 import { ContentInfo, TranscriptionResult, TranscriptionSegment, formatDuration } from './types'
 import { useState, useMemo } from 'react'
+
+const SUMMARY_TYPES = [
+  { value: 'bullet_points', label: 'Bullet Points', desc: 'Key ideas as bullets' },
+  { value: 'chapters', label: 'Chapters', desc: 'With timestamps' },
+  { value: 'key_topics', label: 'Key Topics', desc: 'Major themes' },
+  { value: 'action_items', label: 'Action Items', desc: 'Tasks & follow-ups' },
+  { value: 'full', label: 'Full Summary', desc: 'Comprehensive' },
+] as const
+
+type SummaryType = typeof SUMMARY_TYPES[number]['value']
 
 interface DownloadSuccessProps {
   contentInfo: ContentInfo
@@ -126,6 +136,14 @@ export function TranscriptionSuccess({
   const [showRenaming, setShowRenaming] = useState(false)
   const [speakerNames, setSpeakerNames] = useState<Record<string, string>>({})
 
+  // Summarization state
+  const [showSummary, setShowSummary] = useState(false)
+  const [summaryType, setSummaryType] = useState<SummaryType>('bullet_points')
+  const [summary, setSummary] = useState<string | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [summaryCopied, setSummaryCopied] = useState(false)
+
   // Extract unique speakers from segments
   const uniqueSpeakers = useMemo(() => {
     if (!result.segments) return []
@@ -168,6 +186,43 @@ export function TranscriptionSuccess({
       ...prev,
       [speaker]: newName
     }))
+  }
+
+  const handleSummarize = async () => {
+    setSummaryLoading(true)
+    setSummaryError(null)
+    setSummary(null)
+
+    try {
+      const response = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: result.text,
+          summary_type: summaryType,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.detail || 'Summarization failed')
+      }
+
+      const data = await response.json()
+      setSummary(data.content)
+      setShowSummary(true)
+    } catch (error) {
+      setSummaryError(error instanceof Error ? error.message : 'Summarization failed')
+    } finally {
+      setSummaryLoading(false)
+    }
+  }
+
+  const handleCopySummary = async () => {
+    if (!summary) return
+    await navigator.clipboard.writeText(summary)
+    setSummaryCopied(true)
+    setTimeout(() => setSummaryCopied(false), 2000)
   }
 
   return (
@@ -231,6 +286,78 @@ export function TranscriptionSuccess({
         <div className="bg-muted rounded-lg p-4 max-h-80 overflow-y-auto">
           <pre className="text-sm whitespace-pre-wrap font-mono">{displayOutput}</pre>
         </div>
+      </div>
+
+      {/* Summarization Section */}
+      <div className="bg-card rounded-xl shadow-lg p-4 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <span className="font-medium">AI Summary</span>
+        </div>
+
+        {/* Summary Type Selector */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {SUMMARY_TYPES.map((type) => (
+            <button
+              key={type.value}
+              onClick={() => setSummaryType(type.value)}
+              disabled={summaryLoading}
+              className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                summaryType === type.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              } ${summaryLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              {type.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Generate Button */}
+        <Button
+          onClick={handleSummarize}
+          disabled={summaryLoading}
+          className="w-full mb-4"
+          variant={summary ? 'outline' : 'default'}
+        >
+          {summaryLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <Sparkles className="mr-2 h-4 w-4" />
+              {summary ? 'Regenerate Summary' : 'Generate Summary'}
+            </>
+          )}
+        </Button>
+
+        {/* Error Message */}
+        {summaryError && (
+          <div className="bg-destructive/10 text-destructive rounded-lg p-3 mb-4 text-sm">
+            {summaryError}
+          </div>
+        )}
+
+        {/* Summary Result */}
+        {summary && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                {SUMMARY_TYPES.find(t => t.value === summaryType)?.label}
+              </span>
+              <Button variant="outline" size="sm" onClick={handleCopySummary}>
+                {summaryCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+            <div className="bg-muted rounded-lg p-4 max-h-60 overflow-y-auto">
+              <div className="text-sm whitespace-pre-wrap prose prose-sm dark:prose-invert max-w-none">
+                {summary}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3">

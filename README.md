@@ -67,13 +67,30 @@ Create `.env`:
 
 ```env
 # Server
-HOST=0.0.0.0
+HOST=127.0.0.1            # Use 0.0.0.0 to expose to network
 PORT=8000
 DOWNLOAD_DIR=/tmp/audiograb
+
+# API Authentication (optional)
+# API_KEY=your-secret-key  # If set, requires X-API-Key header
 
 # Optional
 TELEGRAM_BOT_TOKEN=xxx
 HUGGINGFACE_TOKEN=hf_xxx  # For speaker diarization
+```
+
+### API Authentication
+
+By default, the API is open (no auth required) - suitable for local/self-hosted use.
+
+To enable authentication, set `API_KEY` in `.env`:
+
+```bash
+# .env
+API_KEY=my-secret-key
+
+# Then include header in requests
+curl -H "X-API-Key: my-secret-key" http://localhost:8000/api/health
 ```
 
 ## Documentation

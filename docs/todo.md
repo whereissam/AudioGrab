@@ -87,26 +87,27 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 
 ---
 
-## P3: LLM-Powered Summarization
+## P3: LLM-Powered Summarization ✅ COMPLETED
 
 **Goal:** Generate summaries and chapters for long transcriptions.
 
 ### Tasks
 
-- [ ] Create summarization service (`services/summarization.py`)
-- [ ] Support multiple LLM backends:
-  - [ ] Ollama (local, free)
-  - [ ] OpenAI API
-  - [ ] Anthropic API
-  - [ ] OpenAI-compatible endpoints (LM Studio, etc.)
-- [ ] Add API key configuration in settings
-- [ ] Summarization types:
-  - [ ] Bullet-point summary
-  - [ ] Chapter markers with timestamps
-  - [ ] Key topics/themes extraction
-  - [ ] Action items (for meeting-style content)
-- [ ] Add "Summarize" button in Web UI transcription view
-- [ ] Chunking strategy for long transcripts (context window limits)
+- [x] Create summarization service (`app/core/summarizer.py`)
+- [x] Support multiple LLM backends:
+  - [x] Ollama (local, free)
+  - [x] OpenAI API
+  - [x] Anthropic API
+  - [x] OpenAI-compatible endpoints (LM Studio, etc.)
+- [x] Add API key configuration in settings
+- [x] Summarization types:
+  - [x] Bullet-point summary
+  - [x] Chapter markers with timestamps
+  - [x] Key topics/themes extraction
+  - [x] Action items (for meeting-style content)
+  - [x] Full comprehensive summary
+- [x] Add "Summarize" button in Web UI transcription view
+- [x] Chunking strategy for long transcripts (context window limits)
 - [ ] Cache summaries in database
 - [ ] Export summary alongside transcript
 

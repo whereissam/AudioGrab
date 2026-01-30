@@ -238,6 +238,88 @@ class JobStore:
                 logger.info(f"Cleaned up {deleted} old jobs")
             return deleted
 
+    def backup(self, backup_dir: Optional[Path] = None) -> Path:
+        """
+        Create a backup of the database.
+
+        Args:
+            backup_dir: Directory for backup file. Defaults to db_path.parent/backups
+
+        Returns:
+            Path to the backup file
+        """
+        import shutil
+
+        if backup_dir is None:
+            backup_dir = self.db_path.parent / "backups"
+
+        backup_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create timestamped backup filename
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        backup_path = backup_dir / f"jobs_{timestamp}.db"
+
+        # Use SQLite's backup API for safe hot backup
+        with self._get_conn() as conn:
+            backup_conn = sqlite3.connect(str(backup_path))
+            try:
+                conn.backup(backup_conn)
+            finally:
+                backup_conn.close()
+
+        logger.info(f"Database backed up to {backup_path}")
+        return backup_path
+
+    def list_backups(self, backup_dir: Optional[Path] = None) -> list[dict]:
+        """List available backups with metadata."""
+        if backup_dir is None:
+            backup_dir = self.db_path.parent / "backups"
+
+        if not backup_dir.exists():
+            return []
+
+        backups = []
+        for f in sorted(backup_dir.glob("jobs_*.db"), reverse=True):
+            stat = f.stat()
+            backups.append({
+                "path": str(f),
+                "filename": f.name,
+                "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            })
+
+        return backups
+
+    def restore(self, backup_path: Path) -> bool:
+        """
+        Restore database from a backup.
+
+        Args:
+            backup_path: Path to backup file
+
+        Returns:
+            True if restore successful
+        """
+        import shutil
+
+        if not backup_path.exists():
+            raise FileNotFoundError(f"Backup not found: {backup_path}")
+
+        # Create a backup of current db before restoring
+        current_backup = self.db_path.with_suffix(".db.before_restore")
+        if self.db_path.exists():
+            shutil.copy2(self.db_path, current_backup)
+
+        try:
+            shutil.copy2(backup_path, self.db_path)
+            logger.info(f"Database restored from {backup_path}")
+            return True
+        except Exception as e:
+            # Restore the original on failure
+            if current_backup.exists():
+                shutil.copy2(current_backup, self.db_path)
+            raise
+
     def _row_to_dict(self, row: sqlite3.Row) -> dict:
         """Convert database row to dictionary."""
         d = dict(row)

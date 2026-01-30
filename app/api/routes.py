@@ -6,9 +6,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 import aiofiles
+
+from .auth import verify_api_key
 
 from ..core.downloader import DownloaderFactory
 from ..core.converter import AudioConverter
@@ -28,7 +30,11 @@ from .schemas import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+
+# Apply optional API key auth to all routes
+# If API_KEY env var is set, all requests require X-API-Key header
+# If API_KEY is not set, API is open (for self-hosted use)
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 # In-memory job storage (use Redis/database for production)
 jobs: Dict[str, DownloadJob] = {}
@@ -137,7 +143,7 @@ async def _process_download(job_id: str, request: DownloadRequest):
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint (liveness probe)."""
     from ..core.platforms import (
         XSpacesDownloader,
         ApplePodcastsDownloader,
@@ -149,6 +155,7 @@ async def health_check():
     )
     from ..core.transcriber import AudioTranscriber
     from ..core.diarizer import SpeakerDiarizer
+    from ..core.summarizer import TranscriptSummarizer
 
     return HealthResponse(
         status="healthy",
@@ -164,8 +171,52 @@ async def health_check():
         ffmpeg_available=AudioConverter.is_ffmpeg_available(),
         whisper_available=AudioTranscriber.is_available(),
         diarization_available=SpeakerDiarizer.is_available(),
+        summarization_available=TranscriptSummarizer.is_available(),
         version="0.3.0",
     )
+
+
+@router.get("/readyz")
+async def readiness_check():
+    """
+    Readiness probe - checks if the service is ready to accept traffic.
+
+    Verifies:
+    - Database connection is working
+    - Download directory is writable
+    """
+    from ..core.job_store import get_job_store
+    from ..config import get_settings
+    from pathlib import Path
+
+    errors = []
+
+    # Check database connection
+    try:
+        job_store = get_job_store()
+        # Try a simple query
+        job_store.get_jobs_by_status()
+    except Exception as e:
+        errors.append(f"Database: {str(e)}")
+
+    # Check download directory is writable
+    try:
+        settings = get_settings()
+        download_dir = Path(settings.download_dir)
+        download_dir.mkdir(parents=True, exist_ok=True)
+        test_file = download_dir / ".write_test"
+        test_file.write_text("test")
+        test_file.unlink()
+    except Exception as e:
+        errors.append(f"Download directory: {str(e)}")
+
+    if errors:
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "not ready", "errors": errors},
+        )
+
+    return {"status": "ready"}
 
 
 @router.get("/add")
@@ -885,6 +936,35 @@ async def cleanup_storage(
     return results
 
 
+@router.post("/backup")
+async def create_backup():
+    """Create a backup of the jobs database."""
+    from ..core.job_store import get_job_store
+
+    job_store = get_job_store()
+    backup_path = job_store.backup()
+
+    return {
+        "status": "success",
+        "backup_path": str(backup_path),
+        "message": "Database backup created",
+    }
+
+
+@router.get("/backups")
+async def list_backups():
+    """List available database backups."""
+    from ..core.job_store import get_job_store
+
+    job_store = get_job_store()
+    backups = job_store.list_backups()
+
+    return {
+        "backups": backups,
+        "total": len(backups),
+    }
+
+
 @router.get("/storage")
 async def get_storage_info():
     """Get storage usage information."""
@@ -998,3 +1078,178 @@ async def transcribe_uploaded_file(
     background_tasks.add_task(_process_transcription, job_id, request, file_path)
 
     return job
+
+
+# ============ Summarization Endpoints ============
+
+
+@router.post("/summarize")
+async def summarize_text(request: dict):
+    """
+    Summarize text using an LLM.
+
+    Supports multiple summary types:
+    - bullet_points: Main ideas as bullet points
+    - chapters: Chapter markers with timestamps (for transcripts)
+    - key_topics: Major themes and topics
+    - action_items: Tasks and follow-ups (for meetings)
+    - full: Comprehensive summary with all elements
+    """
+    from ..core.summarizer import TranscriptSummarizer, SummaryType as CoreSummaryType
+
+    text = request.get("text", "")
+    summary_type_str = request.get("summary_type", "bullet_points")
+
+    if not text:
+        raise HTTPException(status_code=400, detail="Text is required")
+
+    try:
+        summary_type = CoreSummaryType(summary_type_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid summary type. Valid types: {[t.value for t in CoreSummaryType]}",
+        )
+
+    summarizer = TranscriptSummarizer.from_settings()
+
+    if not summarizer.provider:
+        raise HTTPException(
+            status_code=503,
+            detail="No LLM provider configured. Set LLM_PROVIDER and required API keys in .env",
+        )
+
+    if not summarizer.provider.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail=f"LLM provider '{summarizer.provider.name}' is not available",
+        )
+
+    try:
+        result = await summarizer.summarize(text, summary_type)
+        return {
+            "summary_type": result.summary_type.value,
+            "content": result.content,
+            "model": result.model,
+            "provider": result.provider,
+            "tokens_used": result.tokens_used,
+        }
+    except Exception as e:
+        logger.exception("Summarization failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/summarize/job/{job_id}")
+async def summarize_job(job_id: str, summary_type: str = "bullet_points"):
+    """
+    Summarize a completed transcription job.
+
+    Takes the job_id of a completed transcription and generates a summary.
+    """
+    from ..core.summarizer import TranscriptSummarizer, SummaryType as CoreSummaryType
+
+    # Find the transcription job
+    job = transcription_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Transcription job not found")
+
+    if job.status != JobStatus.COMPLETED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Job is not completed. Current status: {job.status.value}",
+        )
+
+    if not job.text:
+        raise HTTPException(status_code=400, detail="Job has no transcription text")
+
+    try:
+        summary_type_enum = CoreSummaryType(summary_type)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid summary type. Valid types: {[t.value for t in CoreSummaryType]}",
+        )
+
+    summarizer = TranscriptSummarizer.from_settings()
+
+    if not summarizer.provider:
+        raise HTTPException(
+            status_code=503,
+            detail="No LLM provider configured. Set LLM_PROVIDER and required API keys in .env",
+        )
+
+    if not summarizer.provider.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail=f"LLM provider '{summarizer.provider.name}' is not available",
+        )
+
+    try:
+        result = await summarizer.summarize(job.text, summary_type_enum)
+        return {
+            "job_id": job_id,
+            "summary_type": result.summary_type.value,
+            "content": result.content,
+            "model": result.model,
+            "provider": result.provider,
+            "tokens_used": result.tokens_used,
+        }
+    except Exception as e:
+        logger.exception("Summarization failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/summarize/providers")
+async def list_summarization_providers():
+    """
+    List available LLM providers and their status.
+    """
+    from ..config import get_settings
+    from ..core.summarizer import OllamaProvider, OpenAIProvider, AnthropicProvider
+
+    settings = get_settings()
+
+    providers = []
+
+    # Check Ollama
+    ollama = OllamaProvider(settings.ollama_base_url, settings.ollama_model)
+    providers.append({
+        "name": "ollama",
+        "available": ollama.is_available(),
+        "model": settings.ollama_model,
+        "configured": True,
+        "is_default": settings.llm_provider == "ollama",
+    })
+
+    # Check OpenAI
+    providers.append({
+        "name": "openai",
+        "available": bool(settings.openai_api_key),
+        "model": settings.openai_model,
+        "configured": bool(settings.openai_api_key),
+        "is_default": settings.llm_provider == "openai",
+    })
+
+    # Check OpenAI-compatible
+    providers.append({
+        "name": "openai_compatible",
+        "available": bool(settings.openai_api_key and settings.openai_base_url),
+        "model": settings.openai_model,
+        "base_url": settings.openai_base_url,
+        "configured": bool(settings.openai_api_key and settings.openai_base_url),
+        "is_default": settings.llm_provider == "openai_compatible",
+    })
+
+    # Check Anthropic
+    providers.append({
+        "name": "anthropic",
+        "available": bool(settings.anthropic_api_key),
+        "model": settings.anthropic_model,
+        "configured": bool(settings.anthropic_api_key),
+        "is_default": settings.llm_provider == "anthropic",
+    })
+
+    return {
+        "default_provider": settings.llm_provider,
+        "providers": providers,
+    }

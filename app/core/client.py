@@ -1,7 +1,6 @@
 """Async HTTP client for Twitter/X API."""
 
 import json
-import logging
 from urllib.parse import quote
 
 import httpx
@@ -16,8 +15,10 @@ from .exceptions import (
     RateLimitError,
     XDownloaderError,
 )
+from .retry import request_with_retry
+from ..logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TwitterClient:
@@ -115,7 +116,7 @@ class TwitterClient:
             )
 
             try:
-                response = await self.client.get(url)
+                response = await request_with_retry(self.client, "GET", url)
 
                 if response.status_code == 401:
                     raise AuthenticationError(
@@ -191,7 +192,7 @@ class TwitterClient:
         """
         url = f"{self.BASE_URL}/i/api/1.1/live_video_stream/status/{media_key}"
 
-        response = await self.client.get(url)
+        response = await request_with_retry(self.client, "GET", url)
 
         if response.status_code == 401:
             raise AuthenticationError("Invalid authentication credentials")
