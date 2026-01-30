@@ -13,54 +13,54 @@
 
 ---
 
-## P0: Smart Metadata & Tagging
+## P0: Smart Metadata & Tagging ✅ COMPLETED
 
 **Goal:** Automatically fetch and embed ID3 tags (Title, Artist, Album Art, Year) for all platforms.
 
 ### Tasks
 
-- [ ] Add `mutagen` dependency for ID3 tag manipulation
-- [ ] Create metadata service abstraction (`services/metadata.py`)
-- [ ] Platform-specific metadata extractors:
-  - [ ] X Spaces: Scrape Space title, Host handle as "Artist"
-  - [ ] YouTube: Extract title, channel name, thumbnail
-  - [ ] Apple Podcasts: Pull from RSS feed (title, description, artwork)
-  - [ ] Spotify: Use spotDL metadata (already has some)
-  - [ ] 小宇宙: Extract episode metadata from API
-- [ ] Embed metadata into downloaded files:
-  - [ ] Title
-  - [ ] Artist/Author
-  - [ ] Album (show name for podcasts)
-  - [ ] Album Art (thumbnail/cover)
-  - [ ] Year/Date
-  - [ ] Description in "Lyrics" or "Comments" tag
+- [x] Add `mutagen` dependency for ID3 tag manipulation
+- [x] Create metadata service (`app/core/metadata_tagger.py`)
+- [x] Platform-specific metadata extractors:
+  - [x] X Spaces: Scrape Space title, Host handle as "Artist"
+  - [x] YouTube: Extract title, channel name, thumbnail
+  - [x] Apple Podcasts: Pull from RSS feed (title, description, artwork)
+  - [x] Spotify: Use spotDL metadata (already has some)
+  - [x] 小宇宙: Extract episode metadata from API
+- [x] Embed metadata into downloaded files:
+  - [x] Title
+  - [x] Artist/Author
+  - [x] Album (show name for podcasts)
+  - [x] Album Art (thumbnail/cover)
+  - [x] Year/Date
+  - [x] Description in "Comments" tag
 - [ ] Add option to customize filename template (e.g., `{artist} - {title}`)
-- [ ] Add toggle in Web UI for metadata embedding
+- [x] Add `embed_metadata` option in API (default: true)
 
 ---
 
-## P1: Speaker Diarization (Who Spoke When)
+## P1: Speaker Diarization (Who Spoke When) ✅ COMPLETED
 
 **Goal:** Identify different speakers in transcriptions, especially for X Spaces and Podcasts.
 
+See [diarization-setup.md](./diarization-setup.md) for setup instructions.
+
 ### Tasks
 
-- [ ] Research and select diarization library:
-  - [ ] Option A: `pyannote-audio` (most accurate, requires HuggingFace token)
-  - [ ] Option B: `speechbrain` (no token required)
-  - [ ] Option C: `whisperx` (combines whisper + diarization)
-- [ ] Add optional dependency group `[diarization]`
-- [ ] Create diarization service (`services/diarization.py`)
-- [ ] Integrate with existing transcription pipeline:
-  - [ ] Run diarization after/alongside transcription
-  - [ ] Merge speaker labels with transcript segments
-- [ ] Update output formats:
-  - [ ] Plain text with speaker labels
-  - [ ] SRT/VTT with speaker prefixes
-  - [ ] JSON with speaker IDs per segment
+- [x] Research and select diarization library:
+  - [x] Selected: `pyannote-audio` (most accurate, requires HuggingFace token)
+- [x] Add optional dependency group `[diarize]`
+- [x] Create diarization service (`app/core/diarizer.py`)
+- [x] Integrate with existing transcription pipeline:
+  - [x] Run diarization after transcription
+  - [x] Merge speaker labels with transcript segments
+- [x] Update output formats:
+  - [x] Plain text with speaker labels (`dialogue` format)
+  - [x] SRT with speaker prefixes
+  - [x] JSON with speaker IDs per segment
 - [ ] Add Web UI toggle for diarization
 - [ ] Handle speaker renaming (Speaker 0 → "Host", etc.)
-- [ ] Add speaker count estimation/limit option
+- [x] Add speaker count option (`num_speakers` parameter)
 
 ---
 

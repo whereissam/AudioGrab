@@ -60,15 +60,23 @@ class SpeakerDiarizer:
                     settings = get_settings()
                     token = settings.huggingface_token
 
+                # If still no token, try to use cached token from `huggingface-cli login`
+                if not token:
+                    try:
+                        from huggingface_hub import get_token
+                        token = get_token()
+                    except Exception:
+                        pass
+
                 if not token:
                     raise ValueError(
                         "HuggingFace token required for pyannote. "
-                        "Set HUGGINGFACE_TOKEN environment variable or pass hf_token parameter."
+                        "Either set HUGGINGFACE_TOKEN in .env, or run: huggingface-cli login"
                     )
 
                 SpeakerDiarizer._pipeline = Pipeline.from_pretrained(
                     "pyannote/speaker-diarization-3.1",
-                    use_auth_token=token,
+                    token=token,
                 )
 
                 # Move to GPU if available
@@ -117,11 +125,25 @@ class SpeakerDiarizer:
         loop = asyncio.get_event_loop()
 
         def _run_diarization():
+            import torchaudio
+
+            # Load audio as waveform (workaround for torchcodec issues)
+            waveform, sample_rate = torchaudio.load(str(audio_path))
+
+            # Resample to 16kHz if needed
+            if sample_rate != 16000:
+                resampler = torchaudio.transforms.Resample(sample_rate, 16000)
+                waveform = resampler(waveform)
+                sample_rate = 16000
+
+            # Create audio dict for pyannote
+            audio_input = {"waveform": waveform, "sample_rate": sample_rate}
+
             if num_speakers:
-                diarization = pipeline(str(audio_path), num_speakers=num_speakers)
+                diarization = pipeline(audio_input, num_speakers=num_speakers)
             else:
                 diarization = pipeline(
-                    str(audio_path),
+                    audio_input,
                     min_speakers=min_speakers,
                     max_speakers=max_speakers,
                 )
@@ -130,8 +152,16 @@ class SpeakerDiarizer:
         diarization = await loop.run_in_executor(None, _run_diarization)
 
         # Convert to SpeakerSegment list
+        # Handle both old and new pyannote output formats
         segments = []
-        for turn, _, speaker in diarization.itertracks(yield_label=True):
+        if hasattr(diarization, 'speaker_diarization'):
+            # New format (pyannote 3.x)
+            annotation = diarization.speaker_diarization
+        else:
+            # Old format
+            annotation = diarization
+
+        for turn, _, speaker in annotation.itertracks(yield_label=True):
             segments.append(
                 SpeakerSegment(
                     speaker=speaker,
