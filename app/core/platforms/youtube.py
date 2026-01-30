@@ -108,6 +108,8 @@ class YouTubeDownloader(PlatformDownloader):
                 "--audio-format", download_format if download_format == "mp3" else "m4a",
                 "-o", output_template,
                 "--print-json",
+                # Workaround for YouTube SABR streaming issues
+                "--extractor-args", "youtube:player_client=web",
             ]
 
             if download_format == "mp3":

@@ -90,13 +90,13 @@ class YouTubeVideoDownloader(PlatformDownloader):
             else:
                 output_template = str(self.download_dir / "%(title)s [%(id)s].%(ext)s")
 
-            # Quality mapping for video
+            # Quality mapping for video (bestvideo+bestaudio ensures we get both streams)
             format_spec = {
-                "low": "worst[ext=mp4]/worst",
-                "medium": "best[height<=480][ext=mp4]/best[height<=480]",
-                "high": "best[height<=720][ext=mp4]/best[height<=720]",
-                "highest": "best[height<=1080][ext=mp4]/best[height<=1080]/best",
-            }.get(quality, "best[height<=720][ext=mp4]/best[height<=720]")
+                "low": "bestvideo[height<=360]+bestaudio/best[height<=360]",
+                "medium": "bestvideo[height<=480]+bestaudio/best[height<=480]",
+                "high": "bestvideo[height<=720]+bestaudio/best[height<=720]",
+                "highest": "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
+            }.get(quality, "bestvideo[height<=720]+bestaudio/best[height<=720]")
 
             cmd = [
                 self._yt_dlp_path,
@@ -105,11 +105,14 @@ class YouTubeVideoDownloader(PlatformDownloader):
                 "-o", output_template,
                 "--print-json",
                 "--merge-output-format", "mp4",
+                "--force-overwrites",  # Overwrite existing files
+                # Workaround for YouTube SABR streaming issues
+                "--extractor-args", "youtube:player_client=web",
             ]
 
             cmd.append(url)
 
-            logger.info("Running yt-dlp for YouTube video...")
+            logger.info(f"Running yt-dlp for YouTube video with command: {' '.join(cmd)}")
 
             process = await asyncio.create_subprocess_exec(
                 *cmd,

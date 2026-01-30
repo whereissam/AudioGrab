@@ -58,8 +58,15 @@ async def _process_download(job_id: str, request: DownloadRequest):
     job.progress = 0.1
 
     try:
-        # Get appropriate downloader
-        downloader = DownloaderFactory.get_downloader(request.url)
+        # Get appropriate downloader based on platform selection
+        if request.platform != Platform.AUTO:
+            # User explicitly selected a platform (e.g., YOUTUBE_VIDEO for video)
+            from ..core.base import Platform as CorePlatform
+            core_platform = CorePlatform(request.platform.value)
+            downloader = DownloaderFactory.get_downloader_for_platform(core_platform)
+        else:
+            # Auto-detect from URL
+            downloader = DownloaderFactory.get_downloader(request.url)
         job.platform = _core_platform_to_schema(downloader.platform)
 
         # Download
