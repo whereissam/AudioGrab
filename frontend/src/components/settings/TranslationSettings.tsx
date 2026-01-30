@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Loader2, Check, AlertCircle, Languages, Zap } from 'lucide-react'
+import { Loader2, Check, AlertCircle, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 interface Language {
   code: string
@@ -192,19 +193,16 @@ export function TranslationSettings() {
         <label className="block text-sm font-medium text-foreground mb-2">
           Default Target Language
         </label>
-        <select
+        <SearchableSelect
           value={defaultTargetLang}
-          onChange={(e) => setDefaultTargetLang(e.target.value)}
+          onValueChange={setDefaultTargetLang}
+          options={[
+            { value: '', label: 'No default (ask each time)' },
+            ...languages.map(l => ({ value: l.code, label: l.name }))
+          ]}
+          placeholder="No default (ask each time)"
           disabled={!isInstalled}
-          className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-        >
-          <option value="">No default (ask each time)</option>
-          {languages.map((lang) => (
-            <option key={lang.code} value={lang.code}>
-              {lang.name}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       {/* Test Result */}

@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, AlertCircle, Mic, FileAudio, FileText, Upload, Link, Users, Sparkles } from 'lucide-react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
+import { Loader2, AlertCircle, Mic, FileAudio, FileText, Upload, Link, Users, Sparkles, Globe } from 'lucide-react'
 import {
   DownloadStatus,
   WhisperModel,
@@ -9,6 +10,7 @@ import {
   WHISPER_MODELS,
   TRANSCRIPTION_FORMATS,
   ENHANCEMENT_PRESETS,
+  TRANSCRIPTION_LANGUAGES,
 } from './types'
 
 interface TranscribeFormProps {
@@ -22,6 +24,8 @@ interface TranscribeFormProps {
   setWhisperModel: (model: WhisperModel) => void
   transcriptionFormat: TranscriptionFormat
   setTranscriptionFormat: (format: TranscriptionFormat) => void
+  language: string
+  setLanguage: (language: string) => void
   enhance: boolean
   setEnhance: (enhance: boolean) => void
   enhancementPreset: EnhancementPreset
@@ -46,6 +50,8 @@ export function TranscribeForm({
   setWhisperModel,
   transcriptionFormat,
   setTranscriptionFormat,
+  language,
+  setLanguage,
   enhance,
   setEnhance,
   enhancementPreset,
@@ -157,29 +163,50 @@ export function TranscribeForm({
         </div>
       )}
 
-      {/* Model Selector */}
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">
-          <Mic className="inline h-4 w-4 mr-1" />
-          Whisper Model
-        </label>
-        <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
-          {WHISPER_MODELS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setWhisperModel(opt.value)}
-              disabled={status === 'loading'}
-              className={`p-2.5 sm:p-2 rounded-lg border-2 transition-all active:scale-95 ${
-                whisperModel === opt.value
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border bg-background text-foreground hover:border-primary/50'
-              } ${status === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-            >
-              <div className="font-semibold text-sm">{opt.label}</div>
-              <div className="text-xs text-muted-foreground hidden sm:block">{opt.desc}</div>
-            </button>
-          ))}
+      {/* Model & Language Row */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Model Selector */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">
+            <Mic className="inline h-4 w-4 mr-1" />
+            Whisper Model
+          </label>
+          <div className="grid gap-2 grid-cols-3">
+            {WHISPER_MODELS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setWhisperModel(opt.value)}
+                disabled={status === 'loading'}
+                className={`p-2.5 sm:p-2 rounded-lg border-2 transition-all active:scale-95 ${
+                  whisperModel === opt.value
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-background text-foreground hover:border-primary/50'
+                } ${status === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                <div className="font-semibold text-sm">{opt.label}</div>
+                <div className="text-xs text-muted-foreground hidden sm:block">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Language Selector */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">
+            <Globe className="inline h-4 w-4 mr-1" />
+            Audio Language
+          </label>
+          <SearchableSelect
+            value={language}
+            onValueChange={setLanguage}
+            options={TRANSCRIPTION_LANGUAGES}
+            placeholder="Auto-detect"
+            disabled={status === 'loading'}
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Specify language for better accuracy (especially for Japanese, Chinese, Korean)
+          </p>
         </div>
       </div>
 

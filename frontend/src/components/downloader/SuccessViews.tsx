@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Download, ArrowLeft, Mic, Video, FileText, Copy, Check, Users, Sparkles, Loader2, ChevronDown, Languages } from 'lucide-react'
 import { ContentInfo, TranscriptionResult, formatDuration } from './types'
 import { useState, useMemo, useEffect } from 'react'
@@ -425,19 +426,13 @@ export function TranscriptionSuccess({
         {/* Language Selector */}
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-3 sm:mb-4">
           <div className="flex-1">
-            <select
+            <SearchableSelect
               value={targetLang}
-              onChange={(e) => setTargetLang(e.target.value)}
+              onValueChange={setTargetLang}
+              options={languages.map(l => ({ value: l.code, label: l.name }))}
+              placeholder="Select target language..."
               disabled={translationLoading || !translateAvailable}
-              className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-            >
-              <option value="">Select target language...</option>
-              {languages.map((lang) => (
-                <option key={lang.code} value={lang.code}>
-                  {lang.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <Button
             onClick={handleTranslate}

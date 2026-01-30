@@ -39,6 +39,7 @@ function AudioGrabHome() {
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null)
   const [transcribeMode, setTranscribeMode] = useState<'url' | 'file'>('url')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [language, setLanguage] = useState<string>('')  // Empty = auto-detect
   const [diarize, setDiarize] = useState(false)
   const [numSpeakers, setNumSpeakers] = useState<number | null>(null)
   const [enhance, setEnhance] = useState(false)
@@ -75,6 +76,7 @@ function AudioGrabHome() {
     setTranscriptionResult(null)
     setUrl('')
     setSelectedFile(null)
+    setLanguage('')
     setDiarize(false)
     setNumSpeakers(null)
     setEnhance(false)
@@ -166,6 +168,9 @@ function AudioGrabHome() {
         formData.append('file', selectedFile)
         formData.append('model', whisperModel)
         formData.append('output_format', transcriptionFormat)
+        if (language) {
+          formData.append('language', language)
+        }
         if (diarize) {
           formData.append('diarize', 'true')
           if (numSpeakers) {
@@ -185,6 +190,7 @@ function AudioGrabHome() {
             url,
             model: whisperModel,
             output_format: transcriptionFormat,
+            language: language || undefined,
             diarize,
             num_speakers: numSpeakers,
             enhance,
@@ -391,6 +397,8 @@ function AudioGrabHome() {
                   setWhisperModel={setWhisperModel}
                   transcriptionFormat={transcriptionFormat}
                   setTranscriptionFormat={setTranscriptionFormat}
+                  language={language}
+                  setLanguage={setLanguage}
                   enhance={enhance}
                   setEnhance={setEnhance}
                   enhancementPreset={enhancementPreset}
