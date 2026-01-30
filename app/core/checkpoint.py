@@ -110,3 +110,48 @@ class CheckpointManager:
                     "updated_at": checkpoint.updated_at,
                 })
         return jobs
+
+    def cleanup_old_checkpoints(self, max_age_hours: int = 24) -> int:
+        """Delete checkpoints older than max_age_hours."""
+        from datetime import timedelta
+
+        cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
+        deleted = 0
+
+        for job_id in self.list_checkpoints():
+            checkpoint = self.load(job_id)
+            if checkpoint:
+                try:
+                    updated = datetime.fromisoformat(checkpoint.updated_at)
+                    if updated < cutoff:
+                        self.delete(job_id)
+                        deleted += 1
+                        logger.info(f"Cleaned up old checkpoint: {job_id}")
+                except (ValueError, TypeError):
+                    # Invalid date, delete it
+                    self.delete(job_id)
+                    deleted += 1
+
+        return deleted
+
+    def cleanup_all(self) -> int:
+        """Delete all checkpoints."""
+        deleted = 0
+        for job_id in self.list_checkpoints():
+            self.delete(job_id)
+            deleted += 1
+        return deleted
+
+    def get_storage_info(self) -> dict:
+        """Get checkpoint storage information."""
+        checkpoints = self.list_checkpoints()
+        total_size = sum(
+            self._get_checkpoint_path(job_id).stat().st_size
+            for job_id in checkpoints
+            if self._get_checkpoint_path(job_id).exists()
+        )
+        return {
+            "checkpoint_dir": str(self.checkpoint_dir),
+            "checkpoint_count": len(checkpoints),
+            "total_size_kb": round(total_size / 1024, 2),
+        }

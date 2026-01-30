@@ -47,8 +47,17 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down AudioGrab API")
     try:
         from .core.job_store import get_job_store
+        from .core.checkpoint import CheckpointManager
+
         job_store = get_job_store()
-        job_store.cleanup_old_jobs(days=7)
+        checkpoint_manager = CheckpointManager()
+
+        # Clean up old data
+        jobs_deleted = job_store.cleanup_old_jobs(days=7)
+        checkpoints_deleted = checkpoint_manager.cleanup_old_checkpoints(max_age_hours=24)
+
+        if jobs_deleted or checkpoints_deleted:
+            logger.info(f"Cleanup: {jobs_deleted} old jobs, {checkpoints_deleted} old checkpoints")
     except Exception as e:
         logger.error(f"Cleanup error: {e}")
 
