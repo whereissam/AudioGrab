@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Download, ArrowLeft, Mic, Video, FileText, Copy, Check, Users, Pencil, Sparkles, Loader2, ChevronDown } from 'lucide-react'
-import { ContentInfo, TranscriptionResult, TranscriptionSegment, formatDuration } from './types'
+import { Download, ArrowLeft, Mic, Video, FileText, Copy, Check, Users, Sparkles, Loader2, ChevronDown } from 'lucide-react'
+import { ContentInfo, TranscriptionResult, formatDuration } from './types'
 import { useState, useMemo } from 'react'
 
 const SUMMARY_TYPES = [
@@ -108,25 +108,6 @@ interface TranscriptionSuccessProps {
   onDownload: (renamedOutput?: string) => void
 }
 
-function formatTime(seconds: number): string {
-  const hrs = Math.floor(seconds / 3600)
-  const mins = Math.floor((seconds % 3600) / 60)
-  const secs = Math.floor(seconds % 60)
-  const ms = Math.floor((seconds % 1) * 1000)
-  if (hrs > 0) {
-    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`
-  }
-  return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`
-}
-
-function formatSegmentsWithSpeakers(segments: TranscriptionSegment[], speakerNames: Record<string, string>): string {
-  return segments.map(seg => {
-    const speaker = seg.speaker ? (speakerNames[seg.speaker] || seg.speaker) : ''
-    const time = `[${formatTime(seg.start)} -> ${formatTime(seg.end)}]`
-    return speaker ? `${speaker}: ${seg.text}` : seg.text
-  }).join('\n\n')
-}
-
 export function TranscriptionSuccess({
   result,
   onReset,
@@ -137,7 +118,6 @@ export function TranscriptionSuccess({
   const [speakerNames, setSpeakerNames] = useState<Record<string, string>>({})
 
   // Summarization state
-  const [showSummary, setShowSummary] = useState(false)
   const [summaryType, setSummaryType] = useState<SummaryType>('bullet_points')
   const [summary, setSummary] = useState<string | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
@@ -210,7 +190,6 @@ export function TranscriptionSuccess({
 
       const data = await response.json()
       setSummary(data.content)
-      setShowSummary(true)
     } catch (error) {
       setSummaryError(error instanceof Error ? error.message : 'Summarization failed')
     } finally {

@@ -22,7 +22,8 @@
       "Bash(ffprobe:*)",
       "Bash(npm run build:*)",
       "Bash(bunx tsc:*)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(bun run build)"
     ]
   }
 }
