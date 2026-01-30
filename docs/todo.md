@@ -4,12 +4,12 @@
 
 | Feature | Difficulty | Impact | Priority |
 |---------|------------|--------|----------|
-| Metadata Tagging | Low | High | P0 |
-| Speaker Diarization | High | Very High | P1 |
-| Browser Extension | Medium | High | P2 |
-| LLM Summarization | Medium | Medium | P3 |
+| Metadata Tagging | Low | High | P0 ✅ |
+| Speaker Diarization | High | Very High | P1 ✅ |
+| Browser Extension | Medium | High | P2 ✅ |
+| LLM Summarization | Medium | Medium | P3 ✅ |
 | Watch Folders & Subscriptions | Medium | High | P4 |
-| Audio Pre-processing | Medium | Medium | P5 |
+| Audio Pre-processing | Medium | Medium | P5 ✅ |
 
 ---
 
@@ -140,25 +140,25 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 
 ---
 
-## P5: Audio Pre-processing (Voice Isolation)
+## P5: Audio Pre-processing (Voice Isolation) ✅ COMPLETED
 
 **Goal:** Improve transcription accuracy for noisy recordings.
 
 ### Tasks
 
-- [ ] Research audio enhancement options:
+- [x] Research audio enhancement options:
   - [ ] DeepFilterNet (ML-based noise reduction)
-  - [ ] FFmpeg filters (high-pass, low-pass, noise gate)
+  - [x] FFmpeg filters (high-pass, low-pass, noise gate)
   - [ ] Silero VAD for voice activity detection
-- [ ] Create audio enhancement service (`services/audio_enhance.py`)
-- [ ] Enhancement presets:
-  - [ ] Light (basic noise reduction)
-  - [ ] Medium (voice isolation)
-  - [ ] Heavy (aggressive filtering for very noisy audio)
-- [ ] Add "Enhance Audio" toggle in Web UI
-- [ ] Option to keep both original and enhanced versions
-- [ ] Apply enhancement before transcription (optional pipeline step)
-- [ ] Preview enhancement before full processing
+- [x] Create audio enhancement service (`app/core/enhancer.py`)
+- [x] Enhancement presets:
+  - [x] Light (basic noise reduction)
+  - [x] Medium (voice isolation)
+  - [x] Heavy (aggressive filtering for very noisy audio)
+- [x] Add "Enhance Audio" toggle in Web UI
+- [x] Option to keep both original and enhanced versions
+- [x] Apply enhancement before transcription (optional pipeline step)
+- [x] Preview enhancement before full processing
 
 ---
 
