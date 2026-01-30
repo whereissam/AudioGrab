@@ -51,6 +51,8 @@ def _core_platform_to_schema(platform: CorePlatform) -> Platform:
 
 async def _process_download(job_id: str, request: DownloadRequest):
     """Background task to process a download."""
+    import shutil
+
     job = jobs[job_id]
     job.status = JobStatus.PROCESSING
     job.progress = 0.1
@@ -68,6 +70,21 @@ async def _process_download(job_id: str, request: DownloadRequest):
         )
 
         if result.success and result.file_path:
+            final_path = result.file_path
+
+            # Move to custom output directory if specified
+            output_dir = getattr(request, 'output_dir', None)
+            if output_dir:
+                try:
+                    output_path = Path(output_dir)
+                    output_path.mkdir(parents=True, exist_ok=True)
+                    new_path = output_path / result.file_path.name
+                    shutil.move(str(result.file_path), str(new_path))
+                    final_path = new_path
+                    logger.info(f"[{job_id}] Moved file to {new_path}")
+                except Exception as e:
+                    logger.error(f"[{job_id}] Failed to move file: {e}")
+
             # Build content info from metadata
             if result.metadata:
                 content_info = ContentInfo(
@@ -88,10 +105,12 @@ async def _process_download(job_id: str, request: DownloadRequest):
             job.status = JobStatus.COMPLETED
             job.progress = 1.0
             job.download_url = f"/api/download/{job_id}/file"
+            job.file_path = str(final_path)  # Show where file was saved
             job.file_size_mb = result.file_size_mb
             job.completed_at = datetime.utcnow()
-            # Store file path for retrieval
-            job._file_path = str(result.file_path)  # type: ignore
+            # Store internal attributes
+            job._file_path = str(final_path)  # type: ignore
+            job._keep_file = getattr(request, 'keep_file', True)  # type: ignore
         else:
             job.status = JobStatus.FAILED
             job.error = str(result.error) if result.error else "Download failed"
@@ -122,6 +141,7 @@ async def health_check():
         YouTubeVideoDownloader,
     )
     from ..core.transcriber import AudioTranscriber
+    from ..core.diarizer import SpeakerDiarizer
 
     return HealthResponse(
         status="healthy",
@@ -136,6 +156,7 @@ async def health_check():
         },
         ffmpeg_available=AudioConverter.is_ffmpeg_available(),
         whisper_available=AudioTranscriber.is_available(),
+        diarization_available=SpeakerDiarizer.is_available(),
         version="0.3.0",
     )
 
@@ -315,8 +336,8 @@ async def get_platforms():
 
 
 async def _process_transcription(job_id: str, request: TranscribeRequest, audio_path: Path):
-    """Background task to process transcription with checkpoint support."""
-    from ..core.transcriber import AudioTranscriber
+    """Background task to process transcription with checkpoint and diarization support."""
+    from ..core.transcriber import AudioTranscriber, TranscriptionSegment
 
     job = transcription_jobs[job_id]
     job.status = JobStatus.PROCESSING
@@ -336,38 +357,120 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
         )
 
         if result.success:
+            segments = result.segments or []
+
+            # Run diarization if requested
+            diarize = getattr(request, 'diarize', False)
+            num_speakers = getattr(request, 'num_speakers', None)
+
+            if diarize:
+                try:
+                    from ..core.diarizer import SpeakerDiarizer
+
+                    if SpeakerDiarizer.is_available():
+                        logger.info(f"[{job_id}] Running speaker diarization...")
+                        diarizer = SpeakerDiarizer()
+                        speaker_segments = await diarizer.diarize(
+                            audio_path,
+                            num_speakers=num_speakers,
+                        )
+
+                        # Assign speakers to transcription segments
+                        diarized = diarizer.assign_speakers_to_segments(
+                            segments, speaker_segments
+                        )
+
+                        # Convert back to TranscriptionSegment with speaker labels
+                        segments = [
+                            TranscriptionSegment(
+                                start=d.start,
+                                end=d.end,
+                                text=d.text,
+                                speaker=d.speaker,
+                            )
+                            for d in diarized
+                        ]
+                        logger.info(f"[{job_id}] Diarization complete")
+                    else:
+                        logger.warning(
+                            f"[{job_id}] Diarization requested but pyannote not available"
+                        )
+                except Exception as e:
+                    logger.error(f"[{job_id}] Diarization failed: {e}")
+                    # Continue without diarization
+
             job.text = result.text
             job.segments = [
                 TranscriptionSegmentSchema(
                     start=seg.start,
                     end=seg.end,
                     text=seg.text,
+                    speaker=seg.speaker,
                 )
-                for seg in (result.segments or [])
+                for seg in segments
             ]
             job.language = result.language
             job.language_probability = result.language_probability
             job.duration_seconds = result.duration
 
             # Format output based on requested format
+            has_speakers = diarize and any(s.speaker for s in segments)
+
             if request.output_format == TranscriptionOutputFormat.SRT:
-                job.formatted_output = transcriber.format_as_srt(result.segments or [])
+                if has_speakers:
+                    job.formatted_output = transcriber.format_as_srt_with_speakers(segments)
+                else:
+                    job.formatted_output = transcriber.format_as_srt(segments)
             elif request.output_format == TranscriptionOutputFormat.VTT:
-                job.formatted_output = transcriber.format_as_vtt(result.segments or [])
+                job.formatted_output = transcriber.format_as_vtt(segments)
             elif request.output_format == TranscriptionOutputFormat.JSON:
                 import json
                 job.formatted_output = json.dumps({
                     "text": result.text,
                     "language": result.language,
                     "segments": [
-                        {"start": s.start, "end": s.end, "text": s.text}
-                        for s in (result.segments or [])
-                    ]
+                        {
+                            "start": s.start,
+                            "end": s.end,
+                            "text": s.text,
+                            "speaker": s.speaker,
+                        }
+                        for s in segments
+                    ],
+                    "diarized": has_speakers,
                 }, ensure_ascii=False, indent=2)
+            elif request.output_format == TranscriptionOutputFormat.DIALOGUE:
+                job.formatted_output = transcriber.format_as_dialogue(segments)
             else:
                 job.formatted_output = result.text
 
             job.output_format = request.output_format
+
+            # Save transcription to file if save_to is specified
+            save_to = getattr(request, 'save_to', None)
+            if save_to and job.formatted_output:
+                try:
+                    output_path = Path(save_to)
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    output_path.write_text(job.formatted_output, encoding='utf-8')
+                    job.output_file = str(output_path)
+                    logger.info(f"[{job_id}] Saved transcription to {output_path}")
+                except Exception as e:
+                    logger.error(f"[{job_id}] Failed to save transcription: {e}")
+
+            # Handle audio file based on keep_audio
+            keep_audio = getattr(request, 'keep_audio', False)
+            if keep_audio:
+                job.audio_file = str(audio_path)
+            else:
+                # Delete temp audio file
+                try:
+                    if audio_path.exists():
+                        audio_path.unlink()
+                        logger.info(f"[{job_id}] Deleted temp audio file")
+                except Exception as e:
+                    logger.warning(f"[{job_id}] Failed to delete temp audio: {e}")
+
             job.status = JobStatus.COMPLETED
             job.progress = 1.0
             job.completed_at = datetime.utcnow()

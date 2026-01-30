@@ -22,9 +22,14 @@ Download audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, and mo
 ### Transcription (Speech-to-Text)
 - **Local Whisper** - Transcribe audio using faster-whisper (runs locally, no API costs)
 - **Multiple Models** - tiny, base, small, medium, large-v3, turbo
-- **Output Formats** - Plain text, SRT subtitles, VTT subtitles, JSON with timestamps
+- **Output Formats** - Plain text, SRT subtitles, VTT subtitles, JSON with timestamps, Dialogue
 - **Auto Language Detection** - Supports 99+ languages
 - **Resume Support** - Checkpoint-based resume for long audio files
+- **Speaker Diarization** - Identify different speakers (requires pyannote, optional)
+
+### Smart Metadata
+- **ID3/MP4 Tagging** - Automatically embed title, artist, album art into downloaded files
+- **Supported Formats** - MP3, M4A, OGG, FLAC
 
 ### Reliability Features
 - **Job Persistence** - SQLite-based storage survives server restarts
@@ -57,6 +62,9 @@ uv sync
 
 # Install with transcription support
 uv sync --extra transcribe
+
+# Install with speaker diarization support
+uv sync --extra diarize
 ```
 
 ### Install Dependencies
@@ -122,6 +130,16 @@ The Web UI has a **Transcribe** tab for audio-to-text transcription.
 curl -X POST http://localhost:8000/api/transcribe \
   -H "Content-Type: application/json" \
   -d '{"url": "https://youtube.com/watch?v=xxx", "model": "base", "output_format": "srt"}'
+
+# Transcribe with speaker diarization
+curl -X POST http://localhost:8000/api/transcribe \
+  -H "Content-Type: application/json" \
+  -d '{"url": "...", "diarize": true, "output_format": "dialogue"}'
+
+# Save transcription to file
+curl -X POST http://localhost:8000/api/transcribe \
+  -H "Content-Type: application/json" \
+  -d '{"url": "...", "save_to": "./transcripts/output.srt", "output_format": "srt"}'
 
 # Upload and transcribe local file
 curl -X POST http://localhost:8000/api/transcribe/upload \
@@ -193,6 +211,13 @@ audiograb/
 └── pyproject.toml
 ```
 
+## API Documentation
+
+Interactive API documentation is available at:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **OpenAPI JSON**: http://localhost:8000/openapi.json
+
 ## API Endpoints
 
 ### Downloads
@@ -204,6 +229,25 @@ audiograb/
 | GET | `/api/download/{job_id}/file` | Download completed file |
 | DELETE | `/api/download/{job_id}` | Cancel job |
 
+**Download Options:**
+
+```json
+{
+  "url": "https://...",
+  "format": "m4a",
+  "quality": "high",
+  "embed_metadata": true,
+  "output_dir": "/path/to/save",
+  "keep_file": true
+}
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `embed_metadata` | `true` | Embed ID3/MP4 tags (title, artist, artwork) |
+| `output_dir` | `/tmp/audiograb` | Custom output directory |
+| `keep_file` | `true` | Keep file after download |
+
 ### Transcription
 
 | Method | Endpoint | Description |
@@ -213,6 +257,31 @@ audiograb/
 | GET | `/api/transcribe/{job_id}` | Get transcription status |
 | GET | `/api/transcribe/resumable` | List resumable jobs |
 | POST | `/api/transcribe/{job_id}/resume` | Resume interrupted job |
+
+**Transcription Options:**
+
+```json
+{
+  "url": "https://...",
+  "model": "base",
+  "output_format": "srt",
+  "language": null,
+  "translate": false,
+  "diarize": false,
+  "num_speakers": null,
+  "save_to": "/path/to/output.srt",
+  "keep_audio": false
+}
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `model` | `base` | Whisper model size |
+| `output_format` | `text` | `text`, `srt`, `vtt`, `json`, `dialogue` |
+| `diarize` | `false` | Enable speaker identification |
+| `num_speakers` | `null` | Exact speaker count (improves accuracy) |
+| `save_to` | `null` | Save transcription to file path |
+| `keep_audio` | `false` | Keep downloaded audio after transcription |
 
 ### Job Management
 
@@ -227,10 +296,23 @@ audiograb/
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/health` | Health check |
+| GET | `/api/health` | Health check (includes feature availability) |
 | GET | `/api/platforms` | List supported platforms |
 | GET | `/api/storage` | Storage usage info |
 | POST | `/api/cleanup` | Clean up old checkpoints/jobs |
+
+**Health Check Response:**
+
+```json
+{
+  "status": "healthy",
+  "platforms": {"x_spaces": true, "youtube": true, ...},
+  "ffmpeg_available": true,
+  "whisper_available": true,
+  "diarization_available": false,
+  "version": "0.3.0"
+}
+```
 
 ## Supported Platforms
 
@@ -298,6 +380,11 @@ DEBUG=false
 
 # Downloads
 DOWNLOAD_DIR=/tmp/audiograb
+
+# Speaker Diarization (optional)
+# Get token at: https://huggingface.co/settings/tokens
+# Accept model terms at: https://huggingface.co/pyannote/speaker-diarization-3.1
+HUGGINGFACE_TOKEN=hf_xxx
 ```
 
 ## License

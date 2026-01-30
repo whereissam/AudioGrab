@@ -1,0 +1,175 @@
+# AudioGrab Feature Roadmap
+
+## Priority Matrix
+
+| Feature | Difficulty | Impact | Priority |
+|---------|------------|--------|----------|
+| Metadata Tagging | Low | High | P0 |
+| Speaker Diarization | High | Very High | P1 |
+| Browser Extension | Medium | High | P2 |
+| LLM Summarization | Medium | Medium | P3 |
+| Watch Folders & Subscriptions | Medium | High | P4 |
+| Audio Pre-processing | Medium | Medium | P5 |
+
+---
+
+## P0: Smart Metadata & Tagging
+
+**Goal:** Automatically fetch and embed ID3 tags (Title, Artist, Album Art, Year) for all platforms.
+
+### Tasks
+
+- [ ] Add `mutagen` dependency for ID3 tag manipulation
+- [ ] Create metadata service abstraction (`services/metadata.py`)
+- [ ] Platform-specific metadata extractors:
+  - [ ] X Spaces: Scrape Space title, Host handle as "Artist"
+  - [ ] YouTube: Extract title, channel name, thumbnail
+  - [ ] Apple Podcasts: Pull from RSS feed (title, description, artwork)
+  - [ ] Spotify: Use spotDL metadata (already has some)
+  - [ ] 小宇宙: Extract episode metadata from API
+- [ ] Embed metadata into downloaded files:
+  - [ ] Title
+  - [ ] Artist/Author
+  - [ ] Album (show name for podcasts)
+  - [ ] Album Art (thumbnail/cover)
+  - [ ] Year/Date
+  - [ ] Description in "Lyrics" or "Comments" tag
+- [ ] Add option to customize filename template (e.g., `{artist} - {title}`)
+- [ ] Add toggle in Web UI for metadata embedding
+
+---
+
+## P1: Speaker Diarization (Who Spoke When)
+
+**Goal:** Identify different speakers in transcriptions, especially for X Spaces and Podcasts.
+
+### Tasks
+
+- [ ] Research and select diarization library:
+  - [ ] Option A: `pyannote-audio` (most accurate, requires HuggingFace token)
+  - [ ] Option B: `speechbrain` (no token required)
+  - [ ] Option C: `whisperx` (combines whisper + diarization)
+- [ ] Add optional dependency group `[diarization]`
+- [ ] Create diarization service (`services/diarization.py`)
+- [ ] Integrate with existing transcription pipeline:
+  - [ ] Run diarization after/alongside transcription
+  - [ ] Merge speaker labels with transcript segments
+- [ ] Update output formats:
+  - [ ] Plain text with speaker labels
+  - [ ] SRT/VTT with speaker prefixes
+  - [ ] JSON with speaker IDs per segment
+- [ ] Add Web UI toggle for diarization
+- [ ] Handle speaker renaming (Speaker 0 → "Host", etc.)
+- [ ] Add speaker count estimation/limit option
+
+---
+
+## P2: Browser Extension
+
+**Goal:** One-click download from browser to AudioGrab Web UI.
+
+### Tasks
+
+- [ ] Create Chrome extension manifest v3
+- [ ] Create Firefox extension manifest
+- [ ] Extension features:
+  - [ ] Detect supported URLs (X Spaces, YouTube, etc.)
+  - [ ] Show AudioGrab icon when on supported page
+  - [ ] Click to send URL to AudioGrab API
+  - [ ] Configuration page for AudioGrab server URL
+- [ ] Create simple bookmarklet alternative:
+  ```javascript
+  javascript:(function(){window.open('http://localhost:8000/add?url='+encodeURIComponent(window.location.href))})()
+  ```
+- [ ] Add `/add` endpoint to API for browser integration
+- [ ] Show notification/toast on successful queue
+- [ ] Optional: Show download progress in extension popup
+
+---
+
+## P3: LLM-Powered Summarization
+
+**Goal:** Generate summaries and chapters for long transcriptions.
+
+### Tasks
+
+- [ ] Create summarization service (`services/summarization.py`)
+- [ ] Support multiple LLM backends:
+  - [ ] Ollama (local, free)
+  - [ ] OpenAI API
+  - [ ] Anthropic API
+  - [ ] OpenAI-compatible endpoints (LM Studio, etc.)
+- [ ] Add API key configuration in settings
+- [ ] Summarization types:
+  - [ ] Bullet-point summary
+  - [ ] Chapter markers with timestamps
+  - [ ] Key topics/themes extraction
+  - [ ] Action items (for meeting-style content)
+- [ ] Add "Summarize" button in Web UI transcription view
+- [ ] Chunking strategy for long transcripts (context window limits)
+- [ ] Cache summaries in database
+- [ ] Export summary alongside transcript
+
+---
+
+## P4: Watch Folders & Subscriptions
+
+**Goal:** Automated archiving of RSS feeds and channels.
+
+### Tasks
+
+- [ ] Create subscription model in database
+- [ ] Subscription types:
+  - [ ] RSS feed URL
+  - [ ] YouTube channel/playlist
+  - [ ] X user's Spaces (if API allows)
+- [ ] Background worker for checking subscriptions:
+  - [ ] Configurable check interval (default: 1 hour)
+  - [ ] Track last checked timestamp
+  - [ ] Track downloaded episode IDs to avoid duplicates
+- [ ] Subscription management API endpoints:
+  - [ ] `POST /subscriptions` - Add subscription
+  - [ ] `GET /subscriptions` - List subscriptions
+  - [ ] `DELETE /subscriptions/{id}` - Remove subscription
+  - [ ] `POST /subscriptions/{id}/check` - Force check now
+- [ ] Web UI subscription management page
+- [ ] Auto-transcribe option per subscription
+- [ ] Download limit (e.g., keep last N episodes)
+- [ ] Notification on new downloads (webhook/email)
+
+---
+
+## P5: Audio Pre-processing (Voice Isolation)
+
+**Goal:** Improve transcription accuracy for noisy recordings.
+
+### Tasks
+
+- [ ] Research audio enhancement options:
+  - [ ] DeepFilterNet (ML-based noise reduction)
+  - [ ] FFmpeg filters (high-pass, low-pass, noise gate)
+  - [ ] Silero VAD for voice activity detection
+- [ ] Create audio enhancement service (`services/audio_enhance.py`)
+- [ ] Enhancement presets:
+  - [ ] Light (basic noise reduction)
+  - [ ] Medium (voice isolation)
+  - [ ] Heavy (aggressive filtering for very noisy audio)
+- [ ] Add "Enhance Audio" toggle in Web UI
+- [ ] Option to keep both original and enhanced versions
+- [ ] Apply enhancement before transcription (optional pipeline step)
+- [ ] Preview enhancement before full processing
+
+---
+
+## Future Ideas (Backlog)
+
+- [ ] Batch download from URL list/file
+- [ ] Download queue priority levels
+- [ ] Scheduled downloads (download at specific time)
+- [ ] Storage management (auto-cleanup old files)
+- [ ] Multi-language UI
+- [ ] Mobile-responsive Web UI improvements
+- [ ] Docker Compose with GPU support for transcription
+- [ ] Webhook notifications for job completion
+- [ ] Export to cloud storage (S3, Google Drive, Dropbox)
+- [ ] Collaborative annotations on transcripts

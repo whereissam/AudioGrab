@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     max_concurrent_downloads: int = 5
     cleanup_after_hours: int = 24
 
+    # Speaker Diarization (pyannote)
+    huggingface_token: str | None = None
+
     def get_download_path(self) -> Path:
         """Get download directory as Path, creating if needed."""
         path = Path(self.download_dir)

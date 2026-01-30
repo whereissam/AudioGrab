@@ -72,6 +72,18 @@ class DownloadRequest(BaseModel):
         default=QualityPreset.HIGH,
         description="Quality preset for encoding",
     )
+    embed_metadata: bool = Field(
+        default=True,
+        description="Embed ID3/MP4 metadata tags (title, artist, artwork) into audio file",
+    )
+    output_dir: Optional[str] = Field(
+        default=None,
+        description="Custom output directory for the downloaded file. If not specified, uses default temp directory.",
+    )
+    keep_file: bool = Field(
+        default=True,
+        description="Keep the downloaded file after completion. Set to False for temp downloads.",
+    )
 
 
 class ContentInfo(BaseModel):
@@ -106,6 +118,10 @@ class DownloadJob(BaseModel):
     # Legacy field for backward compatibility
     space_info: Optional[ContentInfo] = None
     download_url: Optional[str] = None
+    file_path: Optional[str] = Field(
+        default=None,
+        description="Local file path where the download was saved",
+    )
     file_size_mb: Optional[float] = None
     error: Optional[str] = None
     created_at: datetime
@@ -133,6 +149,7 @@ class HealthResponse(BaseModel):
     )
     ffmpeg_available: bool
     whisper_available: bool = False
+    diarization_available: bool = False
     version: str
 
 
@@ -158,6 +175,7 @@ class TranscriptionOutputFormat(str, Enum):
     SRT = "srt"
     VTT = "vtt"
     JSON = "json"
+    DIALOGUE = "dialogue"  # Speaker-attributed dialogue format
 
 
 class TranscribeRequest(BaseModel):
@@ -187,6 +205,22 @@ class TranscribeRequest(BaseModel):
         default=False,
         description="Translate to English (if source is non-English)",
     )
+    diarize: bool = Field(
+        default=False,
+        description="Enable speaker diarization (identify different speakers)",
+    )
+    num_speakers: Optional[int] = Field(
+        default=None,
+        description="Exact number of speakers (if known, improves diarization accuracy)",
+    )
+    save_to: Optional[str] = Field(
+        default=None,
+        description="Path to save transcription output file. If not specified, results are only returned via API.",
+    )
+    keep_audio: bool = Field(
+        default=False,
+        description="Keep the downloaded audio file after transcription. Default is False (temp download).",
+    )
 
 
 class TranscriptionSegment(BaseModel):
@@ -195,6 +229,10 @@ class TranscriptionSegment(BaseModel):
     start: float = Field(description="Start time in seconds")
     end: float = Field(description="End time in seconds")
     text: str = Field(description="Transcribed text")
+    speaker: Optional[str] = Field(
+        default=None,
+        description="Speaker label (e.g., 'SPEAKER_00') if diarization was enabled",
+    )
 
 
 class TranscriptionJob(BaseModel):
@@ -218,3 +256,12 @@ class TranscriptionJob(BaseModel):
     error: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
+    # Output file paths
+    output_file: Optional[str] = Field(
+        default=None,
+        description="Path where transcription output was saved (if save_to was specified)",
+    )
+    audio_file: Optional[str] = Field(
+        default=None,
+        description="Path to audio file (if keep_audio was True)",
+    )

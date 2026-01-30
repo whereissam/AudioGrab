@@ -2,12 +2,14 @@
 
 import asyncio
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 from .job_store import JobStore, JobStatus, JobType, get_job_store
 from .downloader import DownloaderFactory
 from .converter import AudioConverter
+from .base import AudioMetadata, Platform
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +73,7 @@ class WorkflowProcessor:
             if not result.success:
                 raise Exception(result.error or "Download failed")
 
-            # Save raw file path and content info
+            # Save raw file path and content info (including fields for metadata tagging)
             self.job_store.update_job(
                 job_id,
                 raw_file_path=str(result.file_path),
@@ -81,6 +83,12 @@ class WorkflowProcessor:
                     "creator_username": result.metadata.creator_username if result.metadata else None,
                     "duration_seconds": result.metadata.duration_seconds if result.metadata else None,
                     "platform": platform,
+                    # Additional fields for metadata tagging
+                    "artwork_url": result.metadata.artwork_url if result.metadata else None,
+                    "show_name": result.metadata.show_name if result.metadata else None,
+                    "description": result.metadata.description if result.metadata else None,
+                    "published_at": result.metadata.published_at.isoformat() if result.metadata and result.metadata.published_at else None,
+                    "content_id": result.metadata.content_id if result.metadata else None,
                 },
                 status=JobStatus.CONVERTING.value,
                 progress=0.5,
@@ -115,6 +123,13 @@ class WorkflowProcessor:
                     quality=quality,
                 )
 
+            # Embed metadata tags if content info is available
+            content_info = job.get("content_info", {})
+            embed_metadata = job.get("embed_metadata", True)
+
+            if embed_metadata and content_info:
+                await self._embed_metadata(converted_path, content_info)
+
             # Calculate file size
             file_size_mb = converted_path.stat().st_size / (1024 * 1024)
 
@@ -140,6 +155,45 @@ class WorkflowProcessor:
             # Keep raw file for retry
             raise
 
+    async def _embed_metadata(self, file_path: Path, content_info: dict):
+        """Embed metadata tags into the audio file."""
+        from .metadata_tagger import MetadataTagger
+
+        # Build AudioMetadata from content_info
+        platform_str = content_info.get("platform", "")
+        try:
+            platform = Platform(platform_str)
+        except ValueError:
+            platform = Platform.YOUTUBE  # Default fallback
+
+        # Parse published_at if it's a string
+        published_at = None
+        if content_info.get("published_at"):
+            try:
+                published_at = datetime.fromisoformat(content_info["published_at"])
+            except (ValueError, TypeError):
+                pass
+
+        metadata = AudioMetadata(
+            platform=platform,
+            content_id=content_info.get("content_id", "unknown"),
+            title=content_info.get("title", "Unknown"),
+            creator_name=content_info.get("creator_name"),
+            creator_username=content_info.get("creator_username"),
+            duration_seconds=content_info.get("duration_seconds"),
+            description=content_info.get("description"),
+            artwork_url=content_info.get("artwork_url"),
+            published_at=published_at,
+            show_name=content_info.get("show_name"),
+        )
+
+        tagger = MetadataTagger()
+        success = await tagger.tag_file(file_path, metadata)
+        if success:
+            logger.info(f"Embedded metadata tags into {file_path.name}")
+        else:
+            logger.warning(f"Failed to embed metadata into {file_path.name}")
+
     async def process_transcription(
         self,
         job_id: str,
@@ -148,11 +202,23 @@ class WorkflowProcessor:
         language: Optional[str] = None,
         output_format: str = "text",
         translate: bool = False,
+        diarize: bool = False,
+        num_speakers: Optional[int] = None,
     ) -> dict:
         """
-        Transcription workflow with checkpointing.
+        Transcription workflow with checkpointing and optional diarization.
+
+        Args:
+            job_id: Job identifier
+            audio_path: Path to audio file
+            model_size: Whisper model size
+            language: Language code (auto-detect if None)
+            output_format: Output format (text, srt, vtt, json, dialogue)
+            translate: Translate to English
+            diarize: Enable speaker diarization
+            num_speakers: Exact number of speakers (if known)
         """
-        from .transcriber import AudioTranscriber
+        from .transcriber import AudioTranscriber, TranscriptionSegment
 
         job = self.job_store.get_job(job_id)
         if not job:
@@ -177,11 +243,55 @@ class WorkflowProcessor:
             if not result.success:
                 raise Exception(result.error or "Transcription failed")
 
+            segments = result.segments
+
+            # Run diarization if requested
+            if diarize:
+                try:
+                    from .diarizer import SpeakerDiarizer
+
+                    if SpeakerDiarizer.is_available():
+                        logger.info(f"[{job_id}] Running speaker diarization...")
+                        diarizer = SpeakerDiarizer()
+                        speaker_segments = await diarizer.diarize(
+                            audio_path,
+                            num_speakers=num_speakers,
+                        )
+
+                        # Assign speakers to transcription segments
+                        diarized = diarizer.assign_speakers_to_segments(
+                            segments, speaker_segments
+                        )
+
+                        # Convert back to TranscriptionSegment with speaker labels
+                        segments = [
+                            TranscriptionSegment(
+                                start=d.start,
+                                end=d.end,
+                                text=d.text,
+                                speaker=d.speaker,
+                            )
+                            for d in diarized
+                        ]
+                        logger.info(f"[{job_id}] Diarization complete")
+                    else:
+                        logger.warning(
+                            f"[{job_id}] Diarization requested but pyannote not available"
+                        )
+                except Exception as e:
+                    logger.error(f"[{job_id}] Diarization failed: {e}")
+                    # Continue without diarization
+
             # Format output
             if output_format == "srt":
-                formatted = transcriber.format_as_srt(result.segments)
+                if diarize and any(s.speaker for s in segments):
+                    formatted = transcriber.format_as_srt_with_speakers(segments)
+                else:
+                    formatted = transcriber.format_as_srt(segments)
             elif output_format == "vtt":
-                formatted = transcriber.format_as_vtt(result.segments)
+                formatted = transcriber.format_as_vtt(segments)
+            elif output_format == "dialogue":
+                formatted = transcriber.format_as_dialogue(segments)
             else:
                 formatted = result.text
 
@@ -194,11 +304,17 @@ class WorkflowProcessor:
                     "language_probability": result.language_probability,
                     "duration_seconds": result.duration,
                     "segments": [
-                        {"start": s.start, "end": s.end, "text": s.text}
-                        for s in result.segments
+                        {
+                            "start": s.start,
+                            "end": s.end,
+                            "text": s.text,
+                            "speaker": s.speaker,
+                        }
+                        for s in segments
                     ],
                     "formatted_output": formatted,
                     "output_format": output_format,
+                    "diarized": diarize and any(s.speaker for s in segments),
                 },
             )
 

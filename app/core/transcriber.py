@@ -46,6 +46,7 @@ class TranscriptionSegment:
     start: float
     end: float
     text: str
+    speaker: Optional[str] = None
 
 
 @dataclass
@@ -331,6 +332,57 @@ class AudioTranscriber:
             return True
         except ImportError:
             return False
+
+    @staticmethod
+    def format_as_dialogue(segments: list[TranscriptionSegment]) -> str:
+        """
+        Format as dialogue with speaker labels.
+
+        Example output:
+            SPEAKER_00: Hello everyone.
+            SPEAKER_01: Hi, thanks for having me.
+        """
+        lines = []
+        current_speaker = None
+        current_text = []
+
+        for seg in segments:
+            speaker = seg.speaker or "SPEAKER_UNKNOWN"
+            if speaker != current_speaker:
+                # Flush previous speaker's text
+                if current_speaker is not None and current_text:
+                    lines.append(f"{current_speaker}: {' '.join(current_text)}")
+                current_speaker = speaker
+                current_text = [seg.text.strip()]
+            else:
+                current_text.append(seg.text.strip())
+
+        # Flush final speaker
+        if current_speaker is not None and current_text:
+            lines.append(f"{current_speaker}: {' '.join(current_text)}")
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def format_as_srt_with_speakers(segments: list[TranscriptionSegment]) -> str:
+        """
+        Format as SRT with speaker prefixes.
+
+        Example output:
+            1
+            00:00:01,000 --> 00:00:03,500
+            [SPEAKER_00] Hello everyone.
+        """
+        lines = []
+        for i, seg in enumerate(segments, 1):
+            start = _format_timestamp_srt(seg.start)
+            end = _format_timestamp_srt(seg.end)
+            speaker = seg.speaker or "SPEAKER_UNKNOWN"
+            lines.append(str(i))
+            lines.append(f"{start} --> {end}")
+            lines.append(f"[{speaker}] {seg.text}")
+            lines.append("")
+        return "\n".join(lines)
 
 
 def _format_timestamp_srt(seconds: float) -> str:
