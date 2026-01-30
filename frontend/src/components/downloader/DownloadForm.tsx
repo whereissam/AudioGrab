@@ -73,13 +73,13 @@ export function DownloadForm({
               type="button"
               onClick={() => setFormat(opt.value)}
               disabled={status === 'loading'}
-              className={`p-3 rounded-lg border-2 transition-all ${
+              className={`p-3 sm:p-3 rounded-lg border-2 transition-all active:scale-95 ${
                 format === opt.value
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border bg-background text-foreground hover:border-primary/50'
               } ${status === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              <div className="font-semibold">{opt.label}</div>
+              <div className="font-semibold text-sm sm:text-base">{opt.label}</div>
               <div className="text-xs text-muted-foreground">{opt.desc}</div>
             </button>
           ))}
@@ -99,13 +99,13 @@ export function DownloadForm({
                 type="button"
                 onClick={() => setQuality(opt.value)}
                 disabled={status === 'loading'}
-                className={`p-3 rounded-lg border-2 transition-all ${
+                className={`p-3 rounded-lg border-2 transition-all active:scale-95 ${
                   quality === opt.value
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border bg-background text-foreground hover:border-primary/50'
                 } ${status === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
-                <div className="font-semibold">{opt.label}</div>
+                <div className="font-semibold text-sm sm:text-base">{opt.label}</div>
               </button>
             ))}
           </div>

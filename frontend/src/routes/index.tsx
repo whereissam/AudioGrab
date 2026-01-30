@@ -256,62 +256,64 @@ function AudioGrabHome() {
 
   // Main view
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-3 sm:p-4">
       <div className="w-full max-w-xl">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <img src="/logo.svg" alt="AudioGrab" className="h-16 w-auto" />
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="flex justify-center mb-3 sm:mb-4">
+            <img src="/logo.svg" alt="AudioGrab" className="h-12 sm:h-16 w-auto" />
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">AudioGrab</h1>
-          <p className="text-muted-foreground">Download audio and video from your favorite platforms</p>
+          <h1 className="text-2xl sm:text-4xl font-bold text-foreground mb-1 sm:mb-2">AudioGrab</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Download audio and video from your favorite platforms</p>
         </div>
 
         {/* Tabs with fixed height content */}
         <Tabs value={mediaType} onValueChange={handleMediaTypeChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="audio" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-3 mb-4 h-11 sm:h-10">
+            <TabsTrigger value="audio" className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
               <FileAudio className="h-4 w-4" />
-              Audio
+              <span>Audio</span>
             </TabsTrigger>
-            <TabsTrigger value="video" className="flex items-center gap-2">
+            <TabsTrigger value="video" className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
               <FileVideo className="h-4 w-4" />
-              Video
+              <span>Video</span>
             </TabsTrigger>
-            <TabsTrigger value="transcribe" className="flex items-center gap-2">
+            <TabsTrigger value="transcribe" className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
               <FileText className="h-4 w-4" />
-              Transcribe
+              <span>Transcribe</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Fixed height container to prevent layout shift */}
-          <div className="min-h-[420px]">
+          <div className="min-h-[480px] sm:min-h-[420px]">
             <TabsContent value="audio" className="mt-0">
               <Tabs value={platform} onValueChange={handlePlatformChange} className="w-full">
-                <TabsList className="grid w-full grid-cols-5 mb-4">
-                  <TabsTrigger value="x_spaces" className="flex items-center gap-1 px-2">
-                    <Twitter className="h-4 w-4" />
-                    <span className="hidden lg:inline text-xs">Spaces</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="apple_podcasts" className="flex items-center gap-1 px-2">
-                    <Podcast className="h-4 w-4" />
-                    <span className="hidden lg:inline text-xs">Apple</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="spotify" className="flex items-center gap-1 px-2">
-                    <Music className="h-4 w-4" />
-                    <span className="hidden lg:inline text-xs">Spotify</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="youtube" className="flex items-center gap-1 px-2">
-                    <Youtube className="h-4 w-4" />
-                    <span className="hidden lg:inline text-xs">YouTube</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="xiaoyuzhou" className="flex items-center gap-1 px-2">
-                    <Radio className="h-4 w-4" />
-                    <span className="hidden lg:inline text-xs">小宇宙</span>
-                  </TabsTrigger>
-                </TabsList>
+                <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 mb-4">
+                  <TabsList className="inline-flex w-auto min-w-full sm:grid sm:grid-cols-5 gap-1">
+                    <TabsTrigger value="x_spaces" className="flex items-center gap-1.5 px-3 sm:px-2 whitespace-nowrap">
+                      <Twitter className="h-4 w-4 flex-shrink-0" />
+                      <span className="text-xs">Spaces</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="apple_podcasts" className="flex items-center gap-1.5 px-3 sm:px-2 whitespace-nowrap">
+                      <Podcast className="h-4 w-4 flex-shrink-0" />
+                      <span className="text-xs">Apple</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="spotify" className="flex items-center gap-1.5 px-3 sm:px-2 whitespace-nowrap">
+                      <Music className="h-4 w-4 flex-shrink-0" />
+                      <span className="text-xs">Spotify</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="youtube" className="flex items-center gap-1.5 px-3 sm:px-2 whitespace-nowrap">
+                      <Youtube className="h-4 w-4 flex-shrink-0" />
+                      <span className="text-xs">YouTube</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="xiaoyuzhou" className="flex items-center gap-1.5 px-3 sm:px-2 whitespace-nowrap">
+                      <Radio className="h-4 w-4 flex-shrink-0" />
+                      <span className="text-xs">小宇宙</span>
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
 
-                <div className="bg-card rounded-xl shadow-lg p-6 sm:p-8">
+                <div className="bg-card rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
                   {AUDIO_PLATFORMS.map((p) => (
                     <TabsContent key={p} value={p} className="mt-0">
                       <DownloadForm
@@ -332,18 +334,18 @@ function AudioGrabHome() {
 
             <TabsContent value="video" className="mt-0">
               <Tabs value={platform} onValueChange={handlePlatformChange} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="x_video" className="flex items-center gap-2">
+                <TabsList className="grid w-full grid-cols-2 mb-4 h-11 sm:h-10">
+                  <TabsTrigger value="x_video" className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
                     <Twitter className="h-4 w-4" />
-                    X/Twitter
+                    <span>X/Twitter</span>
                   </TabsTrigger>
-                  <TabsTrigger value="youtube_video" className="flex items-center gap-2">
+                  <TabsTrigger value="youtube_video" className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
                     <Youtube className="h-4 w-4" />
-                    YouTube
+                    <span>YouTube</span>
                   </TabsTrigger>
                 </TabsList>
 
-                <div className="bg-card rounded-xl shadow-lg p-6 sm:p-8">
+                <div className="bg-card rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
                   {VIDEO_PLATFORMS.map((p) => (
                     <TabsContent key={p} value={p} className="mt-0">
                       <DownloadForm
@@ -366,7 +368,7 @@ function AudioGrabHome() {
             </TabsContent>
 
             <TabsContent value="transcribe" className="mt-0">
-              <div className="bg-card rounded-xl shadow-lg p-6 sm:p-8">
+              <div className="bg-card rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
                 <TranscribeForm
                   url={url}
                   setUrl={setUrl}

@@ -15,37 +15,37 @@ export function MobileNav() {
         variant="ghost"
         size="icon"
         onClick={() => setIsOpen(!isOpen)}
-        className="h-9 w-9"
+        className="h-11 w-11"
       >
         {isOpen ? (
-          <X className="h-4 w-4" />
+          <X className="h-5 w-5" />
         ) : (
-          <Menu className="h-4 w-4" />
+          <Menu className="h-5 w-5" />
         )}
         <span className="sr-only">Toggle menu</span>
       </Button>
 
       {isOpen && (
-        <div className={`absolute top-16 left-0 right-0 shadow-xl z-50 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} border`}>
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex flex-col space-y-4">
-              <Link 
-                to="/" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-2 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
+        <div className={`absolute top-16 left-0 right-0 shadow-xl z-50 border-b ${isDark ? 'bg-background border-border' : 'bg-background border-border'}`}>
+          <div className="container mx-auto px-4 py-2">
+            <div className="flex flex-col">
+              <Link
+                to="/"
+                className="text-foreground hover:text-primary [&.active]:text-primary [&.active]:font-medium transition-colors py-3 min-h-[48px] flex items-center"
                 onClick={() => setIsOpen(false)}
               >
                 Home
               </Link>
-              <Link 
-                to="/about" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-2 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
+              <Link
+                to="/about"
+                className="text-foreground hover:text-primary [&.active]:text-primary [&.active]:font-medium transition-colors py-3 min-h-[48px] flex items-center"
                 onClick={() => setIsOpen(false)}
               >
                 About
               </Link>
-              <Link 
-                to="/features" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-2 ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
+              <Link
+                to="/features"
+                className="text-foreground hover:text-primary [&.active]:text-primary [&.active]:font-medium transition-colors py-3 min-h-[48px] flex items-center"
                 onClick={() => setIsOpen(false)}
               >
                 Features

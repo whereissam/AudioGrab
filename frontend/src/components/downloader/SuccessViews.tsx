@@ -30,43 +30,43 @@ export function DownloadSuccess({
   onReset,
 }: DownloadSuccessProps) {
   return (
-    <div className="w-full max-w-xl mx-auto">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
+    <div className="w-full max-w-xl mx-auto px-1">
+      <div className="text-center mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-4xl font-bold text-foreground mb-1 sm:mb-2">
           Download Ready
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm sm:text-base text-muted-foreground">
           Your {mediaType} is ready to download
         </p>
       </div>
 
-      <div className="bg-primary rounded-2xl p-6 sm:p-8 mb-6 relative overflow-hidden">
-        <div className="absolute top-4 right-4">
+      <div className="bg-primary rounded-2xl p-4 sm:p-8 mb-4 sm:mb-6 relative overflow-hidden">
+        <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
           {mediaType === 'audio' ? (
-            <Mic className="h-5 w-5 text-primary-foreground/60" />
+            <Mic className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground/60" />
           ) : (
-            <Video className="h-5 w-5 text-primary-foreground/60" />
+            <Video className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground/60" />
           )}
         </div>
 
-        <div className="flex justify-center mb-4">
-          <img src="/logo.svg" alt="AudioGrab" className="h-16 w-auto" />
+        <div className="flex justify-center mb-3 sm:mb-4">
+          <img src="/logo.svg" alt="AudioGrab" className="h-12 sm:h-16 w-auto" />
         </div>
 
-        <h2 className="text-xl sm:text-2xl font-semibold text-primary-foreground text-center mb-3">
+        <h2 className="text-lg sm:text-2xl font-semibold text-primary-foreground text-center mb-2 sm:mb-3 line-clamp-2">
           {contentInfo.title}
         </h2>
 
-        <div className="flex items-center justify-center gap-2 text-primary-foreground/70 text-sm flex-wrap">
+        <div className="flex items-center justify-center gap-1.5 sm:gap-2 text-primary-foreground/70 text-xs sm:text-sm flex-wrap">
           {contentInfo.show_name && (
             <>
-              <span>{contentInfo.show_name}</span>
+              <span className="truncate max-w-[120px] sm:max-w-none">{contentInfo.show_name}</span>
               <span>•</span>
             </>
           )}
           {contentInfo.creator_name && (
             <>
-              <span>{contentInfo.creator_username ? `@${contentInfo.creator_username}` : contentInfo.creator_name}</span>
+              <span className="truncate max-w-[100px] sm:max-w-none">{contentInfo.creator_username ? `@${contentInfo.creator_username}` : contentInfo.creator_name}</span>
               <span>•</span>
             </>
           )}
@@ -86,14 +86,14 @@ export function DownloadSuccess({
         </div>
       </div>
 
-      <div className="flex gap-3">
-        <Button onClick={onReset} variant="outline" className="flex-1 h-12 text-muted-foreground">
-          <ArrowLeft className="mr-2 h-5 w-5" />
+      <div className="flex gap-2 sm:gap-3">
+        <Button onClick={onReset} variant="outline" className="flex-1 h-11 sm:h-12 text-sm sm:text-base text-muted-foreground">
+          <ArrowLeft className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5" />
           Back
         </Button>
-        <Button asChild className="flex-1 h-12">
+        <Button asChild className="flex-1 h-11 sm:h-12 text-sm sm:text-base">
           <a href={downloadUrl} download>
-            <Download className="mr-2 h-5 w-5" />
+            <Download className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5" />
             Download
           </a>
         </Button>
@@ -226,39 +226,48 @@ export function TranscriptionSuccess({
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
+    <div className="w-full max-w-2xl mx-auto px-1">
+      <div className="text-center mb-5 sm:mb-8">
+        <h1 className="text-xl sm:text-4xl font-bold text-foreground mb-1 sm:mb-2">
           Transcription Complete
         </h1>
-        <p className="text-muted-foreground">
-          Language: {result.language} ({(result.language_probability * 100).toFixed(0)}%) • Duration: {formatDuration(result.duration_seconds)}
-          {result.diarized && ` • ${uniqueSpeakers.length} speaker${uniqueSpeakers.length !== 1 ? 's' : ''}`}
+        <p className="text-xs sm:text-base text-muted-foreground">
+          <span className="inline-flex items-center gap-1 flex-wrap justify-center">
+            <span>{result.language} ({(result.language_probability * 100).toFixed(0)}%)</span>
+            <span>•</span>
+            <span>{formatDuration(result.duration_seconds)}</span>
+            {result.diarized && (
+              <>
+                <span>•</span>
+                <span>{uniqueSpeakers.length} speaker{uniqueSpeakers.length !== 1 ? 's' : ''}</span>
+              </>
+            )}
+          </span>
         </p>
       </div>
 
       {/* Speaker Renaming Panel */}
       {result.diarized && uniqueSpeakers.length > 0 && (
-        <div className="bg-card rounded-xl shadow-lg p-4 mb-4">
+        <div className="bg-card rounded-xl shadow-lg p-3 sm:p-4 mb-3 sm:mb-4">
           <button
             onClick={() => setShowRenaming(!showRenaming)}
-            className="flex items-center gap-2 w-full text-left"
+            className="flex items-center gap-2 w-full text-left min-h-[44px]"
           >
-            <Users className="h-5 w-5 text-primary" />
-            <span className="font-medium flex-1">Rename Speakers</span>
-            <Pencil className={`h-4 w-4 text-muted-foreground transition-transform ${showRenaming ? 'rotate-45' : ''}`} />
+            <Users className="h-5 w-5 text-primary flex-shrink-0" />
+            <span className="font-medium flex-1 text-sm sm:text-base">Rename Speakers</span>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showRenaming ? 'rotate-180' : ''}`} />
           </button>
           {showRenaming && (
-            <div className="mt-4 space-y-3">
+            <div className="mt-3 sm:mt-4 space-y-3">
               {uniqueSpeakers.map(speaker => (
-                <div key={speaker} className="flex items-center gap-3">
-                  <span className="text-sm text-muted-foreground w-24 flex-shrink-0">{speaker}:</span>
+                <div key={speaker} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+                  <span className="text-sm text-muted-foreground sm:w-24 flex-shrink-0">{speaker}:</span>
                   <Input
                     type="text"
-                    placeholder={`e.g., Host, Guest, ${speaker.replace('Speaker ', 'Person ')}`}
+                    placeholder={`e.g., Host, Guest`}
                     value={speakerNames[speaker] || ''}
                     onChange={(e) => handleSpeakerRename(speaker, e.target.value)}
-                    className="h-8 flex-1"
+                    className="h-10 sm:h-8 flex-1"
                   />
                 </div>
               ))}
@@ -270,45 +279,44 @@ export function TranscriptionSuccess({
         </div>
       )}
 
-      <div className="bg-card rounded-xl shadow-lg p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-card rounded-xl shadow-lg p-3 sm:p-6 mb-3 sm:mb-6">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
           <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            <span className="font-medium">Transcript</span>
-            <span className="text-xs text-muted-foreground uppercase">({result.output_format})</span>
+            <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            <span className="font-medium text-sm sm:text-base">Transcript</span>
+            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase">({result.output_format})</span>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleCopy}>
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={handleCopy} className="h-8 w-8 sm:h-9 sm:w-9 p-0">
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          </Button>
         </div>
-        <div className="bg-muted rounded-lg p-4 max-h-80 overflow-y-auto">
-          <pre className="text-sm whitespace-pre-wrap font-mono">{displayOutput}</pre>
+        <div className="bg-muted rounded-lg p-3 sm:p-4 max-h-60 sm:max-h-80 overflow-y-auto -mx-1 sm:mx-0">
+          <pre className="text-xs sm:text-sm whitespace-pre-wrap font-mono">{displayOutput}</pre>
         </div>
       </div>
 
       {/* Summarization Section */}
-      <div className="bg-card rounded-xl shadow-lg p-4 mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <span className="font-medium">AI Summary</span>
+      <div className="bg-card rounded-xl shadow-lg p-3 sm:p-4 mb-3 sm:mb-6">
+        <div className="flex items-center gap-2 mb-3 sm:mb-4">
+          <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+          <span className="font-medium text-sm sm:text-base">AI Summary</span>
         </div>
 
         {/* Summary Type Selector */}
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
           {SUMMARY_TYPES.map((type) => (
             <button
               key={type.value}
               onClick={() => setSummaryType(type.value)}
               disabled={summaryLoading}
-              className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+              className={`px-2 sm:px-3 py-2 sm:py-1.5 rounded-lg text-xs sm:text-sm transition-all active:scale-95 ${
                 summaryType === type.value
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
               } ${summaryLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              {type.label}
+              <span className="hidden sm:inline">{type.label}</span>
+              <span className="sm:hidden">{type.label.split(' ')[0]}</span>
             </button>
           ))}
         </div>
@@ -317,42 +325,42 @@ export function TranscriptionSuccess({
         <Button
           onClick={handleSummarize}
           disabled={summaryLoading}
-          className="w-full mb-4"
+          className="w-full mb-3 sm:mb-4 h-10 sm:h-11"
           variant={summary ? 'outline' : 'default'}
         >
           {summaryLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating...
+              <span className="text-sm">Generating...</span>
             </>
           ) : (
             <>
               <Sparkles className="mr-2 h-4 w-4" />
-              {summary ? 'Regenerate Summary' : 'Generate Summary'}
+              <span className="text-sm">{summary ? 'Regenerate' : 'Generate Summary'}</span>
             </>
           )}
         </Button>
 
         {/* Error Message */}
         {summaryError && (
-          <div className="bg-destructive/10 text-destructive rounded-lg p-3 mb-4 text-sm">
+          <div className="bg-destructive/10 text-destructive rounded-lg p-2.5 sm:p-3 mb-3 sm:mb-4 text-xs sm:text-sm">
             {summaryError}
           </div>
         )}
 
         {/* Summary Result */}
         {summary && (
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-xs sm:text-sm text-muted-foreground">
                 {SUMMARY_TYPES.find(t => t.value === summaryType)?.label}
               </span>
-              <Button variant="outline" size="sm" onClick={handleCopySummary}>
+              <Button variant="outline" size="sm" onClick={handleCopySummary} className="h-8 w-8 sm:h-9 sm:w-9 p-0">
                 {summaryCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
-            <div className="bg-muted rounded-lg p-4 max-h-60 overflow-y-auto">
-              <div className="text-sm whitespace-pre-wrap prose prose-sm dark:prose-invert max-w-none">
+            <div className="bg-muted rounded-lg p-3 sm:p-4 max-h-48 sm:max-h-60 overflow-y-auto">
+              <div className="text-xs sm:text-sm whitespace-pre-wrap prose prose-sm dark:prose-invert max-w-none">
                 {summary}
               </div>
             </div>
@@ -360,13 +368,13 @@ export function TranscriptionSuccess({
         )}
       </div>
 
-      <div className="flex gap-3">
-        <Button onClick={onReset} variant="outline" className="flex-1 h-12 text-muted-foreground">
-          <ArrowLeft className="mr-2 h-5 w-5" />
+      <div className="flex gap-2 sm:gap-3">
+        <Button onClick={onReset} variant="outline" className="flex-1 h-11 sm:h-12 text-sm sm:text-base text-muted-foreground">
+          <ArrowLeft className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5" />
           Back
         </Button>
-        <Button onClick={handleDownload} className="flex-1 h-12">
-          <Download className="mr-2 h-5 w-5" />
+        <Button onClick={handleDownload} className="flex-1 h-11 sm:h-12 text-sm sm:text-base">
+          <Download className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5" />
           Download
         </Button>
       </div>

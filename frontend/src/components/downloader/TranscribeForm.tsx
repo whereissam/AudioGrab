@@ -55,26 +55,26 @@ export function TranscribeForm({
         <button
           type="button"
           onClick={() => setTranscribeMode('url')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+          className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-2 rounded-md text-sm font-medium transition-all active:scale-95 ${
             transcribeMode === 'url'
               ? 'bg-background text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <Link className="h-4 w-4" />
-          From URL
+          <span>From URL</span>
         </button>
         <button
           type="button"
           onClick={() => setTranscribeMode('file')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+          className={`flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 sm:py-2 rounded-md text-sm font-medium transition-all active:scale-95 ${
             transcribeMode === 'file'
               ? 'bg-background text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <Upload className="h-4 w-4" />
-          Upload File
+          <span>Upload</span>
         </button>
       </div>
 
@@ -125,10 +125,10 @@ export function TranscribeForm({
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
             {selectedFile ? (
-              <div className="flex items-center justify-center gap-2">
-                <FileAudio className="h-6 w-6 text-primary" />
-                <span className="font-medium">{selectedFile.name}</span>
-                <span className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                <FileAudio className="h-6 w-6 text-primary flex-shrink-0" />
+                <span className="font-medium text-center break-all line-clamp-2 sm:line-clamp-1">{selectedFile.name}</span>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
                   ({(selectedFile.size / 1024 / 1024).toFixed(1)} MB)
                 </span>
               </div>
@@ -153,21 +153,21 @@ export function TranscribeForm({
           <Mic className="inline h-4 w-4 mr-1" />
           Whisper Model
         </label>
-        <div className="grid gap-2 grid-cols-3 sm:grid-cols-6">
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
           {WHISPER_MODELS.map((opt) => (
             <button
               key={opt.value}
               type="button"
               onClick={() => setWhisperModel(opt.value)}
               disabled={status === 'loading'}
-              className={`p-2 rounded-lg border-2 transition-all ${
+              className={`p-2.5 sm:p-2 rounded-lg border-2 transition-all active:scale-95 ${
                 whisperModel === opt.value
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border bg-background text-foreground hover:border-primary/50'
               } ${status === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <div className="font-semibold text-sm">{opt.label}</div>
-              <div className="text-xs text-muted-foreground">{opt.desc}</div>
+              <div className="text-xs text-muted-foreground hidden sm:block">{opt.desc}</div>
             </button>
           ))}
         </div>
@@ -179,7 +179,7 @@ export function TranscribeForm({
           <FileText className="inline h-4 w-4 mr-1" />
           Output Format
         </label>
-        <div className="grid gap-2 grid-cols-5">
+        <div className="grid gap-2 grid-cols-3 sm:grid-cols-5">
           {TRANSCRIPTION_FORMATS.map((opt) => (
             <button
               key={opt.value}
@@ -191,28 +191,28 @@ export function TranscribeForm({
                 }
               }}
               disabled={status === 'loading'}
-              className={`p-3 rounded-lg border-2 transition-all ${
+              className={`p-2.5 sm:p-3 rounded-lg border-2 transition-all active:scale-95 ${
                 transcriptionFormat === opt.value
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border bg-background text-foreground hover:border-primary/50'
               } ${status === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              <div className="font-semibold">{opt.label}</div>
-              <div className="text-xs text-muted-foreground">{opt.desc}</div>
+              <div className="font-semibold text-sm">{opt.label}</div>
+              <div className="text-xs text-muted-foreground hidden sm:block">{opt.desc}</div>
             </button>
           ))}
         </div>
       </div>
 
       {/* Speaker Diarization */}
-      <div className="space-y-3">
-        <label className="flex items-center gap-3 cursor-pointer">
+      <div className="space-y-3 p-3 sm:p-0 bg-muted/50 sm:bg-transparent rounded-lg">
+        <label className="flex items-center gap-3 cursor-pointer min-h-[44px]">
           <input
             type="checkbox"
             checked={diarize}
             onChange={(e) => setDiarize(e.target.checked)}
             disabled={status === 'loading'}
-            className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+            className="w-5 h-5 sm:w-4 sm:h-4 rounded border-border text-primary focus:ring-primary"
           />
           <span className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Users className="h-4 w-4" />
@@ -220,8 +220,8 @@ export function TranscribeForm({
           </span>
         </label>
         {diarize && (
-          <div className="ml-7 flex items-center gap-3">
-            <label htmlFor="num-speakers" className="text-sm text-muted-foreground whitespace-nowrap">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:ml-7">
+            <label htmlFor="num-speakers" className="text-sm text-muted-foreground">
               Number of speakers (optional):
             </label>
             <Input
@@ -233,12 +233,12 @@ export function TranscribeForm({
               value={numSpeakers ?? ''}
               onChange={(e) => setNumSpeakers(e.target.value ? parseInt(e.target.value) : null)}
               disabled={status === 'loading'}
-              className="w-24 h-8"
+              className="w-full sm:w-24 h-10 sm:h-8"
             />
           </div>
         )}
         {diarize && (
-          <p className="ml-7 text-xs text-muted-foreground">
+          <p className="sm:ml-7 text-xs text-muted-foreground">
             Identifies different speakers in the audio. Requires HuggingFace token.
           </p>
         )}
