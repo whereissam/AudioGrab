@@ -11,6 +11,7 @@ Download audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, and mo
 - **Audio Downloads** - X Spaces, Apple Podcasts, Spotify, YouTube, 小宇宙
 - **Video Downloads** - X/Twitter, YouTube (480p/720p/1080p)
 - **Transcription** - Local Whisper (no API costs), 99+ languages, checkpoint resume
+- **Audio Enhancement** - Noise reduction & voice isolation (FFmpeg-based)
 - **Speaker Diarization** - Identify different speakers (optional)
 - **Smart Metadata** - Auto-embed ID3/MP4 tags with artwork
 - **Job Recovery** - SQLite persistence, auto-resume on restart
@@ -69,7 +70,7 @@ Create `.env`:
 # Server
 HOST=127.0.0.1            # Use 0.0.0.0 to expose to network
 PORT=8000
-DOWNLOAD_DIR=/tmp/audiograb
+DOWNLOAD_DIR=./output
 
 # API Authentication (optional)
 # API_KEY=your-secret-key  # If set, requires X-API-Key header

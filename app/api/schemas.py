@@ -151,7 +151,20 @@ class HealthResponse(BaseModel):
     whisper_available: bool = False
     diarization_available: bool = False
     summarization_available: bool = False
+    enhancement_available: bool = False
     version: str
+
+
+# ============ Enhancement Schemas ============
+
+
+class EnhancementPreset(str, Enum):
+    """Audio enhancement presets."""
+
+    NONE = "none"
+    LIGHT = "light"
+    MEDIUM = "medium"
+    HEAVY = "heavy"
 
 
 # ============ Transcription Schemas ============
@@ -222,6 +235,18 @@ class TranscribeRequest(BaseModel):
         default=False,
         description="Keep the downloaded audio file after transcription. Default is False (temp download).",
     )
+    enhance: bool = Field(
+        default=False,
+        description="Apply audio enhancement (noise reduction, voice isolation) before transcription",
+    )
+    enhancement_preset: EnhancementPreset = Field(
+        default=EnhancementPreset.MEDIUM,
+        description="Audio enhancement preset: none, light, medium, or heavy",
+    )
+    keep_enhanced: bool = Field(
+        default=False,
+        description="Keep the enhanced audio file after transcription (only applies if enhance=True)",
+    )
 
 
 class TranscriptionSegment(BaseModel):
@@ -265,6 +290,10 @@ class TranscriptionJob(BaseModel):
     audio_file: Optional[str] = Field(
         default=None,
         description="Path to audio file (if keep_audio was True)",
+    )
+    enhanced_file: Optional[str] = Field(
+        default=None,
+        description="Path to enhanced audio file (if enhance=True and keep_enhanced=True)",
     )
 
 

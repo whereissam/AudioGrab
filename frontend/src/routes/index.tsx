@@ -8,6 +8,7 @@ import {
   MediaType,
   WhisperModel,
   TranscriptionFormat,
+  EnhancementPreset,
   ContentInfo,
   TranscriptionResult,
   AUDIO_PLATFORMS,
@@ -40,6 +41,8 @@ function AudioGrabHome() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [diarize, setDiarize] = useState(false)
   const [numSpeakers, setNumSpeakers] = useState<number | null>(null)
+  const [enhance, setEnhance] = useState(false)
+  const [enhancementPreset, setEnhancementPreset] = useState<EnhancementPreset>('medium')
 
   const handleMediaTypeChange = (newType: string) => {
     setMediaType(newType as MediaType)
@@ -74,6 +77,8 @@ function AudioGrabHome() {
     setSelectedFile(null)
     setDiarize(false)
     setNumSpeakers(null)
+    setEnhance(false)
+    setEnhancementPreset('medium')
   }
 
   const handleDownload = async () => {
@@ -167,6 +172,10 @@ function AudioGrabHome() {
             formData.append('num_speakers', numSpeakers.toString())
           }
         }
+        if (enhance) {
+          formData.append('enhance', 'true')
+          formData.append('enhancement_preset', enhancementPreset)
+        }
         response = await fetch('/api/transcribe/upload', { method: 'POST', body: formData })
       } else {
         response = await fetch('/api/transcribe', {
@@ -178,6 +187,8 @@ function AudioGrabHome() {
             output_format: transcriptionFormat,
             diarize,
             num_speakers: numSpeakers,
+            enhance,
+            enhancement_preset: enhancementPreset,
           }),
         })
       }
@@ -380,6 +391,10 @@ function AudioGrabHome() {
                   setWhisperModel={setWhisperModel}
                   transcriptionFormat={transcriptionFormat}
                   setTranscriptionFormat={setTranscriptionFormat}
+                  enhance={enhance}
+                  setEnhance={setEnhance}
+                  enhancementPreset={enhancementPreset}
+                  setEnhancementPreset={setEnhancementPreset}
                   diarize={diarize}
                   setDiarize={setDiarize}
                   numSpeakers={numSpeakers}

@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     sentry_traces_sample_rate: float = 0.1  # 10% of transactions
 
     # Downloads
-    download_dir: str = "/tmp/audiograb"
+    download_dir: str = "./output"
     max_concurrent_downloads: int = 5
     cleanup_after_hours: int = 24
 

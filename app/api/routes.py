@@ -156,6 +156,7 @@ async def health_check():
     from ..core.transcriber import AudioTranscriber
     from ..core.diarizer import SpeakerDiarizer
     from ..core.summarizer import TranscriptSummarizer
+    from ..core.enhancer import AudioEnhancer
 
     return HealthResponse(
         status="healthy",
@@ -172,6 +173,7 @@ async def health_check():
         whisper_available=AudioTranscriber.is_available(),
         diarization_available=SpeakerDiarizer.is_available(),
         summarization_available=TranscriptSummarizer.is_available(),
+        enhancement_available=AudioEnhancer.is_available(),
         version="0.3.0",
     )
 
@@ -487,7 +489,31 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
     job.status = JobStatus.PROCESSING
     job.progress = 0.1
 
+    enhanced_path = None  # Track enhanced file for cleanup/keeping
+    original_audio_path = audio_path  # Track original for cleanup
+
     try:
+        # Apply audio enhancement if requested
+        enhance = getattr(request, 'enhance', False)
+        if enhance:
+            from ..core.enhancer import AudioEnhancer, EnhancementPreset as CoreEnhancementPreset
+
+            enhancer = AudioEnhancer()
+            preset_value = getattr(request, 'enhancement_preset', 'medium')
+            if hasattr(preset_value, 'value'):
+                preset_value = preset_value.value
+            preset = CoreEnhancementPreset(preset_value)
+
+            logger.info(f"[{job_id}] Applying {preset.value} audio enhancement...")
+            result = await enhancer.enhance(audio_path, preset, keep_original=True)
+
+            if result.success and result.enhanced_path:
+                logger.info(f"[{job_id}] Audio enhancement complete: {result.enhanced_path}")
+                enhanced_path = result.enhanced_path
+                audio_path = result.enhanced_path
+            else:
+                logger.warning(f"[{job_id}] Audio enhancement failed: {result.error}, continuing with original audio")
+
         transcriber = AudioTranscriber(model_size=request.model.value)
 
         task = "translate" if request.translate else "transcribe"
@@ -602,15 +628,28 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
                 except Exception as e:
                     logger.error(f"[{job_id}] Failed to save transcription: {e}")
 
-            # Handle audio file based on keep_audio
+            # Handle enhanced audio file based on keep_enhanced
+            keep_enhanced = getattr(request, 'keep_enhanced', False)
+            if enhanced_path and enhanced_path.exists():
+                if keep_enhanced:
+                    job.enhanced_file = str(enhanced_path)
+                    logger.info(f"[{job_id}] Keeping enhanced audio: {enhanced_path}")
+                else:
+                    try:
+                        enhanced_path.unlink()
+                        logger.info(f"[{job_id}] Deleted enhanced audio file")
+                    except Exception as e:
+                        logger.warning(f"[{job_id}] Failed to delete enhanced audio: {e}")
+
+            # Handle original audio file based on keep_audio
             keep_audio = getattr(request, 'keep_audio', False)
             if keep_audio:
-                job.audio_file = str(audio_path)
+                job.audio_file = str(original_audio_path)
             else:
-                # Delete temp audio file
+                # Delete temp original audio file
                 try:
-                    if audio_path.exists():
-                        audio_path.unlink()
+                    if original_audio_path.exists():
+                        original_audio_path.unlink()
                         logger.info(f"[{job_id}] Deleted temp audio file")
                 except Exception as e:
                     logger.warning(f"[{job_id}] Failed to delete temp audio: {e}")
@@ -1010,6 +1049,9 @@ async def transcribe_uploaded_file(
     language: str = Form(default=None),
     diarize: str = Form(default="false"),
     num_speakers: str = Form(default=None),
+    enhance: str = Form(default="false"),
+    enhancement_preset: str = Form(default="medium"),
+    keep_enhanced: str = Form(default="false"),
 ):
     """
     Transcribe an uploaded audio file.
@@ -1071,6 +1113,9 @@ async def transcribe_uploaded_file(
             self.translate = False
             self.diarize = diarize.lower() == "true"
             self.num_speakers = int(num_speakers) if num_speakers and num_speakers.isdigit() else None
+            self.enhance = enhance.lower() == "true"
+            self.enhancement_preset = enhancement_preset
+            self.keep_enhanced = keep_enhanced.lower() == "true"
 
     request = UploadTranscribeRequest()
 

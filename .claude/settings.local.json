@@ -19,7 +19,10 @@
       "Bash(curl:*)",
       "Bash(pkill:*)",
       "Bash(brew upgrade:*)",
-      "Bash(ffprobe:*)"
+      "Bash(ffprobe:*)",
+      "Bash(npm run build:*)",
+      "Bash(bunx tsc:*)",
+      "Bash(lsof:*)"
     ]
   }
 }

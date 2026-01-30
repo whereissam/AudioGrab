@@ -1,12 +1,14 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, AlertCircle, Mic, FileAudio, FileText, Upload, Link, Users } from 'lucide-react'
+import { Loader2, AlertCircle, Mic, FileAudio, FileText, Upload, Link, Users, Sparkles } from 'lucide-react'
 import {
   DownloadStatus,
   WhisperModel,
   TranscriptionFormat,
+  EnhancementPreset,
   WHISPER_MODELS,
   TRANSCRIPTION_FORMATS,
+  ENHANCEMENT_PRESETS,
 } from './types'
 
 interface TranscribeFormProps {
@@ -20,6 +22,10 @@ interface TranscribeFormProps {
   setWhisperModel: (model: WhisperModel) => void
   transcriptionFormat: TranscriptionFormat
   setTranscriptionFormat: (format: TranscriptionFormat) => void
+  enhance: boolean
+  setEnhance: (enhance: boolean) => void
+  enhancementPreset: EnhancementPreset
+  setEnhancementPreset: (preset: EnhancementPreset) => void
   diarize: boolean
   setDiarize: (diarize: boolean) => void
   numSpeakers: number | null
@@ -40,6 +46,10 @@ export function TranscribeForm({
   setWhisperModel,
   transcriptionFormat,
   setTranscriptionFormat,
+  enhance,
+  setEnhance,
+  enhancementPreset,
+  setEnhancementPreset,
   diarize,
   setDiarize,
   numSpeakers,
@@ -202,6 +212,48 @@ export function TranscribeForm({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Audio Enhancement */}
+      <div className="space-y-3 p-3 sm:p-0 bg-muted/50 sm:bg-transparent rounded-lg">
+        <label className="flex items-center gap-3 cursor-pointer min-h-[44px]">
+          <input
+            type="checkbox"
+            checked={enhance}
+            onChange={(e) => setEnhance(e.target.checked)}
+            disabled={status === 'loading'}
+            className="w-5 h-5 sm:w-4 sm:h-4 rounded border-border text-primary focus:ring-primary"
+          />
+          <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Sparkles className="h-4 w-4" />
+            Enhance Audio Quality
+          </span>
+        </label>
+        {enhance && (
+          <div className="sm:ml-7 grid gap-2 grid-cols-3">
+            {ENHANCEMENT_PRESETS.filter(p => p.value !== 'none').map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setEnhancementPreset(opt.value)}
+                disabled={status === 'loading'}
+                className={`p-2 rounded-lg border-2 transition-all active:scale-95 ${
+                  enhancementPreset === opt.value
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-background text-foreground hover:border-primary/50'
+                } ${status === 'loading' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                <div className="font-semibold text-xs">{opt.label}</div>
+                <div className="text-xs text-muted-foreground hidden sm:block">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        )}
+        {enhance && (
+          <p className="sm:ml-7 text-xs text-muted-foreground">
+            Reduces background noise and isolates voice for clearer transcription.
+          </p>
+        )}
       </div>
 
       {/* Speaker Diarization */}

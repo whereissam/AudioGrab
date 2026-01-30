@@ -44,7 +44,12 @@ class CheckpointManager:
     """Manages transcription checkpoints for resume capability."""
 
     def __init__(self, checkpoint_dir: Optional[Path] = None):
-        self.checkpoint_dir = checkpoint_dir or Path("/tmp/audiograb/checkpoints")
+        if checkpoint_dir:
+            self.checkpoint_dir = checkpoint_dir
+        else:
+            from ..config import get_settings
+            settings = get_settings()
+            self.checkpoint_dir = Path(settings.download_dir) / "checkpoints"
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_checkpoint_path(self, job_id: str) -> Path:

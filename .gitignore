@@ -70,3 +70,5 @@ htmlcov/
 tmp/
 temp/
 *.tmp
+data/
+output/

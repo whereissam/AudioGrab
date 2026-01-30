@@ -32,7 +32,12 @@ class JobStore:
     """SQLite-based persistent job storage."""
 
     def __init__(self, db_path: Optional[Path] = None):
-        self.db_path = db_path or Path("/tmp/audiograb/jobs.db")
+        if db_path:
+            self.db_path = db_path
+        else:
+            from ..config import get_settings
+            settings = get_settings()
+            self.db_path = Path(settings.download_dir) / "jobs.db"
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
