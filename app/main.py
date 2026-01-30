@@ -57,7 +57,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to start job recovery: {e}")
 
+    # Start subscription worker
+    try:
+        from .core.subscription_worker import start_subscription_worker
+        await start_subscription_worker()
+    except Exception as e:
+        logger.error(f"Failed to start subscription worker: {e}")
+
     yield
+
+    # Stop subscription worker
+    try:
+        from .core.subscription_worker import stop_subscription_worker
+        await stop_subscription_worker()
+    except Exception as e:
+        logger.error(f"Failed to stop subscription worker: {e}")
 
     # Cleanup on shutdown
     logger.info("Shutting down AudioGrab API")

@@ -76,17 +76,33 @@ xdownloader/
 │   │   ├── __init__.py
 │   │   ├── downloader.py    # yt-dlp based downloader
 │   │   ├── converter.py     # FFmpeg audio converter
+│   │   ├── transcriber.py   # Whisper transcription
+│   │   ├── job_store.py     # SQLite job persistence
+│   │   ├── subscription_store.py   # SQLite subscription storage
+│   │   ├── subscription_fetcher.py # RSS/YouTube fetchers
+│   │   ├── subscription_worker.py  # Background subscription worker
 │   │   ├── parser.py        # URL parsing
 │   │   └── exceptions.py    # Custom exceptions
 │   │
 │   ├── api/                 # FastAPI routes
 │   │   ├── __init__.py
-│   │   ├── routes.py        # API endpoints
-│   │   └── schemas.py       # Pydantic models
+│   │   ├── routes.py        # Download/transcribe endpoints
+│   │   ├── subscription_routes.py  # Subscription endpoints
+│   │   ├── schemas.py       # Pydantic models
+│   │   └── subscription_schemas.py # Subscription models
 │   │
 │   └── bot/                 # Telegram bot
 │       ├── __init__.py
 │       └── bot.py           # Bot implementation
+│
+├── frontend/                # React frontend
+│   └── src/
+│       ├── components/
+│       │   ├── downloader/  # Download components
+│       │   └── subscriptions/ # Subscription components
+│       └── routes/
+│           ├── index.tsx    # Home page
+│           └── subscriptions.tsx # Subscriptions page
 │
 ├── tests/
 │   └── test_parser.py
@@ -172,13 +188,32 @@ class SpaceURLParser:
 
 ### REST Endpoints
 
+#### Download & Transcribe
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/download` | Start download job |
 | GET | `/api/download/{job_id}` | Get download status |
 | GET | `/api/download/{job_id}/file` | Download completed file |
-| GET | `/api/space/{space_id}/metadata` | Get Space metadata |
-| GET | `/health` | Health check |
+| POST | `/api/transcribe` | Start transcription from URL |
+| POST | `/api/transcribe/upload` | Upload file & transcribe |
+| GET | `/api/transcribe/{job_id}` | Get transcription status |
+| GET | `/api/add?url=...` | Quick add (browser extension) |
+| GET | `/api/health` | Health check |
+
+#### Subscriptions
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/subscriptions` | Create subscription (RSS, YouTube channel/playlist) |
+| GET | `/api/subscriptions` | List all subscriptions |
+| GET | `/api/subscriptions/{id}` | Get subscription details |
+| PATCH | `/api/subscriptions/{id}` | Update subscription |
+| DELETE | `/api/subscriptions/{id}` | Delete subscription and items |
+| POST | `/api/subscriptions/{id}/check` | Force check for new content |
+| GET | `/api/subscriptions/{id}/items` | List subscription items |
+| POST | `/api/subscriptions/{id}/items/{item_id}/retry` | Retry failed item |
+| DELETE | `/api/subscriptions/{id}/items/{item_id}` | Delete item |
 
 ### Request/Response Models
 
@@ -213,6 +248,112 @@ async def start_download(
     job_id = str(uuid.uuid4())
     background_tasks.add_task(process_download, job_id, request)
     return {"job_id": job_id, "status": "pending"}
+```
+
+## Subscription System
+
+The subscription system enables automatic downloading of new content from RSS feeds and YouTube.
+
+### Subscription Flow
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        SUBSCRIPTION FLOW                                  │
+└──────────────────────────────────────────────────────────────────────────┘
+
+User creates subscription (RSS/YouTube)
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Step 1: Validate & Store                                                 │
+│ ───────────────────────                                                 │
+│ - Validate source URL (fetch feed/playlist)                            │
+│ - Extract source name and ID                                           │
+│ - Store in SQLite subscriptions table                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Step 2: Background Worker (hourly)                                       │
+│ ─────────────────────────────────                                       │
+│ - Fetch items from source (RSS/yt-dlp --flat-playlist)                 │
+│ - Compare with existing items (UNIQUE constraint)                       │
+│ - Create new subscription_items with status='pending'                  │
+└─────────────────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Step 3: Download Items                                                   │
+│ ─────────────────────                                                   │
+│ - Direct HTTP download for RSS audio URLs                              │
+│ - Platform downloader for YouTube URLs                                 │
+│ - Optional format conversion                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Step 4: Auto-Transcribe (optional)                                       │
+│ ─────────────────────────────────                                       │
+│ - If auto_transcribe=True, run Whisper                                 │
+│ - Save transcript alongside audio file                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Step 5: Cleanup                                                          │
+│ ───────────────                                                         │
+│ - If completed_count > download_limit                                  │
+│ - Delete oldest completed items and files                              │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Subscription Types
+
+| Type | Source | Fetcher |
+|------|--------|---------|
+| `rss` | RSS feed URL or Apple Podcasts URL | feedparser |
+| `youtube_channel` | YouTube channel URL | yt-dlp --flat-playlist |
+| `youtube_playlist` | YouTube playlist URL | yt-dlp --flat-playlist |
+
+### Database Schema
+
+```sql
+-- Subscriptions table
+CREATE TABLE subscriptions (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    subscription_type TEXT NOT NULL,  -- 'rss', 'youtube_channel', 'youtube_playlist'
+    source_url TEXT,
+    source_id TEXT,
+    platform TEXT NOT NULL,           -- 'podcast', 'youtube'
+    enabled INTEGER DEFAULT 1,
+    auto_transcribe INTEGER DEFAULT 0,
+    transcribe_model TEXT DEFAULT 'base',
+    download_limit INTEGER DEFAULT 10,
+    output_format TEXT DEFAULT 'm4a',
+    last_checked_at TEXT,
+    total_downloaded INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+-- Subscription items table
+CREATE TABLE subscription_items (
+    id TEXT PRIMARY KEY,
+    subscription_id TEXT NOT NULL,
+    content_id TEXT NOT NULL,
+    content_url TEXT NOT NULL,
+    title TEXT,
+    published_at TEXT,
+    status TEXT DEFAULT 'pending',    -- 'pending', 'downloading', 'completed', 'failed'
+    file_path TEXT,
+    transcription_path TEXT,
+    error TEXT,
+    discovered_at TEXT NOT NULL,
+    downloaded_at TEXT,
+    FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE,
+    UNIQUE(subscription_id, content_id)
+);
 ```
 
 ## Telegram Bot Flow

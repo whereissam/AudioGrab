@@ -12,7 +12,6 @@
       "Bash(yt-dlp:*)",
       "Bash(ls:*)",
       "Bash(tree:*)",
-      "Bash(python:*)",
       "Bash(python3:*)",
       "Bash(uv pip install:*)",
       "Bash(uv run:*)",
@@ -20,10 +19,11 @@
       "Bash(pkill:*)",
       "Bash(brew upgrade:*)",
       "Bash(ffprobe:*)",
-      "Bash(npm run build:*)",
       "Bash(bunx tsc:*)",
       "Bash(lsof:*)",
-      "Bash(bun run build)"
+      "Bash(bun run build)",
+      "Bash(find:*)",
+      "Bash(jq . curl -s -X DELETE \"http://localhost:8000/api/subscriptions/5cfc56d8-4b51-4c9a-914b-d48c549b77fa\")"
     ]
   }
 }

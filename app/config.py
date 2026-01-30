@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-3-haiku-20240307"
 
+    # Subscription Worker
+    subscription_worker_enabled: bool = True
+    subscription_check_interval: int = 3600  # Check every hour (in seconds)
+    subscription_max_concurrent: int = 2  # Max concurrent downloads per check
+    subscription_webhook_url: str | None = None  # Optional webhook for notifications
+
     def get_download_path(self) -> Path:
         """Get download directory as Path, creating if needed."""
         path = Path(self.download_dir)

@@ -51,16 +51,23 @@ bun run preview
 src/
 ├── components/
 │   ├── ui/              # shadcn/ui components (Button, Input, Tabs)
-│   └── downloader/      # Download & transcription components
-│       ├── DownloadForm.tsx
-│       ├── TranscribeForm.tsx
-│       ├── SuccessViews.tsx
+│   ├── downloader/      # Download & transcription components
+│   │   ├── DownloadForm.tsx
+│   │   ├── TranscribeForm.tsx
+│   │   ├── SuccessViews.tsx
+│   │   └── types.ts
+│   └── subscriptions/   # Subscription management components
+│       ├── SubscriptionList.tsx
+│       ├── SubscriptionCard.tsx
+│       ├── SubscriptionDetail.tsx
+│       ├── AddSubscriptionForm.tsx
 │       └── types.ts
 ├── lib/
 │   └── utils.ts         # Utility functions
 ├── routes/
 │   ├── __root.tsx       # Root layout
-│   └── index.tsx        # Home page (Audio/Video/Transcribe tabs)
+│   ├── index.tsx        # Home page (Audio/Video/Transcribe tabs)
+│   └── subscriptions.tsx # Subscriptions page
 ├── main.tsx
 └── index.css            # Theme configuration
 ```
@@ -79,6 +86,14 @@ src/
 - **Output formats** - Text, SRT, VTT, JSON, Dialogue
 - **Speaker diarization** - Identify different speakers (toggle + number of speakers)
 - **Speaker renaming** - Rename "Speaker 0" to "Host", "Guest", etc.
+
+### Subscriptions
+- **RSS/Podcast feeds** - Subscribe to Apple Podcasts or any RSS feed
+- **YouTube channels** - Auto-download new videos from channels
+- **YouTube playlists** - Monitor playlists for new content
+- **Auto-transcription** - Optionally transcribe downloads automatically
+- **Download limits** - Keep only the last N downloads, auto-cleanup old files
+- **Manual check** - Force check for new content anytime
 
 ### General
 - **Real-time progress** - Live status updates during processing
@@ -101,6 +116,8 @@ src/
 
 The frontend communicates with the backend API:
 
+### Download & Transcribe
+
 | Endpoint | Description |
 |----------|-------------|
 | `POST /api/download` | Start download job |
@@ -111,6 +128,19 @@ The frontend communicates with the backend API:
 | `GET /api/transcribe/{job_id}` | Get transcription status |
 | `GET /api/add?url=...` | Quick add (browser extension) |
 | `GET /api/health` | Check service availability |
+
+### Subscriptions
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/subscriptions` | Create subscription |
+| `GET /api/subscriptions` | List all subscriptions |
+| `GET /api/subscriptions/{id}` | Get subscription details |
+| `PATCH /api/subscriptions/{id}` | Update subscription |
+| `DELETE /api/subscriptions/{id}` | Delete subscription |
+| `POST /api/subscriptions/{id}/check` | Force check for new content |
+| `GET /api/subscriptions/{id}/items` | List subscription items |
+| `POST /api/subscriptions/{id}/items/{item_id}/retry` | Retry failed item |
 
 ## License
 
