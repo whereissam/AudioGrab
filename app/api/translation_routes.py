@@ -149,9 +149,40 @@ async def translate_text(request: TranslateRequest):
             from ..config import get_settings
             settings = get_settings()
 
-            model = request.model or "translategemma:latest"
-            if not model.startswith("translategemma"):
-                model = f"translategemma:{model}"
+            # Get available models first
+            available_models = []
+            try:
+                import httpx
+                with httpx.Client(timeout=5.0) as client:
+                    response = client.get(f"{settings.ollama_base_url.rstrip('/')}/api/tags")
+                    if response.status_code == 200:
+                        data = response.json()
+                        available_models = [
+                            m.get("name", "") for m in data.get("models", [])
+                            if "translategemma" in m.get("name", "").lower()
+                        ]
+            except Exception:
+                pass
+
+            # Determine the model to use
+            requested_model = request.model or "latest"
+            if not requested_model.startswith("translategemma"):
+                requested_model = f"translategemma:{requested_model}"
+
+            # Check if the requested model is available, otherwise try to find an alternative
+            model = requested_model
+            if available_models and requested_model not in available_models:
+                # Try to find the requested size variant
+                size = requested_model.split(":")[-1] if ":" in requested_model else "latest"
+                matching = [m for m in available_models if f":{size}" in m]
+                if matching:
+                    model = matching[0]
+                elif "translategemma:latest" in available_models:
+                    # Fall back to latest if specific size not found
+                    model = "translategemma:latest"
+                elif available_models:
+                    # Use whatever is available
+                    model = available_models[0]
 
             translator = TranslateGemmaTranslator(
                 model=model,
@@ -161,7 +192,7 @@ async def translate_text(request: TranslateRequest):
             if not translator.is_available():
                 raise HTTPException(
                     status_code=503,
-                    detail=f"TranslateGemma is not available. Please install it with: ollama pull {model}",
+                    detail=f"TranslateGemma is not available. Please install it with: ollama pull translategemma",
                 )
 
             result = await translator.translate(

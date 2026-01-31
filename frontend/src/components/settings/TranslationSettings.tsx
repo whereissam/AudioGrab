@@ -16,6 +16,7 @@ interface TranslateAvailability {
 }
 
 const MODEL_SIZES = [
+  { value: 'latest', label: 'Latest', desc: 'Default installed' },
   { value: '4b', label: '4B', desc: '3.3GB - Fastest' },
   { value: '12b', label: '12B', desc: '8.1GB - Balanced' },
   { value: '27b', label: '27B', desc: '17GB - Best quality' },
@@ -26,7 +27,7 @@ export function TranslationSettings() {
   const [testing, setTesting] = useState(false)
   const [availability, setAvailability] = useState<TranslateAvailability | null>(null)
   const [languages, setLanguages] = useState<Language[]>([])
-  const [selectedModel, setSelectedModel] = useState('4b')
+  const [selectedModel, setSelectedModel] = useState('latest')
   const [defaultTargetLang, setDefaultTargetLang] = useState('')
   const [testResult, setTestResult] = useState<{
     success: boolean
@@ -48,13 +49,20 @@ export function TranslationSettings() {
 
       if (availRes.ok) {
         const data = await availRes.json()
-        setAvailability(data)
+        // Extract translategemma models from the nested structure
+        const translateGemmaModels = data.translategemma?.models || data.models || []
+        setAvailability({
+          ...data,
+          available: data.translategemma?.available || data.available || false,
+          models: translateGemmaModels,
+        })
         // Auto-select model based on what's installed
-        if (data.models?.length > 0) {
-          const installed = data.models[0]
+        if (translateGemmaModels.length > 0) {
+          const installed = translateGemmaModels.join(' ')
           if (installed.includes('27b')) setSelectedModel('27b')
           else if (installed.includes('12b')) setSelectedModel('12b')
-          else setSelectedModel('4b')
+          else if (installed.includes('4b')) setSelectedModel('4b')
+          else setSelectedModel('latest')
         }
       }
 
@@ -119,7 +127,7 @@ export function TranslationSettings() {
   const installedModels = availability?.models || []
 
   return (
-    <div className="bg-card rounded-xl shadow-lg p-6 space-y-6">
+    <div className="bg-card rounded-xl shadow-lg p-6 space-y-6 text-muted-foreground">
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-2">Translation Settings</h2>
         <p className="text-sm text-muted-foreground">
@@ -157,20 +165,27 @@ export function TranslationSettings() {
         <label className="block text-sm font-medium text-foreground mb-2">
           Model Size
         </label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {MODEL_SIZES.map((model) => {
-            const isModelInstalled = installedModels.some(m => m.includes(model.value))
+            // Check if this specific model variant is installed
+            const isModelInstalled = installedModels.some(m => {
+              if (model.value === 'latest') {
+                return m.includes(':latest') || m === 'translategemma'
+              }
+              return m.includes(`:${model.value}`)
+            })
+            const isDisabled = !isInstalled || !isModelInstalled
             return (
               <button
                 key={model.value}
                 type="button"
                 onClick={() => setSelectedModel(model.value)}
-                disabled={!isInstalled}
+                disabled={isDisabled}
                 className={`p-3 rounded-lg border-2 text-left transition-all ${
                   selectedModel === model.value
                     ? 'border-primary bg-primary/10'
                     : 'border-border bg-background hover:border-primary/50'
-                } ${!isInstalled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-foreground text-sm">{model.label}</span>

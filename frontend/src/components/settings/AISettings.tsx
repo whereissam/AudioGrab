@@ -422,7 +422,7 @@ export function AISettings() {
       )}
 
       {/* Actions */}
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-3 pt-2 text-muted-foreground">
         <Button
           type="button"
           variant="outline"
