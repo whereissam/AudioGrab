@@ -142,7 +142,7 @@ export function ClipsPage() {
   // Job selection view
   if (!selectedJobId) {
     return (
-      <div className="w-full max-w-2xl mx-auto">
+      <div className="w-full max-w-2xl mx-auto text-muted-foreground">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Scissors className="h-5 w-5 text-primary" />
