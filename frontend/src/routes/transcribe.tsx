@@ -155,52 +155,42 @@ function TranscribePage() {
 
   if (status === 'success' && transcriptionResult) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4">
-        <TranscriptionSuccess
-          result={transcriptionResult}
-          jobId={transcriptionJobId}
-          onReset={handleReset}
-          onDownload={handleDownloadTranscription}
-        />
-      </div>
+      <TranscriptionSuccess
+        result={transcriptionResult}
+        jobId={transcriptionJobId}
+        onReset={handleReset}
+        onDownload={handleDownloadTranscription}
+      />
     )
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center p-3 sm:p-4">
-      <div className="w-full max-w-xl">
-        <div className="bg-card rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
-          <TranscribeForm
-            url={url}
-            setUrl={setUrl}
-            transcribeMode={transcribeMode}
-            setTranscribeMode={setTranscribeMode}
-            selectedFile={selectedFile}
-            setSelectedFile={setSelectedFile}
-            whisperModel={whisperModel}
-            setWhisperModel={setWhisperModel}
-            transcriptionFormat={transcriptionFormat}
-            setTranscriptionFormat={setTranscriptionFormat}
-            language={language}
-            setLanguage={setLanguage}
-            enhance={enhance}
-            setEnhance={setEnhance}
-            enhancementPreset={enhancementPreset}
-            setEnhancementPreset={setEnhancementPreset}
-            diarize={diarize}
-            setDiarize={setDiarize}
-            numSpeakers={numSpeakers}
-            setNumSpeakers={setNumSpeakers}
-            status={status}
-            message={message}
-            onTranscribe={handleTranscribe}
-          />
-        </div>
-
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          Transcribe audio and video to text with Whisper
-        </p>
-      </div>
+    <div className="bg-card rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
+      <TranscribeForm
+        url={url}
+        setUrl={setUrl}
+        transcribeMode={transcribeMode}
+        setTranscribeMode={setTranscribeMode}
+        selectedFile={selectedFile}
+        setSelectedFile={setSelectedFile}
+        whisperModel={whisperModel}
+        setWhisperModel={setWhisperModel}
+        transcriptionFormat={transcriptionFormat}
+        setTranscriptionFormat={setTranscriptionFormat}
+        language={language}
+        setLanguage={setLanguage}
+        enhance={enhance}
+        setEnhance={setEnhance}
+        enhancementPreset={enhancementPreset}
+        setEnhancementPreset={setEnhancementPreset}
+        diarize={diarize}
+        setDiarize={setDiarize}
+        numSpeakers={numSpeakers}
+        setNumSpeakers={setNumSpeakers}
+        status={status}
+        message={message}
+        onTranscribe={handleTranscribe}
+      />
     </div>
   )
 }

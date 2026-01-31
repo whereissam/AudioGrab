@@ -104,58 +104,48 @@ function VideoPage() {
 
   if (status === 'success' && contentInfo && downloadUrl) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4">
-        <DownloadSuccess
-          contentInfo={contentInfo}
-          downloadUrl={downloadUrl}
-          format={format}
-          mediaType="video"
-          onReset={handleReset}
-        />
-      </div>
+      <DownloadSuccess
+        contentInfo={contentInfo}
+        downloadUrl={downloadUrl}
+        format={format}
+        mediaType="video"
+        onReset={handleReset}
+      />
     )
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center p-3 sm:p-4">
-      <div className="w-full max-w-xl">
-        <Tabs value={platform} onValueChange={handlePlatformChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4 h-11 sm:h-10">
-            <TabsTrigger value="x_video" className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
-              <Twitter className="h-4 w-4" />
-              <span>X/Twitter</span>
-            </TabsTrigger>
-            <TabsTrigger value="youtube_video" className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
-              <Youtube className="h-4 w-4" />
-              <span>YouTube</span>
-            </TabsTrigger>
-          </TabsList>
+    <Tabs value={platform} onValueChange={handlePlatformChange} className="w-full">
+      <TabsList className="grid w-full grid-cols-2 mb-4 h-11 sm:h-10">
+        <TabsTrigger value="x_video" className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+          <Twitter className="h-4 w-4" />
+          <span>X/Twitter</span>
+        </TabsTrigger>
+        <TabsTrigger value="youtube_video" className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+          <Youtube className="h-4 w-4" />
+          <span>YouTube</span>
+        </TabsTrigger>
+      </TabsList>
 
-          <div className="bg-card rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
-            {VIDEO_PLATFORMS.map((p) => (
-              <TabsContent key={p} value={p} className="mt-0">
-                <DownloadForm
-                  platform={p}
-                  url={url}
-                  setUrl={setUrl}
-                  format={format}
-                  setFormat={setFormat}
-                  quality={quality}
-                  setQuality={setQuality}
-                  status={status}
-                  message={message}
-                  onDownload={handleDownload}
-                  isVideo
-                />
-              </TabsContent>
-            ))}
-          </div>
-        </Tabs>
-
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          Supports public content with replay/download enabled
-        </p>
+      <div className="bg-card rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
+        {VIDEO_PLATFORMS.map((p) => (
+          <TabsContent key={p} value={p} className="mt-0">
+            <DownloadForm
+              platform={p}
+              url={url}
+              setUrl={setUrl}
+              format={format}
+              setFormat={setFormat}
+              quality={quality}
+              setQuality={setQuality}
+              status={status}
+              message={message}
+              onDownload={handleDownload}
+              isVideo
+            />
+          </TabsContent>
+        ))}
       </div>
-    </div>
+    </Tabs>
   )
 }

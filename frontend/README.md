@@ -56,6 +56,11 @@ src/
 │   │   ├── TranscribeForm.tsx
 │   │   ├── SuccessViews.tsx
 │   │   └── types.ts
+│   ├── clips/           # Viral clip generation
+│   │   └── ClipsPage.tsx
+│   ├── settings/        # Settings components
+│   │   ├── AISettings.tsx
+│   │   └── TranslationSettings.tsx
 │   └── subscriptions/   # Subscription management components
 │       ├── SubscriptionList.tsx
 │       ├── SubscriptionCard.tsx
@@ -64,13 +69,29 @@ src/
 │       └── types.ts
 ├── lib/
 │   └── utils.ts         # Utility functions
-├── routes/
-│   ├── __root.tsx       # Root layout
-│   ├── index.tsx        # Home page (Audio/Video/Transcribe tabs)
+├── routes/              # File-based routing (TanStack Router)
+│   ├── __root.tsx       # Root layout with navigation
+│   ├── index.tsx        # Redirects to /audio
+│   ├── audio.tsx        # Audio download page
+│   ├── video.tsx        # Video download page
+│   ├── transcribe.tsx   # Transcription page
+│   ├── clips.tsx        # Viral clips generation page
+│   ├── settings.tsx     # Settings page
 │   └── subscriptions.tsx # Subscriptions page
 ├── main.tsx
 └── index.css            # Theme configuration
 ```
+
+## Routes
+
+| Route | Description |
+|-------|-------------|
+| `/audio` | Audio download (X Spaces, Podcasts, Spotify, YouTube, 小宇宙) |
+| `/video` | Video download (X/Twitter, YouTube) |
+| `/transcribe` | Transcription with Whisper models |
+| `/clips` | Generate viral clips from transcriptions |
+| `/settings` | AI provider, translation, and general settings |
+| `/subscriptions` | RSS/YouTube subscription management |
 
 ## Features
 

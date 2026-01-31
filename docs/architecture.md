@@ -106,14 +106,25 @@ xdownloader/
 ├── frontend/                # React frontend
 │   └── src/
 │       ├── components/
-│       │   ├── downloader/  # Download components
+│       │   ├── downloader/  # Download & transcription components
+│       │   │   ├── DownloadForm.tsx
+│       │   │   ├── TranscribeForm.tsx
+│       │   │   ├── SuccessViews.tsx
 │       │   │   └── BatchDownloadForm.tsx
+│       │   ├── clips/       # Viral clip generation
 │       │   ├── queue/       # Queue view
 │       │   ├── schedule/    # Schedule modal
-│       │   ├── settings/    # Webhook settings
+│       │   ├── settings/    # AI & Translation settings
 │       │   ├── annotations/ # Annotation components
 │       │   └── subscriptions/
-│       └── routes/
+│       └── routes/          # File-based routing
+│           ├── __root.tsx   # Root layout with nav
+│           ├── audio.tsx    # /audio - Audio download
+│           ├── video.tsx    # /video - Video download
+│           ├── transcribe.tsx # /transcribe - Transcription
+│           ├── clips.tsx    # /clips - Viral clips
+│           ├── settings.tsx # /settings - Configuration
+│           └── subscriptions.tsx # /subscriptions
 │
 ├── tests/
 │   └── test_parser.py

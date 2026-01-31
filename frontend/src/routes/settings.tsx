@@ -1,4 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { ArrowLeft } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AISettings } from '@/components/settings/AISettings'
 import { TranslationSettings } from '@/components/settings/TranslationSettings'
@@ -12,11 +14,18 @@ function SettingsPage() {
     <div className="flex-1 py-6">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-          <p className="text-sm text-muted-foreground">
-            Configure your application preferences
-          </p>
+        <div className="flex items-center gap-4 mb-6 text-muted-foreground">
+          <Button variant="ghost" size="icon" asChild>
+            <Link to="/audio">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+            <p className="text-sm text-muted-foreground">
+              Configure your application preferences
+            </p>
+          </div>
         </div>
 
         {/* Content */}

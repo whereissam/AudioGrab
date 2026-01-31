@@ -12,69 +12,75 @@ const NAV_ITEMS = [
 export const Route = createRootRoute({
   component: () => {
     const location = useLocation()
+    const isMainPage = ['/audio', '/video', '/transcribe', '/clips', '/'].includes(location.pathname)
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex flex-col">
-        {/* Header */}
-        <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
-          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-            {/* Logo */}
-            <Link to="/audio" className="flex items-center gap-2">
-              <img src="/logo.svg" alt="AudioGrab" className="h-8 w-auto" />
-              <span className="font-bold text-lg text-foreground hidden sm:inline">AudioGrab</span>
-            </Link>
-
-            {/* Main Navigation */}
-            <nav className="flex items-center gap-1">
-              {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    location.pathname === to
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{label}</span>
-                </Link>
-              ))}
-            </nav>
-
-            {/* Right side */}
-            <div className="flex items-center gap-2">
+        {/* Top right controls */}
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+          {isMainPage && (
+            <>
               <Link
                 to="/subscriptions"
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  location.pathname === '/subscriptions'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-card border shadow-sm hover:bg-muted transition-colors text-sm font-medium text-foreground"
               >
                 <Rss className="h-4 w-4" />
-                <span className="hidden lg:inline">Subscriptions</span>
+                <span className="hidden sm:inline">Subscriptions</span>
               </Link>
               <Link
                 to="/settings"
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  location.pathname === '/settings'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-card border shadow-sm hover:bg-muted transition-colors text-sm font-medium text-foreground"
               >
                 <Settings className="h-4 w-4" />
-                <span className="hidden lg:inline">Settings</span>
+                <span className="hidden sm:inline">Settings</span>
               </Link>
-              <ThemeToggle />
+            </>
+          )}
+          <ThemeToggle />
+        </div>
+
+        {/* Main content */}
+        {isMainPage ? (
+          <div className="flex-1 flex items-center justify-center p-3 sm:p-4">
+            <div className="w-full max-w-xl">
+              {/* Header */}
+              <div className="text-center mb-6 sm:mb-8">
+                <div className="flex justify-center mb-3 sm:mb-4">
+                  <img src="/logo.svg" alt="AudioGrab" className="h-12 sm:h-16 w-auto" />
+                </div>
+                <h1 className="text-2xl sm:text-4xl font-bold text-foreground mb-1 sm:mb-2">AudioGrab</h1>
+                <p className="text-sm sm:text-base text-muted-foreground">Download audio and video from your favorite platforms</p>
+              </div>
+
+              {/* Navigation Tabs */}
+              <div className="grid w-full grid-cols-4 mb-4 h-11 sm:h-10 bg-muted rounded-lg p-1">
+                {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+                  <Link
+                    key={to}
+                    to={to}
+                    className={`flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm rounded-md transition-all ${
+                      location.pathname === to
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span className="hidden sm:inline">{label}</span>
+                  </Link>
+                ))}
+              </div>
+
+              {/* Page Content */}
+              <Outlet />
+
+              <p className="text-center text-xs text-muted-foreground mt-6">
+                Supports public content with replay/download enabled
+              </p>
             </div>
           </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="flex-1 flex flex-col">
+        ) : (
           <Outlet />
-        </main>
+        )}
       </div>
     )
   },

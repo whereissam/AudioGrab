@@ -74,6 +74,33 @@ Full interactive documentation available at http://localhost:8000/docs (Swagger 
 | POST | `/api/subscriptions/{id}/check` | Force check for new content |
 | GET | `/api/subscriptions/{id}/items` | List subscription items |
 
+### Translation Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/translate/available` | Check translation availability |
+| GET | `/api/translate/languages` | List supported languages |
+| POST | `/api/translate` | Translate text |
+| POST | `/api/translate/job` | Translate a completed transcription job |
+
+### Clips Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/clips/jobs` | List completed transcription jobs |
+| POST | `/api/clips/generate` | Generate viral clips from transcription |
+| POST | `/api/clips/export` | Export clip for social platform |
+
+### Settings Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/settings/ai` | Get AI provider settings |
+| POST | `/api/settings/ai` | Save AI provider settings |
+| POST | `/api/settings/ai/test` | Test AI provider connection |
+| GET | `/api/settings/storage` | Get cloud storage settings |
+| POST | `/api/settings/storage` | Save cloud storage settings |
+
 ---
 
 # X/Twitter API Endpoints Reference
