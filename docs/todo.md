@@ -10,10 +10,10 @@
 | LLM Summarization | Medium | Medium | P3 ✅ |
 | Watch Folders & Subscriptions | Medium | High | P4 ✅ |
 | Audio Pre-processing | Medium | Medium | P5 ✅ |
-| AI Provider Manager | Medium | High | P6 |
+| AI Provider Manager | Medium | High | P6 ✅ |
 | Sentiment & Vibe Analysis | Medium | Medium | P7 |
 | Social Media Clip Generator | High | High | P8 |
-| AI Translation & Dubbing | Very High | Very High | P9 |
+| AI Translation & Dubbing | Very High | Very High | P9 (Translation ✅) |
 
 ---
 
@@ -166,34 +166,37 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 
 ---
 
-## P6: AI Provider Manager (LiteLLM Integration)
+## P6: AI Provider Manager (LiteLLM Integration) ✅ COMPLETED
 
 **Goal:** Create an AI-agnostic gateway supporting multiple LLM providers through a unified interface.
 
 ### Tasks
 
-- [ ] Add `litellm` dependency for universal LLM API translation
-- [ ] Update `app/core/summarizer.py` to use LiteLLM:
-  - [ ] Support OpenAI-compatible API format
-  - [ ] Handle provider-specific authentication
-- [ ] Supported AI backends:
-  - [ ] **Ollama** (Local Llama 3) - Privacy-first, free, runs locally
-  - [ ] **OpenAI** (GPT-4, GPT-4o) - High quality cloud option
-  - [ ] **Anthropic** (Claude 3.5 Sonnet) - Best for long-form transcript reasoning
-  - [ ] **Groq** (Cloud Llama 3) - Fast inference (500+ tokens/sec)
-  - [ ] **DeepSeek** - Budget-friendly for high-volume summarization
-  - [ ] **Custom OpenAI-compatible endpoints** (LM Studio, etc.)
-- [ ] Create AI Settings management:
-  - [ ] `POST /settings/ai` - Save AI provider configuration
-  - [ ] `GET /settings/ai` - Get current AI settings
-  - [ ] Store API keys securely in SQLite `settings` table
-- [ ] Web UI Settings tab:
-  - [ ] Provider dropdown (OpenAI, Ollama, Anthropic, Groq, Custom)
-  - [ ] API key input field
-  - [ ] Base URL field (for custom/local endpoints)
-  - [ ] Model selection per provider
-  - [ ] Test connection button
-- [ ] Docker Compose setup for AudioGrab + Ollama together
+- [x] Add `litellm` dependency for universal LLM API translation
+- [x] Update `app/core/summarizer.py` to use LiteLLM:
+  - [x] Support OpenAI-compatible API format
+  - [x] Handle provider-specific authentication
+- [x] Supported AI backends:
+  - [x] **Ollama** (Local Llama 3) - Privacy-first, free, runs locally
+  - [x] **OpenAI** (GPT-4, GPT-4o) - High quality cloud option
+  - [x] **Anthropic** (Claude 3.5 Sonnet) - Best for long-form transcript reasoning
+  - [x] **Groq** (Cloud Llama 3) - Fast inference (500+ tokens/sec)
+  - [x] **DeepSeek** - Budget-friendly for high-volume summarization
+  - [x] **Google Gemini** (Gemini 1.5 Flash/Pro) - Google's multimodal AI
+  - [x] **Custom OpenAI-compatible endpoints** (LM Studio, etc.)
+- [x] Create AI Settings management:
+  - [x] `POST /api/ai/settings` - Save AI provider configuration
+  - [x] `GET /api/ai/settings` - Get current AI settings
+  - [x] `GET /api/ai/providers` - List available providers
+  - [x] `POST /api/ai/test` - Test connection to provider
+  - [x] Store API keys securely in SQLite `ai_settings` table
+- [x] Web UI Settings tab:
+  - [x] Provider dropdown (OpenAI, Ollama, Anthropic, Groq, DeepSeek, Gemini, Custom)
+  - [x] API key input field (with show/hide toggle)
+  - [x] Base URL field (for custom/local endpoints)
+  - [x] Model selection per provider
+  - [x] Test connection button
+- [x] Docker Compose setup for AudioGrab + Ollama together
 
 ---
 
@@ -267,22 +270,38 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 
 ---
 
-## P9: AI Translation & Dubbing
+## P9: AI Translation & Dubbing (Translation ✅ COMPLETED)
 
 **Goal:** Translate transcripts and re-voice content in different languages while preserving speaker characteristics.
 
-### Tasks
+### Translation Tasks ✅
 
-- [ ] Create translation service (`app/core/translator.py`)
-- [ ] Translation pipeline:
-  - [ ] Use existing transcription as source
-  - [ ] LLM-based translation (supports context and nuance)
-  - [ ] Preserve speaker labels and timestamps
-  - [ ] Handle technical terms and proper nouns
-- [ ] Supported language pairs:
-  - [ ] Chinese (小宇宙) → English
-  - [ ] English → Spanish/French/German/Japanese
-  - [ ] Auto-detect source language
+- [x] Create translation service (`app/core/translator.py`)
+- [x] Translation pipeline using **TranslateGemma** (via Ollama):
+  - [x] Use existing transcription as source
+  - [x] High-quality translation (55 languages supported)
+  - [x] Preserve original text for comparison
+- [x] Supported languages (55 total):
+  - [x] Chinese (Simplified/Traditional) ↔ English
+  - [x] Japanese ↔ English
+  - [x] Korean ↔ English
+  - [x] Spanish, French, German, Italian, Portuguese
+  - [x] Arabic, Hindi, Thai, Vietnamese, Indonesian
+  - [x] And 40+ more languages
+- [x] Web UI translation features:
+  - [x] "Translate" section in transcription result view
+  - [x] Searchable language selector dropdown (Radix UI)
+  - [x] Copy translated text button
+  - [x] Translation Settings page (model size, default language)
+- [x] API endpoints:
+  - [x] `POST /api/translate` - Translate text
+  - [x] `POST /api/translate/job` - Translate a transcription job
+  - [x] `GET /api/translate/languages` - List supported languages
+  - [x] `GET /api/translate/available` - Check TranslateGemma status
+- [x] Language selector in transcription form (specify audio language for better accuracy)
+
+### Dubbing Tasks (Future)
+
 - [ ] Text-to-Speech (TTS) integration:
   - [ ] Research TTS options:
     - [ ] Coqui TTS (open source)
@@ -295,18 +314,10 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
   - [ ] Sync translated speech with original timing
   - [ ] Handle speed adjustments for different language lengths
   - [ ] Mix dubbed audio with original background sounds (optional)
-- [ ] Web UI translation features:
-  - [ ] "Translate" button in transcription view
-  - [ ] Language selector dropdown
-  - [ ] Preview translated text before TTS
+- [ ] Web UI dubbing features:
   - [ ] "Generate Dubbed Audio" button
-  - [ ] Side-by-side original/translated view
-- [ ] API endpoints:
-  - [ ] `POST /jobs/{id}/translate` - Translate transcript
-  - [ ] `GET /jobs/{id}/translation/{lang}` - Get translation
-  - [ ] `POST /jobs/{id}/dub` - Generate dubbed audio
+  - [ ] Voice selection/cloning options
 - [ ] Export options:
-  - [ ] Translated transcript (TXT, SRT, VTT)
   - [ ] Dubbed audio file
   - [ ] Bilingual subtitle file
 
@@ -317,12 +328,12 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 - [x] Batch download from URL list/file ✅
 - [x] Download queue priority levels ✅
 - [x] Scheduled downloads (download at specific time) ✅
-- [ ] Storage management (auto-cleanup old files)
+- [x] Storage management (auto-cleanup old files) ✅
 - [ ] Multi-language UI
 - [ ] Mobile-responsive Web UI improvements
-- [ ] Docker Compose with GPU support for transcription
+- [x] Docker Compose with GPU support for transcription ✅
 - [x] Webhook notifications for job completion ✅
-- [ ] Export to cloud storage (S3, Google Drive, Dropbox)
+- [ ] Export to cloud storage (S3, Google Drive, Dropbox) - In progress
 - [x] Collaborative annotations on transcripts ✅
 - [ ] Real-time transcription (live audio streams)
 - [ ] Podcast RSS feed generation from downloaded content

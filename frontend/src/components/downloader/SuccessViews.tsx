@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { Download, ArrowLeft, Mic, Video, FileText, Copy, Check, Users, Sparkles, Loader2, ChevronDown, Languages } from 'lucide-react'
+import { Download, ArrowLeft, Mic, Video, FileText, Copy, Check, Users, Sparkles, Loader2, ChevronDown, Languages, Scissors } from 'lucide-react'
 import { ContentInfo, TranscriptionResult, formatDuration } from './types'
 import { useState, useMemo, useEffect } from 'react'
 
@@ -105,12 +105,14 @@ export function DownloadSuccess({
 
 interface TranscriptionSuccessProps {
   result: TranscriptionResult
+  jobId?: string | null
   onReset: () => void
   onDownload: (renamedOutput?: string) => void
 }
 
 export function TranscriptionSuccess({
   result,
+  jobId,
   onReset,
   onDownload,
 }: TranscriptionSuccessProps) {
@@ -133,6 +135,9 @@ export function TranscriptionSuccess({
   const [translationError, setTranslationError] = useState<string | null>(null)
   const [translationCopied, setTranslationCopied] = useState(false)
   const [translateAvailable, setTranslateAvailable] = useState(false)
+  const [translatorType, setTranslatorType] = useState<'translategemma' | 'ai_provider'>('translategemma')
+  const [aiProviderInfo, setAiProviderInfo] = useState<{ available: boolean; provider?: string; model?: string }>({ available: false })
+  const [translateGemmaAvailable, setTranslateGemmaAvailable] = useState(false)
 
   // Fetch supported languages on mount
   useEffect(() => {
@@ -146,7 +151,21 @@ export function TranscriptionSuccess({
     fetch('/api/translate/available')
       .then(res => res.json())
       .then(data => {
-        setTranslateAvailable(data.available || false)
+        const gemmaAvailable = data.translategemma?.available || false
+        const aiAvailable = data.ai_provider?.available || false
+        setTranslateGemmaAvailable(gemmaAvailable)
+        setAiProviderInfo({
+          available: aiAvailable,
+          provider: data.ai_provider?.provider,
+          model: data.ai_provider?.model,
+        })
+        setTranslateAvailable(gemmaAvailable || aiAvailable)
+        // Default to AI provider if available, otherwise TranslateGemma
+        if (aiAvailable) {
+          setTranslatorType('ai_provider')
+        } else if (gemmaAvailable) {
+          setTranslatorType('translategemma')
+        }
       })
       .catch(() => {})
   }, [])
@@ -246,6 +265,7 @@ export function TranscriptionSuccess({
           text: result.text,
           source_lang: result.language || 'en',
           target_lang: targetLang,
+          translator: translatorType,
         }),
       })
 
@@ -419,9 +439,41 @@ export function TranscriptionSuccess({
           <Languages className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
           <span className="font-medium text-sm sm:text-base">Translate</span>
           {!translateAvailable && (
-            <span className="text-xs text-muted-foreground">(TranslateGemma not installed)</span>
+            <span className="text-xs text-muted-foreground">(No translator available)</span>
           )}
         </div>
+
+        {/* Translator Type Selector */}
+        {translateAvailable && (translateGemmaAvailable || aiProviderInfo.available) && (
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
+            {aiProviderInfo.available && (
+              <button
+                onClick={() => setTranslatorType('ai_provider')}
+                disabled={translationLoading}
+                className={`px-2 sm:px-3 py-1.5 sm:py-1 rounded-lg text-xs sm:text-sm transition-all ${
+                  translatorType === 'ai_provider'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                } ${translationLoading ? 'opacity-50' : ''}`}
+              >
+                AI ({aiProviderInfo.provider}/{aiProviderInfo.model?.split('/').pop()})
+              </button>
+            )}
+            {translateGemmaAvailable && (
+              <button
+                onClick={() => setTranslatorType('translategemma')}
+                disabled={translationLoading}
+                className={`px-2 sm:px-3 py-1.5 sm:py-1 rounded-lg text-xs sm:text-sm transition-all ${
+                  translatorType === 'translategemma'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                } ${translationLoading ? 'opacity-50' : ''}`}
+              >
+                TranslateGemma (Local)
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Language Selector */}
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-3 sm:mb-4">
@@ -457,8 +509,11 @@ export function TranscriptionSuccess({
         {/* Install hint */}
         {!translateAvailable && (
           <div className="bg-muted rounded-lg p-3 text-xs sm:text-sm text-muted-foreground">
-            To enable translation, install TranslateGemma:
-            <code className="block mt-1 bg-background px-2 py-1 rounded">ollama pull translategemma</code>
+            To enable translation, either:
+            <ul className="list-disc list-inside mt-1 space-y-1">
+              <li>Configure an AI provider in Settings</li>
+              <li>Or install TranslateGemma: <code className="bg-background px-1 py-0.5 rounded">ollama pull translategemma</code></li>
+            </ul>
           </div>
         )}
 
@@ -488,6 +543,16 @@ export function TranscriptionSuccess({
           </div>
         )}
       </div>
+
+      {/* Viral Clips Hint */}
+      {jobId && result.segments && result.segments.length > 0 && (
+        <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl p-3 sm:p-4 mb-3 sm:mb-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            <Scissors className="inline h-4 w-4 mr-1.5 text-primary" />
+            Want to create viral clips? Go to the <strong>Clips</strong> tab to generate social media clips from this transcription.
+          </p>
+        </div>
+      )}
 
       <div className="flex gap-2 sm:gap-3">
         <Button onClick={onReset} variant="outline" className="flex-1 h-11 sm:h-12 text-sm sm:text-base text-muted-foreground">

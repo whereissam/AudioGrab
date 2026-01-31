@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useState } from 'react'
-import { FileAudio, FileVideo, FileText, Twitter, Podcast, Music, Youtube, Radio } from 'lucide-react'
+import { FileAudio, FileVideo, FileText, Scissors, Twitter, Podcast, Music, Youtube, Radio } from 'lucide-react'
+import { ClipsPage } from '@/components/clips/ClipsPage'
 import {
   DownloadStatus,
   Platform,
@@ -37,6 +38,7 @@ function AudioGrabHome() {
   const [whisperModel, setWhisperModel] = useState<WhisperModel>('base')
   const [transcriptionFormat, setTranscriptionFormat] = useState<TranscriptionFormat>('text')
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null)
+  const [transcriptionJobId, setTranscriptionJobId] = useState<string | null>(null)
   const [transcribeMode, setTranscribeMode] = useState<'url' | 'file'>('url')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [language, setLanguage] = useState<string>('')  // Empty = auto-detect
@@ -74,6 +76,7 @@ function AudioGrabHome() {
     setDownloadUrl(null)
     setContentInfo(null)
     setTranscriptionResult(null)
+    setTranscriptionJobId(null)
     setUrl('')
     setSelectedFile(null)
     setLanguage('')
@@ -215,6 +218,7 @@ function AudioGrabHome() {
 
         if (job.status === 'completed') {
           setStatus('success')
+          setTranscriptionJobId(jobId)
           setTranscriptionResult({
             text: job.text,
             language: job.language,
@@ -258,7 +262,7 @@ function AudioGrabHome() {
   if (status === 'success' && transcriptionResult) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
-        <TranscriptionSuccess result={transcriptionResult} onReset={handleReset} onDownload={handleDownloadTranscription} />
+        <TranscriptionSuccess result={transcriptionResult} jobId={transcriptionJobId} onReset={handleReset} onDownload={handleDownloadTranscription} />
       </div>
     )
   }
@@ -286,26 +290,30 @@ function AudioGrabHome() {
 
         {/* Tabs with fixed height content */}
         <Tabs value={mediaType} onValueChange={handleMediaTypeChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4 h-11 sm:h-10">
-            <TabsTrigger value="audio" className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+          <TabsList className="grid w-full grid-cols-4 mb-4 h-11 sm:h-10">
+            <TabsTrigger value="audio" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <FileAudio className="h-4 w-4" />
-              <span>Audio</span>
+              <span className="hidden sm:inline">Audio</span>
             </TabsTrigger>
-            <TabsTrigger value="video" className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+            <TabsTrigger value="video" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <FileVideo className="h-4 w-4" />
-              <span>Video</span>
+              <span className="hidden sm:inline">Video</span>
             </TabsTrigger>
-            <TabsTrigger value="transcribe" className="flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+            <TabsTrigger value="transcribe" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <FileText className="h-4 w-4" />
-              <span>Transcribe</span>
+              <span className="hidden sm:inline">Transcribe</span>
+            </TabsTrigger>
+            <TabsTrigger value="clips" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm">
+              <Scissors className="h-4 w-4" />
+              <span className="hidden sm:inline">Clips</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Fixed height container to prevent layout shift */}
-          <div className="min-h-[480px] sm:min-h-[420px]">
+          <div className="min-h-[480px] sm:min-h-[420px] text-muted-foreground">
             <TabsContent value="audio" className="mt-0">
               <Tabs value={platform} onValueChange={handlePlatformChange} className="w-full">
-                <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 mb-4">
+                <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 mb-4 text-muted-foreground">
                   <TabsList className="inline-flex w-auto min-w-full sm:grid sm:grid-cols-5 gap-1">
                     <TabsTrigger value="x_spaces" className="flex items-center gap-1.5 px-3 sm:px-2 whitespace-nowrap">
                       <Twitter className="h-4 w-4 flex-shrink-0" />
@@ -411,6 +419,12 @@ function AudioGrabHome() {
                   message={message}
                   onTranscribe={handleTranscribe}
                 />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="clips" className="mt-0">
+              <div className="bg-card rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
+                <ClipsPage />
               </div>
             </TabsContent>
           </div>

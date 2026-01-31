@@ -9,6 +9,45 @@ from litellm import acompletion
 logger = logging.getLogger(__name__)
 
 
+# Chinese variant conversion using OpenCC
+def convert_chinese(text: str, source: str, target: str) -> str:
+    """Convert between Simplified and Traditional Chinese using OpenCC.
+
+    Args:
+        text: Text to convert
+        source: Source variant ('zh-Hans' or 'zh-Hant')
+        target: Target variant ('zh-Hans' or 'zh-Hant')
+
+    Returns:
+        Converted text
+    """
+    try:
+        from opencc import OpenCC
+
+        if source == "zh-Hant" and target == "zh-Hans":
+            # Traditional to Simplified
+            cc = OpenCC("t2s")
+            return cc.convert(text)
+        elif source == "zh-Hans" and target == "zh-Hant":
+            # Simplified to Traditional
+            cc = OpenCC("s2t")
+            return cc.convert(text)
+        else:
+            return text
+    except ImportError:
+        logger.warning("OpenCC not installed, cannot convert Chinese variants")
+        return text
+    except Exception as e:
+        logger.error(f"Chinese conversion failed: {e}")
+        return text
+
+
+def is_chinese_variant_conversion(source: str, target: str) -> bool:
+    """Check if this is a Chinese variant conversion (not actual translation)."""
+    chinese_codes = {"zh-Hans", "zh-Hant", "zh", "zh-cn", "zh-tw"}
+    return source in chinese_codes and target in chinese_codes and source != target
+
+
 # TranslateGemma supported languages (55 languages)
 SUPPORTED_LANGUAGES = {
     "af": "Afrikaans",
@@ -80,6 +119,29 @@ SUPPORTED_LANGUAGES = {
     "vi": "Vietnamese",
     "zh-Hans": "Chinese (Simplified)",
     "zh-Hant": "Chinese (Traditional)",
+}
+
+# Common languages shown in UI (subset of SUPPORTED_LANGUAGES)
+COMMON_LANGUAGES = {
+    "en": "English",
+    "zh-Hans": "Chinese (Simplified)",
+    "zh-Hant": "Chinese (Traditional)",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "pt": "Portuguese",
+    "ru": "Russian",
+    "ar": "Arabic",
+    "hi": "Hindi",
+    "it": "Italian",
+    "nl": "Dutch",
+    "pl": "Polish",
+    "tr": "Turkish",
+    "vi": "Vietnamese",
+    "th": "Thai",
+    "id": "Indonesian",
 }
 
 # Common language aliases
@@ -208,6 +270,10 @@ class TranslateGemmaTranslator:
         "latest": "translategemma:latest",
     }
 
+    # Chunk size for long texts (in characters, conservative estimate)
+    CHUNK_SIZE = 2000
+    CHUNK_OVERLAP = 100
+
     def __init__(
         self,
         model: str = "translategemma:4b",
@@ -243,6 +309,47 @@ Produce only the {target_name} translation, without any additional explanations 
 {text}"""
         return prompt
 
+    def _chunk_text(self, text: str) -> list[str]:
+        """Split text into chunks for translation, trying to break at sentence boundaries."""
+        if len(text) <= self.CHUNK_SIZE:
+            return [text]
+
+        chunks = []
+        current_pos = 0
+
+        while current_pos < len(text):
+            # Determine the end position for this chunk
+            end_pos = min(current_pos + self.CHUNK_SIZE, len(text))
+
+            # If not at the end, try to find a sentence boundary
+            if end_pos < len(text):
+                # Look for sentence endings within the last 200 chars of the chunk
+                search_start = max(end_pos - 200, current_pos)
+                chunk_text = text[current_pos:end_pos]
+                search_text = text[search_start:end_pos]
+
+                # Try to find sentence boundaries (., !, ?, 。, ！, ？)
+                best_break = -1
+                for ending in ['. ', '! ', '? ', '。', '！', '？', '\n\n', '\n']:
+                    pos = search_text.rfind(ending)
+                    if pos != -1:
+                        # Calculate actual position relative to search_start
+                        actual_pos = search_start + pos + len(ending)
+                        if actual_pos > best_break:
+                            best_break = actual_pos
+
+                if best_break > current_pos:
+                    end_pos = best_break
+
+            chunk = text[current_pos:end_pos].strip()
+            if chunk:
+                chunks.append(chunk)
+
+            # Move to next chunk with some overlap for context
+            current_pos = end_pos
+
+        return chunks
+
     async def translate(
         self,
         text: str,
@@ -273,25 +380,55 @@ Produce only the {target_name} translation, without any additional explanations 
                 tokens_used=0,
             )
 
-        prompt = self._build_prompt(text, source_code, target_code)
+        # Special case: Chinese variant conversion (Traditional <-> Simplified)
+        # Use OpenCC instead of LLM for accurate character conversion
+        if is_chinese_variant_conversion(source_code, target_code):
+            logger.info(f"Using OpenCC for Chinese variant conversion: {source_code} -> {target_code}")
+            converted = convert_chinese(text, source_code, target_code)
+            return TranslationResult(
+                source_text=text,
+                translated_text=converted,
+                source_lang=source_code,
+                target_lang=target_code,
+                model="opencc",
+                tokens_used=0,
+            )
 
-        # Use LiteLLM to call Ollama
-        response = await acompletion(
-            model=f"ollama/{self.model}",
-            messages=[{"role": "user", "content": prompt}],
-            base_url=self.base_url,
-        )
+        # Chunk text if too long
+        chunks = self._chunk_text(text)
+        logger.info(f"Translating text in {len(chunks)} chunk(s)")
 
-        translated = response.choices[0].message.content.strip()
-        tokens = response.usage.total_tokens if response.usage else None
+        translated_chunks = []
+        total_tokens = 0
+
+        for i, chunk in enumerate(chunks):
+            logger.info(f"Translating chunk {i + 1}/{len(chunks)} ({len(chunk)} chars)")
+
+            prompt = self._build_prompt(chunk, source_code, target_code)
+
+            # Use LiteLLM to call Ollama
+            response = await acompletion(
+                model=f"ollama/{self.model}",
+                messages=[{"role": "user", "content": prompt}],
+                base_url=self.base_url,
+            )
+
+            translated = response.choices[0].message.content.strip()
+            translated_chunks.append(translated)
+
+            if response.usage:
+                total_tokens += response.usage.total_tokens
+
+        # Join translated chunks
+        full_translation = "\n\n".join(translated_chunks)
 
         return TranslationResult(
             source_text=text,
-            translated_text=translated,
+            translated_text=full_translation,
             source_lang=source_code,
             target_lang=target_code,
             model=self.model,
-            tokens_used=tokens,
+            tokens_used=total_tokens if total_tokens else None,
         )
 
     def is_available(self) -> bool:
@@ -330,3 +467,224 @@ Produce only the {target_name} translation, without any additional explanations 
 def get_supported_languages() -> dict[str, str]:
     """Get all supported languages."""
     return SUPPORTED_LANGUAGES.copy()
+
+
+class AITranslator:
+    """Translator using the configured AI provider (GPT-4, Claude, etc.).
+
+    This provides higher quality translations than TranslateGemma but requires
+    a configured AI provider with API key.
+    """
+
+    # Chunk size for long texts
+    CHUNK_SIZE = 3000
+    CHUNK_OVERLAP = 100
+
+    def __init__(self, provider=None):
+        """Initialize with optional LiteLLM provider."""
+        self.provider = provider
+
+    @classmethod
+    def from_settings(cls) -> "AITranslator":
+        """Create translator from application settings."""
+        from .job_store import get_job_store
+        from ..config import get_settings
+
+        settings = get_settings()
+        provider = None
+
+        # Try to get settings from database first
+        try:
+            job_store = get_job_store()
+            ai_settings = job_store.get_ai_settings()
+            if ai_settings:
+                from .summarizer import LiteLLMProvider
+
+                model = cls._build_litellm_model(
+                    ai_settings["provider"], ai_settings["model"]
+                )
+                provider = LiteLLMProvider(
+                    model=model,
+                    api_key=ai_settings.get("api_key"),
+                    base_url=ai_settings.get("base_url"),
+                    provider=ai_settings["provider"],
+                )
+                return cls(provider=provider)
+        except Exception as e:
+            logger.debug(f"Could not load AI settings from database: {e}")
+
+        # Fall back to environment settings
+        if settings.llm_provider == "openai" and settings.openai_api_key:
+            from .summarizer import LiteLLMProvider
+
+            provider = LiteLLMProvider(
+                model=settings.openai_model,
+                api_key=settings.openai_api_key,
+                base_url=settings.openai_base_url,
+                provider="openai",
+            )
+        elif settings.llm_provider == "anthropic" and settings.anthropic_api_key:
+            from .summarizer import LiteLLMProvider
+
+            provider = LiteLLMProvider(
+                model=settings.anthropic_model,
+                api_key=settings.anthropic_api_key,
+                provider="anthropic",
+            )
+
+        return cls(provider=provider)
+
+    @staticmethod
+    def _build_litellm_model(provider: str, model: str) -> str:
+        """Build the LiteLLM model string."""
+        if provider == "ollama":
+            return f"ollama/{model}"
+        elif provider == "groq":
+            return f"groq/{model}"
+        elif provider == "deepseek":
+            return f"deepseek/{model}"
+        elif provider == "gemini":
+            return f"gemini/{model}"
+        elif provider == "custom":
+            return f"openai/{model}"
+        else:
+            return model
+
+    @staticmethod
+    def is_available() -> bool:
+        """Check if an AI provider is configured."""
+        from .job_store import get_job_store
+        from ..config import get_settings
+
+        settings = get_settings()
+
+        try:
+            job_store = get_job_store()
+            ai_settings = job_store.get_ai_settings()
+            if ai_settings:
+                return bool(ai_settings.get("api_key") or ai_settings.get("provider") == "ollama")
+        except Exception:
+            pass
+
+        if settings.llm_provider in ("openai", "openai_compatible"):
+            return bool(settings.openai_api_key)
+        if settings.llm_provider == "anthropic":
+            return bool(settings.anthropic_api_key)
+
+        return False
+
+    def _chunk_text(self, text: str) -> list[str]:
+        """Split text into chunks for translation."""
+        if len(text) <= self.CHUNK_SIZE:
+            return [text]
+
+        chunks = []
+        current_pos = 0
+
+        while current_pos < len(text):
+            end_pos = min(current_pos + self.CHUNK_SIZE, len(text))
+
+            if end_pos < len(text):
+                search_start = max(end_pos - 200, current_pos)
+                search_text = text[search_start:end_pos]
+
+                best_break = -1
+                for ending in ['. ', '! ', '? ', '。', '！', '？', '\n\n', '\n']:
+                    pos = search_text.rfind(ending)
+                    if pos != -1:
+                        actual_pos = search_start + pos + len(ending)
+                        if actual_pos > best_break:
+                            best_break = actual_pos
+
+                if best_break > current_pos:
+                    end_pos = best_break
+
+            chunk = text[current_pos:end_pos].strip()
+            if chunk:
+                chunks.append(chunk)
+
+            current_pos = end_pos
+
+        return chunks
+
+    def _build_prompt(self, text: str, source_lang: str, target_lang: str) -> str:
+        """Build translation prompt."""
+        source_name = SUPPORTED_LANGUAGES.get(source_lang, source_lang)
+        target_name = SUPPORTED_LANGUAGES.get(target_lang, target_lang)
+
+        return f"""Translate the following text from {source_name} to {target_name}.
+
+Important instructions:
+- Produce ONLY the translation, no explanations or commentary
+- Preserve the original meaning, tone, and style
+- For {target_lang}, use the correct script/variant (e.g., Traditional Chinese uses 繁體字, not 简体字)
+- Maintain paragraph structure and formatting
+
+Text to translate:
+
+{text}"""
+
+    async def translate(
+        self,
+        text: str,
+        source_lang: str,
+        target_lang: str,
+    ) -> TranslationResult:
+        """Translate text using the configured AI provider."""
+        source_code = normalize_language_code(source_lang)
+        target_code = normalize_language_code(target_lang)
+
+        if source_code == target_code:
+            return TranslationResult(
+                source_text=text,
+                translated_text=text,
+                source_lang=source_code,
+                target_lang=target_code,
+                model="none",
+                tokens_used=0,
+            )
+
+        # Special case: Chinese variant conversion (Traditional <-> Simplified)
+        # Use OpenCC instead of LLM for accurate character conversion
+        if is_chinese_variant_conversion(source_code, target_code):
+            logger.info(f"Using OpenCC for Chinese variant conversion: {source_code} -> {target_code}")
+            converted = convert_chinese(text, source_code, target_code)
+            return TranslationResult(
+                source_text=text,
+                translated_text=converted,
+                source_lang=source_code,
+                target_lang=target_code,
+                model="opencc",
+                tokens_used=0,
+            )
+
+        if not self.provider:
+            raise ValueError("No AI provider configured")
+
+        chunks = self._chunk_text(text)
+        logger.info(f"AI translating text in {len(chunks)} chunk(s)")
+
+        translated_chunks = []
+        total_tokens = 0
+
+        system_prompt = f"You are a professional translator specializing in {SUPPORTED_LANGUAGES.get(target_code, target_code)}. Produce accurate, natural translations."
+
+        for i, chunk in enumerate(chunks):
+            logger.info(f"AI translating chunk {i + 1}/{len(chunks)} ({len(chunk)} chars)")
+
+            prompt = self._build_prompt(chunk, source_code, target_code)
+            translated, tokens = await self.provider.generate(prompt, system_prompt)
+
+            translated_chunks.append(translated.strip())
+            total_tokens += tokens
+
+        full_translation = "\n\n".join(translated_chunks)
+
+        return TranslationResult(
+            source_text=text,
+            translated_text=full_translation,
+            source_lang=source_code,
+            target_lang=target_code,
+            model=self.provider.model_name,
+            tokens_used=total_tokens if total_tokens else None,
+        )

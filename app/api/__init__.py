@@ -12,6 +12,7 @@ from .storage_routes import router as storage_router
 from .cloud_routes import router as cloud_router
 from .ai_settings_routes import router as ai_settings_router
 from .translation_routes import router as translation_router
+from .clip_routes import router as clip_router, clips_api_router
 
 # Create combined router
 router = APIRouter()
@@ -25,5 +26,7 @@ router.include_router(storage_router)
 router.include_router(cloud_router)
 router.include_router(ai_settings_router)
 router.include_router(translation_router)
+router.include_router(clips_api_router)  # /clips/* routes (must be before clip_router)
+router.include_router(clip_router)  # /jobs/{job_id}/clips/* routes
 
 __all__ = ["router"]

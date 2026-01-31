@@ -38,7 +38,8 @@ router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 # In-memory job storage (use Redis/database for production)
 jobs: Dict[str, DownloadJob] = {}
-transcription_jobs: Dict[str, TranscriptionJob] = {}
+# Import shared transcription jobs storage
+from .transcription_store import transcription_jobs
 
 
 def _core_platform_to_schema(platform: CorePlatform) -> Platform:

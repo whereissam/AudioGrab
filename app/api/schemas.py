@@ -701,6 +701,13 @@ class AITestResponse(BaseModel):
 # ============ Translation Schemas ============
 
 
+class TranslatorType(str, Enum):
+    """Available translator backends."""
+
+    TRANSLATEGEMMA = "translategemma"  # Local Ollama TranslateGemma
+    AI_PROVIDER = "ai_provider"  # Use configured AI provider (GPT-4, Claude, etc.)
+
+
 class TranslateRequest(BaseModel):
     """Request to translate text."""
 
@@ -717,9 +724,13 @@ class TranslateRequest(BaseModel):
         ...,
         description="Target language code or name",
     )
+    translator: TranslatorType = Field(
+        default=TranslatorType.TRANSLATEGEMMA,
+        description="Which translator to use: 'translategemma' (local) or 'ai_provider' (configured AI)",
+    )
     model: Optional[str] = Field(
         default=None,
-        description="TranslateGemma model size: '4b', '12b', '27b', or 'latest'. Default: 4b",
+        description="For TranslateGemma: '4b', '12b', '27b', or 'latest'. Ignored for ai_provider.",
     )
 
 
@@ -772,3 +783,139 @@ class SupportedLanguagesResponse(BaseModel):
 
     languages: list[LanguageInfo]
     total: int
+
+
+# ============ Social Media Clip Schemas ============
+
+
+class SocialPlatform(str, Enum):
+    """Supported social media platforms."""
+
+    TIKTOK = "tiktok"  # 9:16, max 180s
+    INSTAGRAM_REELS = "reels"  # 9:16, max 90s
+    YOUTUBE_SHORTS = "shorts"  # 9:16, max 60s
+    TWITTER_X = "twitter"  # 16:9, max 140s
+
+
+class GenerateClipsRequest(BaseModel):
+    """Request to generate viral clip suggestions."""
+
+    max_clips: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Maximum number of clips to generate",
+    )
+    target_duration: Optional[int] = Field(
+        default=None,
+        ge=10,
+        le=180,
+        description="Target clip duration in seconds (optional)",
+    )
+    platforms: list[SocialPlatform] = Field(
+        default=[
+            SocialPlatform.TIKTOK,
+            SocialPlatform.INSTAGRAM_REELS,
+            SocialPlatform.YOUTUBE_SHORTS,
+            SocialPlatform.TWITTER_X,
+        ],
+        description="Target social media platforms",
+    )
+    min_viral_score: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Minimum viral score threshold (0.0-1.0)",
+    )
+
+
+class ClipSuggestionResponse(BaseModel):
+    """A suggested viral clip with metadata."""
+
+    clip_id: str = Field(description="Unique clip identifier")
+    start_time: float = Field(description="Start time in seconds")
+    end_time: float = Field(description="End time in seconds")
+    duration: float = Field(description="Clip duration in seconds")
+    transcript_text: str = Field(description="Transcript text for this segment")
+    hook: str = Field(description="Opening hook for engagement")
+    caption: str = Field(description="Social media caption")
+    hashtags: list[str] = Field(description="Relevant hashtags")
+    viral_score: float = Field(description="Viral potential score (0.0-1.0)")
+    engagement_factors: dict[str, float] = Field(
+        description="Engagement factor breakdown (humor, emotion, controversy, value, relatability)"
+    )
+    compatible_platforms: list[SocialPlatform] = Field(
+        description="Compatible platforms based on duration"
+    )
+    exported_files: Optional[dict[str, str]] = Field(
+        default=None,
+        description="Exported file paths by platform",
+    )
+
+
+class ClipsResponse(BaseModel):
+    """Response containing generated clips."""
+
+    success: bool
+    job_id: str
+    clips: list[ClipSuggestionResponse]
+    model: Optional[str] = None
+    provider: Optional[str] = None
+    tokens_used: Optional[int] = None
+    error: Optional[str] = None
+
+
+class ClipUpdateRequest(BaseModel):
+    """Request to update clip boundaries or metadata."""
+
+    start_time: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="New start time in seconds",
+    )
+    end_time: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="New end time in seconds",
+    )
+    hook: Optional[str] = Field(
+        default=None,
+        description="Updated opening hook",
+    )
+    caption: Optional[str] = Field(
+        default=None,
+        description="Updated social media caption",
+    )
+    hashtags: Optional[list[str]] = Field(
+        default=None,
+        description="Updated hashtags",
+    )
+
+
+class ClipExportRequest(BaseModel):
+    """Request to export a clip for a platform."""
+
+    platform: SocialPlatform = Field(
+        description="Target social media platform",
+    )
+    quality: QualityPreset = Field(
+        default=QualityPreset.HIGH,
+        description="Audio quality preset",
+    )
+    format: OutputFormat = Field(
+        default=OutputFormat.MP3,
+        description="Output audio format",
+    )
+
+
+class ClipExportResponse(BaseModel):
+    """Response from clip export."""
+
+    success: bool
+    clip_id: str
+    platform: SocialPlatform
+    file_path: Optional[str] = None
+    file_size_mb: Optional[float] = None
+    duration: Optional[float] = None
+    format: Optional[str] = None
+    error: Optional[str] = None
