@@ -4,6 +4,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Download, ArrowLeft, Mic, Video, FileText, Copy, Check, Users, Sparkles, Loader2, ChevronDown, Languages, Scissors } from 'lucide-react'
 import { ContentInfo, TranscriptionResult, formatDuration } from './types'
 import { useState, useMemo, useEffect } from 'react'
+import { SentimentSection } from '@/components/sentiment'
 
 const SUMMARY_TYPES = [
   { value: 'bullet_points', label: 'Bullet Points', desc: 'Key ideas as bullets' },
@@ -544,9 +545,17 @@ export function TranscriptionSuccess({
         )}
       </div>
 
+      {/* Sentiment Analysis Section */}
+      {jobId && result.segments && result.segments.length > 0 && (
+        <SentimentSection
+          jobId={jobId}
+          hasSegments={result.segments.length > 0}
+        />
+      )}
+
       {/* Viral Clips Hint */}
       {jobId && result.segments && result.segments.length > 0 && (
-        <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl p-3 sm:p-4 mb-3 sm:mb-6 text-center">
+        <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl p-3 sm:p-4 mb-3 sm:mb-6 text-center mt-3 sm:mt-4">
           <p className="text-sm text-muted-foreground">
             <Scissors className="inline h-4 w-4 mr-1.5 text-primary" />
             Want to create viral clips? Go to the <strong>Clips</strong> tab to generate social media clips from this transcription.

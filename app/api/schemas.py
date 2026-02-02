@@ -919,3 +919,124 @@ class ClipExportResponse(BaseModel):
     duration: Optional[float] = None
     format: Optional[str] = None
     error: Optional[str] = None
+
+
+# ============ Sentiment Analysis Schemas ============
+
+
+class AnalyzeSentimentRequest(BaseModel):
+    """Request to analyze sentiment of a transcription."""
+
+    window_size: int = Field(
+        default=30,
+        ge=10,
+        le=120,
+        description="Time window size in seconds for aggregation (default 30s)",
+    )
+
+
+class SentimentEmotions(BaseModel):
+    """Emotion breakdown scores."""
+
+    joy: float = Field(ge=0.0, le=1.0)
+    anger: float = Field(ge=0.0, le=1.0)
+    fear: float = Field(ge=0.0, le=1.0)
+    surprise: float = Field(ge=0.0, le=1.0)
+    sadness: float = Field(ge=0.0, le=1.0)
+
+
+class SentimentSegmentResponse(BaseModel):
+    """Sentiment analysis for a single segment."""
+
+    segment_index: int
+    start: float = Field(description="Start time in seconds")
+    end: float = Field(description="End time in seconds")
+    text: str
+    polarity: float = Field(
+        ge=-1.0,
+        le=1.0,
+        description="Sentiment polarity: -1.0 (negative) to 1.0 (positive)",
+    )
+    energy: str = Field(description="Energy level: aggressive, calm, or neutral")
+    energy_score: float = Field(ge=0.0, le=1.0, description="Energy intensity 0-1")
+    excitement: int = Field(ge=0, le=100, description="Excitement level 0-100")
+    emotions: SentimentEmotions
+    heat_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Overall emotional intensity 0-1",
+    )
+    is_heated: bool = Field(description="True if heat_score >= 0.6")
+    speaker: Optional[str] = None
+
+
+class TimeWindowResponse(BaseModel):
+    """Aggregated sentiment for a time window."""
+
+    window_index: int
+    start: float
+    end: float
+    avg_polarity: float = Field(description="Average polarity in window")
+    avg_heat_score: float = Field(description="Average heat score in window")
+    dominant_emotion: str = Field(description="Most prominent emotion in window")
+    segment_count: int = Field(description="Number of segments in window")
+
+
+class PeakMomentResponse(BaseModel):
+    """A peak emotional moment."""
+
+    timestamp: float = Field(description="Timestamp in seconds")
+    description: str = Field(description="Text snippet from the moment")
+    heat_score: float = Field(description="Heat score of the moment")
+
+
+class EmotionalArcResponse(BaseModel):
+    """Overall emotional summary."""
+
+    overall_sentiment: str = Field(
+        description="Overall sentiment: positive, negative, neutral, or mixed"
+    )
+    avg_heat_score: float = Field(description="Average heat score across content")
+    peak_moments: list[PeakMomentResponse] = Field(
+        description="Top intense moments"
+    )
+    dominant_emotions: list[str] = Field(description="Top 3 dominant emotions")
+    emotional_journey: str = Field(
+        description="Narrative description of emotional progression"
+    )
+    total_heated_segments: int = Field(description="Number of heated segments")
+    heated_percentage: float = Field(
+        description="Percentage of segments that are heated"
+    )
+
+
+class SentimentResponse(BaseModel):
+    """Complete sentiment analysis response."""
+
+    success: bool
+    job_id: str
+    segments: list[SentimentSegmentResponse] = Field(default_factory=list)
+    time_windows: list[TimeWindowResponse] = Field(default_factory=list)
+    emotional_arc: Optional[EmotionalArcResponse] = None
+    model: Optional[str] = None
+    provider: Optional[str] = None
+    tokens_used: Optional[int] = None
+    error: Optional[str] = None
+
+
+class SentimentAvailabilityResponse(BaseModel):
+    """Response for sentiment analysis availability check."""
+
+    available: bool
+    reason: Optional[str] = None
+    has_transcript: bool
+    has_segments: bool
+    ai_available: bool
+
+
+class HeatedMomentsResponse(BaseModel):
+    """Response containing top heated moments."""
+
+    job_id: str
+    moments: list[SentimentSegmentResponse]
+    total_heated: int

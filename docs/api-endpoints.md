@@ -91,6 +91,28 @@ Full interactive documentation available at http://localhost:8000/docs (Swagger 
 | POST | `/api/clips/generate` | Generate viral clips from transcription |
 | POST | `/api/clips/export` | Export clip for social platform |
 
+### Sentiment Analysis Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/jobs/{job_id}/sentiment/available` | Check if sentiment analysis is available |
+| POST | `/api/jobs/{job_id}/analyze-sentiment` | Run sentiment analysis on transcription |
+| GET | `/api/jobs/{job_id}/sentiment` | Get cached sentiment results |
+| GET | `/api/jobs/{job_id}/sentiment/timeline` | Get emotional heatmap timeline data |
+| GET | `/api/jobs/{job_id}/sentiment/heated-moments` | Get top intense/heated moments |
+
+**Analyze Sentiment Request Body:**
+```json
+{
+  "window_size": 30  // Time window in seconds for aggregation (10-120)
+}
+```
+
+**Response includes:**
+- `segments` - Per-segment analysis (polarity, energy, emotions, heat score)
+- `time_windows` - Aggregated data for heatmap visualization
+- `emotional_arc` - Overall summary with peak moments and dominant emotions
+
 ### Settings Endpoints
 
 | Method | Endpoint | Description |

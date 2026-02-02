@@ -12,6 +12,7 @@ Download audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, and mo
 - **Video Downloads** - X/Twitter, YouTube (480p/720p/1080p)
 - **Transcription** - Local Whisper or API models (OpenAI, Groq, etc.), 99+ languages
 - **Translation** - TranslateGemma (local) or AI providers, 55+ languages
+- **Sentiment Analysis** - Emotional heatmap timeline, detect heated moments & vibe shifts
 - **Audio Enhancement** - Noise reduction & voice isolation (FFmpeg-based)
 - **Speaker Diarization** - Identify different speakers (optional)
 - **Smart Metadata** - Auto-embed ID3/MP4 tags with artwork
