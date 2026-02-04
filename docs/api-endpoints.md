@@ -91,6 +91,48 @@ Full interactive documentation available at http://localhost:8000/docs (Swagger 
 | POST | `/api/clips/generate` | Generate viral clips from transcription |
 | POST | `/api/clips/export` | Export clip for social platform |
 
+### Real-Time Transcription Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/transcribe/live/status` | Check live transcription and LLM polish availability |
+| WS | `/api/transcribe/live` | WebSocket for real-time audio transcription |
+
+**WebSocket Protocol:**
+
+Client -> Server:
+```json
+// Start session
+{"type": "start", "config": {"model": "base", "language": null, "llm_polish": false}}
+
+// Send audio chunk (every 250ms, base64-encoded WebM/Opus)
+{"type": "audio", "data": "<base64-webm-opus>"}
+
+// Stop session
+{"type": "stop"}
+```
+
+Server -> Client:
+```json
+// Connection established
+{"type": "connected", "llm_polish_available": true, "llm_polish_enabled": false}
+
+// Language detected
+{"type": "language_detected", "language": "en", "probability": 0.98}
+
+// Partial result (interim, may change)
+{"type": "partial", "text": "Hello wor"}
+
+// Final segment (stable)
+{"type": "segment", "segment": {"start": 0.0, "end": 2.5, "text": "Hello world."}}
+
+// Session complete
+{"type": "complete", "full_text": "...", "segments": [...], "language": "en", "llm_polished": false}
+
+// Error
+{"type": "error", "error": "...", "recoverable": true}
+```
+
 ### Sentiment Analysis Endpoints
 
 | Method | Endpoint | Description |

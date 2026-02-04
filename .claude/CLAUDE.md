@@ -1,1 +1,1 @@
-Alwasy use bun & uv
+Alwasy use bun & uv & bunx

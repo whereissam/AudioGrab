@@ -1,18 +1,19 @@
 import { createRootRoute, Outlet, Link, useLocation } from '@tanstack/react-router'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { FileAudio, FileVideo, FileText, Scissors, Rss, Settings } from 'lucide-react'
+import { FileAudio, FileVideo, FileText, Scissors, Rss, Settings, Mic } from 'lucide-react'
 
 const NAV_ITEMS = [
   { to: '/audio', label: 'Audio', icon: FileAudio },
   { to: '/video', label: 'Video', icon: FileVideo },
   { to: '/transcribe', label: 'Transcribe', icon: FileText },
   { to: '/clips', label: 'Clips', icon: Scissors },
+  { to: '/live', label: 'Live', icon: Mic },
 ] as const
 
 export const Route = createRootRoute({
   component: () => {
     const location = useLocation()
-    const isMainPage = ['/audio', '/video', '/transcribe', '/clips', '/'].includes(location.pathname)
+    const isMainPage = ['/audio', '/video', '/transcribe', '/clips', '/live', '/'].includes(location.pathname)
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex flex-col">
@@ -53,7 +54,7 @@ export const Route = createRootRoute({
               </div>
 
               {/* Navigation Tabs */}
-              <div className="grid w-full grid-cols-4 mb-4 h-11 sm:h-10 bg-muted rounded-lg p-1">
+              <div className="grid w-full grid-cols-5 mb-4 h-11 sm:h-10 bg-muted rounded-lg p-1">
                 {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
                   <Link
                     key={to}

@@ -336,7 +336,7 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 - [x] Webhook notifications for job completion ✅
 - [ ] Export to cloud storage (S3, Google Drive, Dropbox) - In progress
 - [x] Collaborative annotations on transcripts ✅
-- [ ] Real-time transcription (live audio streams)
+- [x] Real-time transcription (live audio streams) ✅
 - [ ] Podcast RSS feed generation from downloaded content
 - [ ] Audio fingerprinting for duplicate detection
 - [x] Integration with note-taking apps (Obsidian ✅, Notion - future)

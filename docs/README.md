@@ -8,6 +8,7 @@ This project provides:
 - **CLI Tool**: Download Spaces and convert audio formats
 - **Core Library**: Python module for programmatic access
 - **FastAPI Backend**: REST API for web integrations
+- **Real-Time Transcription**: WebSocket-based live audio transcription from microphone
 - **Telegram Bot**: Bot interface for easy downloads via chat
 
 ## How It Works
@@ -50,11 +51,28 @@ Install on macOS:
 brew install ffmpeg yt-dlp
 ```
 
+## Features
+
+### Real-Time Transcription
+
+Transcribe audio from your browser microphone in real-time:
+
+```
+Browser Microphone → WebSocket → faster-whisper → Live Transcript
+```
+
+- **WebSocket streaming** at `/api/transcribe/live`
+- **Context-aware transcription** using recent text as prompt
+- **Smart segment merging** to handle chunk boundaries
+- **Optional LLM polish** for cleaner output (requires AI provider)
+
+Access via the `/live` route in the web UI.
+
 ## Documentation
 
-- [Architecture Details](./architecture.md)
+- [Architecture Details](./architecture.md) (includes real-time transcription flow)
 - [Deployment Guide](./deployment.md)
-- [API Reference](./api-endpoints.md) (REST API endpoints)
+- [API Reference](./api-endpoints.md) (REST & WebSocket endpoints)
 - [Authentication Guide](./authentication.md) (for private Spaces)
 - [Queue & Scheduling](./queue-scheduling.md) (batch downloads, priority queue)
 - [Webhooks & Annotations](./webhooks-annotations.md) (notifications, collaboration)

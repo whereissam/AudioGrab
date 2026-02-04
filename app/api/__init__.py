@@ -15,6 +15,7 @@ from .translation_routes import router as translation_router
 from .clip_routes import router as clip_router, clips_api_router
 from .sentiment_routes import router as sentiment_router
 from .obsidian_routes import router as obsidian_router
+from .realtime_routes import router as realtime_router
 
 # Create combined router
 router = APIRouter()
@@ -32,5 +33,6 @@ router.include_router(clips_api_router)  # /clips/* routes (must be before clip_
 router.include_router(clip_router)  # /jobs/{job_id}/clips/* routes
 router.include_router(sentiment_router)  # /jobs/{job_id}/sentiment/* routes
 router.include_router(obsidian_router)  # /obsidian/* routes
+router.include_router(realtime_router)  # /transcribe/live WebSocket
 
 __all__ = ["router"]

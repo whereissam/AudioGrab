@@ -87,6 +87,7 @@ xdownloader/
 │   │   ├── subscription_fetcher.py # RSS/YouTube fetchers
 │   │   ├── subscription_worker.py  # Background subscription worker
 │   │   ├── parser.py        # URL parsing
+│   │   ├── realtime_transcriber.py  # Real-time streaming transcription
 │   │   └── exceptions.py    # Custom exceptions
 │   │
 │   ├── api/                 # FastAPI routes
@@ -96,6 +97,7 @@ xdownloader/
 │   │   ├── schedule_routes.py     # Scheduled download endpoints
 │   │   ├── webhook_routes.py      # Webhook configuration
 │   │   ├── annotation_routes.py   # Annotation CRUD + WebSocket
+│   │   ├── realtime_routes.py     # Real-time transcription WebSocket
 │   │   ├── subscription_routes.py # Subscription endpoints
 │   │   └── schemas.py       # Pydantic models
 │   │
@@ -112,6 +114,9 @@ xdownloader/
 │       │   │   ├── SuccessViews.tsx
 │       │   │   └── BatchDownloadForm.tsx
 │       │   ├── clips/       # Viral clip generation
+│       │   ├── live/        # Real-time transcription
+│       │   │   ├── LiveTranscriber.tsx
+│       │   │   └── TranscriptDisplay.tsx
 │       │   ├── queue/       # Queue view
 │       │   ├── schedule/    # Schedule modal
 │       │   ├── settings/    # AI & Translation settings
@@ -123,6 +128,7 @@ xdownloader/
 │           ├── video.tsx    # /video - Video download
 │           ├── transcribe.tsx # /transcribe - Transcription
 │           ├── clips.tsx    # /clips - Viral clips
+│           ├── live.tsx     # /live - Real-time transcription
 │           ├── settings.tsx # /settings - Configuration
 │           └── subscriptions.tsx # /subscriptions
 │
@@ -264,6 +270,13 @@ class SpaceURLParser:
 | POST | `/api/annotations/{id}/reply` | Reply to annotation |
 | WS | `/api/jobs/{id}/annotations/ws` | Real-time updates |
 
+#### Real-Time Transcription
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/transcribe/live/status` | Check availability & LLM status |
+| WS | `/api/transcribe/live` | WebSocket for live transcription |
+
 #### Subscriptions
 
 | Method | Endpoint | Description |
@@ -312,6 +325,83 @@ async def start_download(
     background_tasks.add_task(process_download, job_id, request)
     return {"job_id": job_id, "status": "pending"}
 ```
+
+## Real-Time Transcription System
+
+The real-time transcription system enables live audio transcription from browser microphone.
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    REAL-TIME TRANSCRIPTION FLOW                           │
+└──────────────────────────────────────────────────────────────────────────┘
+
+Browser Microphone
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ MediaRecorder API (useAudioCapture hook)                                 │
+│ ─────────────────────────────────────────                               │
+│ - Captures audio as WebM/Opus chunks every 250ms                        │
+│ - Provides audio level visualization                                    │
+│ - Handles microphone permissions                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+        │ WebSocket (base64 encoded)
+        ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Backend: RealtimeTranscriptionSession                                    │
+│ ─────────────────────────────────────                                   │
+│ 1. Convert WebM/Opus → PCM via FFmpeg                                   │
+│ 2. Append to circular AudioBuffer (30s sliding window)                  │
+│ 3. When buffer has 3+ seconds unprocessed:                              │
+│    - Build context prompt from recent transcript                        │
+│    - Transcribe with faster-whisper                                     │
+│    - Process through SegmentMerger (deduplication)                      │
+│ 4. Yield partial/segment results                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+        │ WebSocket (JSON)
+        ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Frontend: TranscriptDisplay                                              │
+│ ─────────────────────────────                                           │
+│ - Shows finalized segments with timestamps                              │
+│ - Shows partial (interim) text with blinking cursor                     │
+│ - Auto-scrolls to latest content                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+        │ On Stop
+        ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Optional: LLM Polish (TranscriptPolisher)                                │
+│ ─────────────────────────────────────────                               │
+│ - Removes duplicates and transcription errors                           │
+│ - Fixes punctuation and capitalization                                  │
+│ - Merges fragmented sentences                                           │
+│ - Uses configured AI provider (Ollama, OpenAI, etc.)                    │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `AudioBuffer` | `app/core/realtime_transcriber.py` | Circular buffer for streaming audio |
+| `SegmentMerger` | `app/core/realtime_transcriber.py` | Deduplication and segment finalization |
+| `TranscriptPolisher` | `app/core/realtime_transcriber.py` | LLM-powered transcript cleanup |
+| `RealtimeTranscriptionSession` | `app/core/realtime_transcriber.py` | Orchestrates the streaming pipeline |
+| `useAudioCapture` | `frontend/src/hooks/` | MediaRecorder API hook |
+| `useRealtimeTranscription` | `frontend/src/hooks/` | WebSocket hook for transcription |
+| `LiveTranscriber` | `frontend/src/components/live/` | Main UI component |
+
+### Accuracy Improvements
+
+1. **Longer processing windows** (3s vs 1s) - More context for Whisper
+2. **Context prompting** - Recent transcript passed as `initial_prompt`
+3. **Segment merging** - Detects overlaps and deduplicates at boundaries
+4. **Sentence-based finalization** - Only finalizes at punctuation marks
+5. **Audio lookback** - 1s lookback + 1.5s overlap for continuity
+
+---
 
 ## Subscription System
 

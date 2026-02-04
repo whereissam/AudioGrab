@@ -58,6 +58,9 @@ src/
 │   │   └── types.ts
 │   ├── clips/           # Viral clip generation
 │   │   └── ClipsPage.tsx
+│   ├── live/            # Real-time transcription
+│   │   ├── LiveTranscriber.tsx
+│   │   └── TranscriptDisplay.tsx
 │   ├── settings/        # Settings components
 │   │   ├── AISettings.tsx
 │   │   └── TranslationSettings.tsx
@@ -67,6 +70,10 @@ src/
 │       ├── SubscriptionDetail.tsx
 │       ├── AddSubscriptionForm.tsx
 │       └── types.ts
+├── hooks/               # Custom React hooks
+│   ├── useAudioCapture.ts       # MediaRecorder API for microphone
+│   ├── useRealtimeTranscription.ts  # WebSocket for live transcription
+│   └── useSwipeGesture.ts       # Touch gestures
 ├── lib/
 │   └── utils.ts         # Utility functions
 ├── routes/              # File-based routing (TanStack Router)
@@ -76,6 +83,7 @@ src/
 │   ├── video.tsx        # Video download page
 │   ├── transcribe.tsx   # Transcription page
 │   ├── clips.tsx        # Viral clips generation page
+│   ├── live.tsx         # Real-time transcription page
 │   ├── settings.tsx     # Settings page
 │   └── subscriptions.tsx # Subscriptions page
 ├── main.tsx
@@ -89,6 +97,7 @@ src/
 | `/audio` | Audio download (X Spaces, Podcasts, Spotify, YouTube, 小宇宙) |
 | `/video` | Video download (X/Twitter, YouTube) |
 | `/transcribe` | Transcription with Whisper models |
+| `/live` | Real-time transcription from microphone |
 | `/clips` | Generate viral clips from transcriptions |
 | `/settings` | AI provider, translation, and general settings |
 | `/subscriptions` | RSS/YouTube subscription management |
@@ -107,6 +116,14 @@ src/
 - **Output formats** - Text, SRT, VTT, JSON, Dialogue
 - **Speaker diarization** - Identify different speakers (toggle + number of speakers)
 - **Speaker renaming** - Rename "Speaker 0" to "Host", "Guest", etc.
+
+### Live Transcription
+- **Real-time from microphone** - Transcribe audio as you speak
+- **WebSocket streaming** - Low-latency updates via WebSocket
+- **Context-aware** - Uses recent transcript to improve accuracy
+- **Segment deduplication** - Smart merging at chunk boundaries
+- **AI Polish (optional)** - LLM cleanup for better readability
+- **Audio level visualization** - Real-time audio level indicator
 
 ### Subscriptions
 - **RSS/Podcast feeds** - Subscribe to Apple Podcasts or any RSS feed
@@ -149,6 +166,13 @@ The frontend communicates with the backend API:
 | `GET /api/transcribe/{job_id}` | Get transcription status |
 | `GET /api/add?url=...` | Quick add (browser extension) |
 | `GET /api/health` | Check service availability |
+
+### Live Transcription
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/transcribe/live/status` | Check live transcription availability |
+| `WS /api/transcribe/live` | WebSocket for real-time transcription |
 
 ### Subscriptions
 

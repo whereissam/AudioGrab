@@ -418,6 +418,95 @@ class AudioTranscriber:
             lines.append("")
         return "\n".join(lines)
 
+    def transcribe_audio_array(
+        self,
+        audio: "np.ndarray",
+        sample_rate: int = 16000,
+        language: Optional[str] = None,
+        vad_filter: bool = True,
+        initial_prompt: Optional[str] = None,
+    ) -> TranscriptionResult:
+        """
+        Transcribe audio from numpy array directly.
+
+        This method is optimized for real-time streaming transcription,
+        accepting audio data directly without needing a file.
+
+        Args:
+            audio: Audio samples as numpy array (float32, mono)
+            sample_rate: Sample rate of the audio (default 16000 for Whisper)
+            language: Language code (auto-detect if None)
+            vad_filter: Use VAD to filter silence
+            initial_prompt: Optional prompt to provide context (e.g., recent transcript)
+
+        Returns:
+            TranscriptionResult with text and segments
+        """
+        import numpy as np
+
+        if len(audio) == 0:
+            return TranscriptionResult(
+                success=True,
+                text="",
+                segments=[],
+            )
+
+        try:
+            model = self._get_model()
+
+            # Ensure audio is float32
+            if audio.dtype != np.float32:
+                audio = audio.astype(np.float32)
+
+            # Resample if needed (Whisper expects 16kHz)
+            if sample_rate != 16000:
+                try:
+                    import librosa
+                    audio = librosa.resample(audio, orig_sr=sample_rate, target_sr=16000)
+                except ImportError:
+                    logger.warning("librosa not available, assuming 16kHz sample rate")
+
+            # Run transcription on array
+            segments_generator, info = model.transcribe(
+                audio,
+                language=language,
+                vad_filter=vad_filter,
+                beam_size=5,
+                initial_prompt=initial_prompt,
+            )
+
+            # Collect segments
+            segments = []
+            full_text_parts = []
+
+            for segment in segments_generator:
+                segments.append(
+                    TranscriptionSegment(
+                        start=segment.start,
+                        end=segment.end,
+                        text=segment.text.strip(),
+                    )
+                )
+                full_text_parts.append(segment.text.strip())
+
+            full_text = " ".join(full_text_parts)
+
+            return TranscriptionResult(
+                success=True,
+                text=full_text,
+                segments=segments,
+                language=info.language,
+                language_probability=info.language_probability,
+                duration=len(audio) / 16000,
+            )
+
+        except Exception as e:
+            logger.exception(f"Array transcription error: {e}")
+            return TranscriptionResult(
+                success=False,
+                error=str(e),
+            )
+
     @staticmethod
     def is_available() -> bool:
         """Check if faster-whisper is available."""

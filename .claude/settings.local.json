@@ -25,7 +25,9 @@
       "Bash(find:*)",
       "Bash(xargs:*)",
       "Bash(uv lock:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(bun run tsc:*)",
+      "Bash(bunx @tanstack/router-cli generate:*)"
     ]
   }
 }
