@@ -52,6 +52,8 @@ def _core_platform_to_schema(platform: CorePlatform) -> Platform:
         CorePlatform.XIAOYUZHOU: Platform.XIAOYUZHOU,
         CorePlatform.X_VIDEO: Platform.X_VIDEO,
         CorePlatform.YOUTUBE_VIDEO: Platform.YOUTUBE_VIDEO,
+        CorePlatform.INSTAGRAM: Platform.INSTAGRAM,
+        CorePlatform.XIAOHONGSHU: Platform.XIAOHONGSHU,
     }
     return mapping.get(platform, Platform.AUTO)
 
@@ -153,6 +155,8 @@ async def health_check():
         XiaoyuzhouDownloader,
         XVideoDownloader,
         YouTubeVideoDownloader,
+        InstagramVideoDownloader,
+        XiaohongshuVideoDownloader,
     )
     from ..core.transcriber import AudioTranscriber
     from ..core.diarizer import SpeakerDiarizer
@@ -169,6 +173,8 @@ async def health_check():
             "xiaoyuzhou": XiaoyuzhouDownloader.is_available(),
             "x_video": XVideoDownloader.is_available(),
             "youtube_video": YouTubeVideoDownloader.is_available(),
+            "instagram": InstagramVideoDownloader.is_available(),
+            "xiaohongshu": XiaohongshuVideoDownloader.is_available(),
         },
         ffmpeg_available=AudioConverter.is_ffmpeg_available(),
         whisper_available=AudioTranscriber.is_available(),

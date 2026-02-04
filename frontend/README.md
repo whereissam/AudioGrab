@@ -149,6 +149,8 @@ src/
 | Apple Podcasts | M4A, MP3 | - | Yes |
 | Spotify | MP3, M4A | - | Yes |
 | 小宇宙 | M4A, MP3 | - | Yes |
+| Instagram | - | MP4 | Yes |
+| 小红书 | - | MP4 | Yes |
 
 ## API Integration
 

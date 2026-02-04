@@ -4,13 +4,14 @@
   <img src="frontend/public/logo.svg" alt="AudioGrab" width="200">
 </p>
 
-Download audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, and more.
+Download audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, Instagram, 小红书, and more.
 
 ## Features
 
 - **Audio Downloads** - X Spaces, Apple Podcasts, Spotify, YouTube, 小宇宙
-- **Video Downloads** - X/Twitter, YouTube (480p/720p/1080p)
+- **Video Downloads** - X/Twitter, YouTube, Instagram, 小红书 (480p/720p/1080p)
 - **Transcription** - Local Whisper or API models (OpenAI, Groq, etc.), 99+ languages
+- **Live Transcription** - Real-time microphone transcription via WebSocket
 - **Translation** - TranslateGemma (local) or AI providers, 55+ languages
 - **Sentiment Analysis** - Emotional heatmap timeline, detect heated moments & vibe shifts
 - **Audio Enhancement** - Noise reduction & voice isolation (FFmpeg-based)
@@ -53,6 +54,7 @@ Full API documentation available at http://localhost:8000/docs (Swagger UI)
 
 ## Supported Platforms
 
+### Audio
 | Platform | URL Pattern |
 |----------|-------------|
 | X Spaces | `x.com/i/spaces/...` |
@@ -60,6 +62,14 @@ Full API documentation available at http://localhost:8000/docs (Swagger UI)
 | Spotify | `open.spotify.com/...` |
 | YouTube | `youtube.com/watch?v=...` |
 | 小宇宙 | `xiaoyuzhoufm.com/episode/...` |
+
+### Video
+| Platform | URL Pattern |
+|----------|-------------|
+| X/Twitter | `x.com/user/status/...` |
+| YouTube | `youtube.com/watch?v=...` |
+| Instagram | `instagram.com/reel/...`, `instagram.com/p/...` |
+| 小红书 | `xiaohongshu.com/explore/...`, `xhslink.com/...` |
 
 ## Configuration
 

@@ -7,6 +7,8 @@ from .youtube import YouTubeDownloader
 from .x_video import XVideoDownloader
 from .youtube_video import YouTubeVideoDownloader
 from .xiaoyuzhou import XiaoyuzhouDownloader
+from .instagram_video import InstagramVideoDownloader
+from .xiaohongshu_video import XiaohongshuVideoDownloader
 
 __all__ = [
     # Audio
@@ -18,4 +20,6 @@ __all__ = [
     # Video
     "XVideoDownloader",
     "YouTubeVideoDownloader",
+    "InstagramVideoDownloader",
+    "XiaohongshuVideoDownloader",
 ]

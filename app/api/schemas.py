@@ -18,6 +18,8 @@ class Platform(str, Enum):
     # Video
     X_VIDEO = "x_video"
     YOUTUBE_VIDEO = "youtube_video"
+    INSTAGRAM = "instagram"
+    XIAOHONGSHU = "xiaohongshu"
     AUTO = "auto"  # Auto-detect from URL
 
 

@@ -20,6 +20,8 @@ class Platform(str, Enum):
     # Video platforms
     X_VIDEO = "x_video"
     YOUTUBE_VIDEO = "youtube_video"
+    INSTAGRAM = "instagram"
+    XIAOHONGSHU = "xiaohongshu"
 
 
 @dataclass

@@ -25,6 +25,8 @@ def _get_platform_downloaders() -> list[Type[PlatformDownloader]]:
             XiaoyuzhouDownloader,
             XVideoDownloader,
             YouTubeVideoDownloader,
+            InstagramVideoDownloader,
+            XiaohongshuVideoDownloader,
         )
         _platform_downloaders = [
             # Audio
@@ -36,6 +38,8 @@ def _get_platform_downloaders() -> list[Type[PlatformDownloader]]:
             # Video
             XVideoDownloader,
             YouTubeVideoDownloader,
+            InstagramVideoDownloader,
+            XiaohongshuVideoDownloader,
         ]
     return _platform_downloaders
 
@@ -70,6 +74,8 @@ class DownloaderFactory:
             XiaoyuzhouDownloader,
             XVideoDownloader,
             YouTubeVideoDownloader,
+            InstagramVideoDownloader,
+            XiaohongshuVideoDownloader,
         )
 
         mapping = {
@@ -82,6 +88,8 @@ class DownloaderFactory:
             # Video
             Platform.X_VIDEO: XVideoDownloader,
             Platform.YOUTUBE_VIDEO: YouTubeVideoDownloader,
+            Platform.INSTAGRAM: InstagramVideoDownloader,
+            Platform.XIAOHONGSHU: XiaohongshuVideoDownloader,
         }
 
         downloader_cls = mapping.get(platform)
