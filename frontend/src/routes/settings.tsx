@@ -1,15 +1,23 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useSearch } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AISettings } from '@/components/settings/AISettings'
 import { TranslationSettings } from '@/components/settings/TranslationSettings'
+import { ObsidianSettings } from '@/components/settings/ObsidianSettings'
 
 export const Route = createFileRoute('/settings')({
   component: SettingsPage,
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      tab: (search.tab as string) || 'ai',
+    }
+  },
 })
 
 function SettingsPage() {
+  const { tab } = useSearch({ from: '/settings' })
+
   return (
     <div className="flex-1 py-6">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
@@ -29,10 +37,11 @@ function SettingsPage() {
         </div>
 
         {/* Content */}
-        <Tabs defaultValue="ai" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+        <Tabs defaultValue={tab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="ai">AI Summary</TabsTrigger>
             <TabsTrigger value="translation">Translation</TabsTrigger>
+            <TabsTrigger value="obsidian">Obsidian</TabsTrigger>
             <TabsTrigger value="general">General</TabsTrigger>
           </TabsList>
 
@@ -42,6 +51,10 @@ function SettingsPage() {
 
           <TabsContent value="translation">
             <TranslationSettings />
+          </TabsContent>
+
+          <TabsContent value="obsidian">
+            <ObsidianSettings />
           </TabsContent>
 
           <TabsContent value="general">

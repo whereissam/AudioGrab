@@ -1040,3 +1040,82 @@ class HeatedMomentsResponse(BaseModel):
     job_id: str
     moments: list[SentimentSegmentResponse]
     total_heated: int
+
+
+# ============ Obsidian Export Schemas ============
+
+
+class ObsidianSettingsRequest(BaseModel):
+    """Request to save Obsidian settings."""
+
+    vault_path: str = Field(
+        ...,
+        description="Path to the Obsidian vault directory",
+    )
+    subfolder: Optional[str] = Field(
+        default="AudioGrab",
+        description="Subfolder within vault for exported notes",
+    )
+    template: Optional[str] = Field(
+        default=None,
+        description="Custom template for notes (not implemented yet)",
+    )
+    default_tags: Optional[list[str]] = Field(
+        default=["audiograb", "transcript"],
+        description="Default tags for exported notes",
+    )
+
+
+class ObsidianSettingsResponse(BaseModel):
+    """Response containing Obsidian settings."""
+
+    vault_path: str
+    subfolder: str
+    template: Optional[str] = None
+    default_tags: list[str]
+    is_configured: bool = Field(
+        description="Whether Obsidian settings have been configured"
+    )
+
+
+class ObsidianExportRequest(BaseModel):
+    """Request to export a transcription to Obsidian."""
+
+    job_id: str = Field(
+        ...,
+        description="Job ID of a completed transcription to export",
+    )
+    title: Optional[str] = Field(
+        default=None,
+        description="Override auto-generated title",
+    )
+    tags: Optional[list[str]] = Field(
+        default=None,
+        description="Additional tags (merged with default tags)",
+    )
+    subfolder: Optional[str] = Field(
+        default=None,
+        description="Override default subfolder",
+    )
+
+
+class ObsidianExportResponse(BaseModel):
+    """Response from Obsidian export."""
+
+    success: bool
+    file_path: Optional[str] = Field(
+        default=None,
+        description="Full path to the exported note",
+    )
+    note_name: Optional[str] = Field(
+        default=None,
+        description="Name of the exported note file",
+    )
+    error: Optional[str] = None
+
+
+class ObsidianValidateResponse(BaseModel):
+    """Response from vault validation."""
+
+    valid: bool
+    error: Optional[str] = None

@@ -12,7 +12,7 @@
 | Audio Pre-processing | Medium | Medium | P5 ✅ |
 | AI Provider Manager | Medium | High | P6 ✅ |
 | Sentiment & Vibe Analysis | Medium | Medium | P7 |
-| Social Media Clip Generator | High | High | P8 |
+| Social Media Clip Generator | High | High | P8 ✅ |
 | AI Translation & Dubbing | Very High | Very High | P9 (Translation ✅) |
 
 ---
@@ -232,41 +232,42 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 
 ---
 
-## P8: Social Media Clip Generator
+## P8: Social Media Clip Generator ✅ COMPLETED
 
 **Goal:** Automatically identify viral-worthy moments and generate clips for social media.
 
 ### Tasks
 
-- [ ] Create clip generator service (`app/core/clip_generator.py`)
-- [ ] AI-powered clip identification:
-  - [ ] Feed transcript to LLM with prompt for finding hook-worthy segments
-  - [ ] Identify most controversial/insightful 15-60 second segments
-  - [ ] Score clips by "viral potential"
-  - [ ] Consider speaker energy/sentiment in selection
-- [ ] Clip metadata generation:
-  - [ ] Auto-generate catchy captions
-  - [ ] Suggest relevant hashtags
-  - [ ] Create hook text for the first 3 seconds
-- [ ] Clip extraction:
-  - [ ] Extract audio segment with FFmpeg
-  - [ ] Generate timestamps for video editing
-  - [ ] Support multiple aspect ratios (9:16 for TikTok/Reels, 1:1 for Instagram)
-- [ ] Web UI "Generate Viral Clips" feature:
-  - [ ] Button in transcription view
-  - [ ] Preview suggested clips with timestamps
-  - [ ] Edit/adjust clip boundaries
-  - [ ] Download clips individually or as batch
-  - [ ] Copy caption/hashtags to clipboard
-- [ ] API endpoints:
-  - [ ] `POST /jobs/{id}/generate-clips` - Generate clip suggestions
-  - [ ] `GET /jobs/{id}/clips` - List generated clips
-  - [ ] `POST /jobs/{id}/clips/{clip_id}/export` - Export specific clip
-- [ ] Platform-specific formatting:
-  - [ ] TikTok (9:16, max 3 min)
-  - [ ] Instagram Reels (9:16, max 90 sec)
-  - [ ] YouTube Shorts (9:16, max 60 sec)
-  - [ ] Twitter/X (16:9, max 2:20)
+- [x] Create clip generator service (`app/core/clip_generator.py`)
+- [x] AI-powered clip identification:
+  - [x] Feed transcript to LLM with prompt for finding hook-worthy segments
+  - [x] Identify most controversial/insightful 15-60 second segments
+  - [x] Score clips by "viral potential" (0.0-1.0)
+  - [ ] Consider speaker energy/sentiment in selection (future enhancement)
+- [x] Clip metadata generation:
+  - [x] Auto-generate catchy captions
+  - [x] Suggest relevant hashtags (5-10 per clip)
+  - [x] Create hook text for the first 3 seconds
+- [x] Clip extraction:
+  - [x] Extract audio segment with FFmpeg (`app/core/clip_exporter.py`)
+  - [x] Generate timestamps for video editing (start_time, end_time in response)
+  - [x] Support multiple aspect ratios (platform-specific via compatible_platforms)
+- [x] Web UI "Generate Viral Clips" feature:
+  - [x] Button in transcription view (`ClipsSection.tsx`)
+  - [x] Preview suggested clips with timestamps
+  - [x] Edit/adjust clip boundaries (API: `PATCH /jobs/{id}/clips/{clip_id}`)
+  - [x] Download clips individually
+  - [ ] Download clips as batch (future enhancement)
+  - [x] Copy caption/hashtags to clipboard
+- [x] API endpoints:
+  - [x] `POST /jobs/{id}/clips` - Generate clip suggestions
+  - [x] `GET /jobs/{id}/clips` - List generated clips
+  - [x] `POST /jobs/{id}/clips/{clip_id}/export` - Export specific clip
+- [x] Platform-specific formatting:
+  - [x] TikTok (9:16, max 3 min / 180s)
+  - [x] Instagram Reels (9:16, max 90 sec)
+  - [x] YouTube Shorts (9:16, max 60 sec)
+  - [x] Twitter/X (16:9, max 2:20 / 140s)
 
 ---
 
@@ -338,5 +339,5 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 - [ ] Real-time transcription (live audio streams)
 - [ ] Podcast RSS feed generation from downloaded content
 - [ ] Audio fingerprinting for duplicate detection
-- [ ] Integration with note-taking apps (Notion, Obsidian)
+- [x] Integration with note-taking apps (Obsidian ✅, Notion - future)
 - [ ] Voice search within transcripts

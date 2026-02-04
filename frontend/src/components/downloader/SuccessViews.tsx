@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { Download, ArrowLeft, Mic, Video, FileText, Copy, Check, Users, Sparkles, Loader2, ChevronDown, Languages, Scissors } from 'lucide-react'
+import { Download, ArrowLeft, Mic, Video, FileText, Copy, Check, Users, Sparkles, Loader2, ChevronDown, Languages, Scissors, BookOpen, Settings, ExternalLink } from 'lucide-react'
 import { ContentInfo, TranscriptionResult, formatDuration } from './types'
 import { useState, useMemo, useEffect } from 'react'
 import { SentimentSection } from '@/components/sentiment'
@@ -140,7 +140,17 @@ export function TranscriptionSuccess({
   const [aiProviderInfo, setAiProviderInfo] = useState<{ available: boolean; provider?: string; model?: string }>({ available: false })
   const [translateGemmaAvailable, setTranslateGemmaAvailable] = useState(false)
 
-  // Fetch supported languages on mount
+  // Obsidian export state
+  const [obsidianConfigured, setObsidianConfigured] = useState(false)
+  const [obsidianExporting, setObsidianExporting] = useState(false)
+  const [obsidianResult, setObsidianResult] = useState<{
+    success: boolean
+    file_path?: string
+    note_name?: string
+    error?: string
+  } | null>(null)
+
+  // Fetch supported languages and Obsidian settings on mount
   useEffect(() => {
     fetch('/api/translate/languages')
       .then(res => res.json())
@@ -167,6 +177,14 @@ export function TranscriptionSuccess({
         } else if (gemmaAvailable) {
           setTranslatorType('translategemma')
         }
+      })
+      .catch(() => {})
+
+    // Check Obsidian settings
+    fetch('/api/obsidian/settings')
+      .then(res => res.json())
+      .then(data => {
+        setObsidianConfigured(data.is_configured || false)
       })
       .catch(() => {})
   }, [])
@@ -289,6 +307,38 @@ export function TranscriptionSuccess({
     await navigator.clipboard.writeText(translation)
     setTranslationCopied(true)
     setTimeout(() => setTranslationCopied(false), 2000)
+  }
+
+  const handleExportToObsidian = async () => {
+    if (!jobId) return
+
+    setObsidianExporting(true)
+    setObsidianResult(null)
+
+    try {
+      const response = await fetch('/api/obsidian/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_id: jobId,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Export failed')
+      }
+
+      setObsidianResult(data)
+    } catch (error) {
+      setObsidianResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Export failed',
+      })
+    } finally {
+      setObsidianExporting(false)
+    }
   }
 
   return (
@@ -544,6 +594,88 @@ export function TranscriptionSuccess({
           </div>
         )}
       </div>
+
+      {/* Obsidian Export Section */}
+      {jobId && (
+        <div className="bg-card rounded-xl shadow-lg p-3 sm:p-4 mb-3 sm:mb-6 text-muted-foreground">
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+            <span className="font-medium text-sm sm:text-base">Export to Obsidian</span>
+          </div>
+
+          {obsidianConfigured ? (
+            <>
+              <Button
+                onClick={handleExportToObsidian}
+                disabled={obsidianExporting}
+                className="w-full mb-3 h-10 sm:h-11"
+                variant={obsidianResult?.success ? 'outline' : 'default'}
+              >
+                {obsidianExporting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <span className="text-sm">Exporting...</span>
+                  </>
+                ) : (
+                  <>
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    <span className="text-sm">{obsidianResult?.success ? 'Export Again' : 'Export to Obsidian'}</span>
+                  </>
+                )}
+              </Button>
+
+              {/* Export Result */}
+              {obsidianResult && (
+                <div
+                  className={`p-3 rounded-lg ${
+                    obsidianResult.success
+                      ? 'bg-green-500/10 border border-green-500/20'
+                      : 'bg-destructive/10 border border-destructive/20'
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    {obsidianResult.success ? (
+                      <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <ExternalLink className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-foreground text-sm">
+                        {obsidianResult.success ? 'Exported successfully!' : 'Export failed'}
+                      </div>
+                      {obsidianResult.note_name && (
+                        <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {obsidianResult.note_name}
+                        </div>
+                      )}
+                      {obsidianResult.error && (
+                        <div className="text-xs text-destructive mt-0.5">{obsidianResult.error}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="bg-muted rounded-lg p-3 text-xs sm:text-sm text-muted-foreground">
+              <p className="mb-2">
+                Export transcriptions as markdown notes with YAML frontmatter to your Obsidian vault.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="mt-1"
+              >
+                <a href="/settings?tab=obsidian">
+                  <Settings className="mr-2 h-3 w-3" />
+                  Configure in Settings
+                </a>
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Sentiment Analysis Section */}
       {jobId && result.segments && result.segments.length > 0 && (
