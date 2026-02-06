@@ -50,6 +50,7 @@ def _core_platform_to_schema(platform: CorePlatform) -> Platform:
         CorePlatform.SPOTIFY: Platform.SPOTIFY,
         CorePlatform.YOUTUBE: Platform.YOUTUBE,
         CorePlatform.XIAOYUZHOU: Platform.XIAOYUZHOU,
+        CorePlatform.DISCORD: Platform.DISCORD,
         CorePlatform.X_VIDEO: Platform.X_VIDEO,
         CorePlatform.YOUTUBE_VIDEO: Platform.YOUTUBE_VIDEO,
         CorePlatform.INSTAGRAM: Platform.INSTAGRAM,
@@ -153,6 +154,7 @@ async def health_check():
         SpotifyDownloader,
         YouTubeDownloader,
         XiaoyuzhouDownloader,
+        DiscordAudioDownloader,
         XVideoDownloader,
         YouTubeVideoDownloader,
         InstagramVideoDownloader,
@@ -171,6 +173,7 @@ async def health_check():
             "spotify": SpotifyDownloader.is_available(),
             "youtube": YouTubeDownloader.is_available(),
             "xiaoyuzhou": XiaoyuzhouDownloader.is_available(),
+            "discord": DiscordAudioDownloader.is_available(),
             "x_video": XVideoDownloader.is_available(),
             "youtube_video": YouTubeVideoDownloader.is_available(),
             "instagram": InstagramVideoDownloader.is_available(),
@@ -253,7 +256,7 @@ async def quick_add(
     if not detected_platform:
         raise HTTPException(
             status_code=400,
-            detail="Unsupported URL. Supported: X Spaces, YouTube, Apple Podcasts, Spotify, 小宇宙",
+            detail="Unsupported URL. Supported: X Spaces, YouTube, Apple Podcasts, Spotify, Discord, 小宇宙",
         )
 
     job_id = str(uuid.uuid4())
@@ -335,7 +338,7 @@ async def start_download(
     if not detected_platform:
         raise HTTPException(
             status_code=400,
-            detail="Unsupported URL. Supported platforms: X Spaces, Apple Podcasts, Spotify",
+            detail="Unsupported URL. Supported platforms: X Spaces, Apple Podcasts, Spotify, Discord",
         )
 
     # Create job
@@ -479,6 +482,7 @@ async def get_platforms():
         SpotifyDownloader,
         YouTubeDownloader,
         XiaoyuzhouDownloader,
+        DiscordAudioDownloader,
         XVideoDownloader,
         YouTubeVideoDownloader,
     )
@@ -514,6 +518,12 @@ async def get_platforms():
                 "name": "小宇宙",
                 "available": XiaoyuzhouDownloader.is_available(),
                 "url_pattern": "xiaoyuzhoufm.com/episode/...",
+            },
+            {
+                "id": "discord",
+                "name": "Discord Audio",
+                "available": DiscordAudioDownloader.is_available(),
+                "url_pattern": "cdn.discordapp.com/attachments/...",
             },
         ],
         "video": [

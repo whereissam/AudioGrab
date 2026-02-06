@@ -148,7 +148,7 @@ Create `/etc/systemd/system/xdownloader.service`:
 
 ```ini
 [Unit]
-Description=X Spaces Downloader API
+Description=AudioGrab API
 After=network.target
 
 [Service]

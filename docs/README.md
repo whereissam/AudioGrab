@@ -1,11 +1,11 @@
-# X (Twitter) Spaces Downloader Backend
+# AudioGrab Backend
 
-A Python backend service for downloading and converting Twitter/X Spaces audio recordings.
+A Python backend service for downloading audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, Discord, Instagram, 小红书, and more.
 
 ## Overview
 
 This project provides:
-- **CLI Tool**: Download Spaces and convert audio formats
+- **CLI Tool**: Download audio/video and convert formats
 - **Core Library**: Python module for programmatic access
 - **FastAPI Backend**: REST API for web integrations
 - **Real-Time Transcription**: WebSocket-based live audio transcription from microphone

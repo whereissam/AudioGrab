@@ -23,6 +23,7 @@ def _get_platform_downloaders() -> list[Type[PlatformDownloader]]:
             SpotifyDownloader,
             YouTubeDownloader,
             XiaoyuzhouDownloader,
+            DiscordAudioDownloader,
             XVideoDownloader,
             YouTubeVideoDownloader,
             InstagramVideoDownloader,
@@ -35,6 +36,7 @@ def _get_platform_downloaders() -> list[Type[PlatformDownloader]]:
             SpotifyDownloader,
             YouTubeDownloader,
             XiaoyuzhouDownloader,
+            DiscordAudioDownloader,
             # Video
             XVideoDownloader,
             YouTubeVideoDownloader,
@@ -72,6 +74,7 @@ class DownloaderFactory:
             SpotifyDownloader,
             YouTubeDownloader,
             XiaoyuzhouDownloader,
+            DiscordAudioDownloader,
             XVideoDownloader,
             YouTubeVideoDownloader,
             InstagramVideoDownloader,
@@ -85,6 +88,7 @@ class DownloaderFactory:
             Platform.SPOTIFY: SpotifyDownloader,
             Platform.YOUTUBE: YouTubeDownloader,
             Platform.XIAOYUZHOU: XiaoyuzhouDownloader,
+            Platform.DISCORD: DiscordAudioDownloader,
             # Video
             Platform.X_VIDEO: XVideoDownloader,
             Platform.YOUTUBE_VIDEO: YouTubeVideoDownloader,

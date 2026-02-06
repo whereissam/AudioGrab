@@ -2,12 +2,28 @@
 
 ## System Overview
 
-The X Spaces Downloader consists of these main components:
+AudioGrab consists of these main components:
 
-1. **Core Library** (`app/core/`) - Downloads Spaces via yt-dlp and converts audio formats
+1. **Core Library** (`app/core/`) - Downloads audio/video from various platforms and converts formats
 2. **FastAPI Backend** (`app/api/`) - REST API for external integrations
 3. **Telegram Bot** (`app/bot/`) - User-friendly chat interface
 4. **CLI** (`app/cli.py`) - Command-line interface
+
+## Supported Platforms
+
+### Audio
+- X Spaces (`x.com/i/spaces/...`)
+- Apple Podcasts (`podcasts.apple.com/...`)
+- Spotify (`open.spotify.com/...`)
+- YouTube (`youtube.com/watch?v=...`)
+- Discord (`cdn.discordapp.com/attachments/...`)
+- 小宇宙 (`xiaoyuzhoufm.com/episode/...`)
+
+### Video
+- X/Twitter (`x.com/user/status/...`)
+- YouTube (`youtube.com/watch?v=...`)
+- Instagram (`instagram.com/reel/...`, `instagram.com/p/...`)
+- 小红书 (`xiaohongshu.com/explore/...`, `xhslink.com/...`)
 
 ## Download Flow (using yt-dlp)
 

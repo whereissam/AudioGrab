@@ -4,11 +4,11 @@
   <img src="frontend/public/logo.svg" alt="AudioGrab" width="200">
 </p>
 
-Download audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, Instagram, 小红书, and more.
+Download audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, Discord, Instagram, 小红书, and more.
 
 ## Features
 
-- **Audio Downloads** - X Spaces, Apple Podcasts, Spotify, YouTube, 小宇宙
+- **Audio Downloads** - X Spaces, Apple Podcasts, Spotify, YouTube, Discord, 小宇宙
 - **Video Downloads** - X/Twitter, YouTube, Instagram, 小红书 (480p/720p/1080p)
 - **Transcription** - Local Whisper or API models (OpenAI, Groq, etc.), 99+ languages
 - **Live Transcription** - Real-time microphone transcription via WebSocket
@@ -61,6 +61,7 @@ Full API documentation available at http://localhost:8000/docs (Swagger UI)
 | Apple Podcasts | `podcasts.apple.com/...` |
 | Spotify | `open.spotify.com/...` |
 | YouTube | `youtube.com/watch?v=...` |
+| Discord | `cdn.discordapp.com/attachments/...` |
 | 小宇宙 | `xiaoyuzhoufm.com/episode/...` |
 
 ### Video
