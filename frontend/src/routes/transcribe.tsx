@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   DownloadStatus,
   WhisperModel,
@@ -29,6 +29,50 @@ function TranscribePage() {
   const [enhance, setEnhance] = useState(false)
   const [enhancementPreset, setEnhancementPreset] = useState<EnhancementPreset>('medium')
 
+  // Fetch transcript state
+  const [transcriptAvailable, setTranscriptAvailable] = useState(false)
+  const [transcriptPlatform, setTranscriptPlatform] = useState<string | null>(null)
+  const [transcriptLanguages, setTranscriptLanguages] = useState<{ language_code: string; language: string; is_generated: boolean }[]>([])
+  const [fetchLoading, setFetchLoading] = useState(false)
+
+  // Debounced check for transcript availability
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (transcribeMode !== 'url' || !url.trim()) {
+      setTranscriptAvailable(false)
+      setTranscriptPlatform(null)
+      setTranscriptLanguages([])
+      return
+    }
+
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/transcript/check?url=${encodeURIComponent(url.trim())}`)
+        if (res.ok) {
+          const data = await res.json()
+          setTranscriptAvailable(data.available)
+          setTranscriptPlatform(data.platform)
+          setTranscriptLanguages(data.languages || [])
+        } else {
+          setTranscriptAvailable(false)
+          setTranscriptPlatform(null)
+          setTranscriptLanguages([])
+        }
+      } catch {
+        setTranscriptAvailable(false)
+        setTranscriptPlatform(null)
+        setTranscriptLanguages([])
+      }
+    }, 500)
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [url, transcribeMode])
+
   const handleReset = () => {
     setStatus('idle')
     setMessage('')
@@ -41,6 +85,56 @@ function TranscribePage() {
     setNumSpeakers(null)
     setEnhance(false)
     setEnhancementPreset('medium')
+    setTranscriptAvailable(false)
+    setTranscriptPlatform(null)
+    setTranscriptLanguages([])
+    setFetchLoading(false)
+  }
+
+  const handleFetchTranscript = async () => {
+    if (!url.trim()) return
+
+    setFetchLoading(true)
+    setStatus('loading')
+    setMessage('Fetching transcript...')
+    setTranscriptionResult(null)
+
+    try {
+      const response = await fetch('/api/transcript/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          language: language || undefined,
+          output_format: transcriptionFormat,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.detail || 'Failed to fetch transcript')
+      }
+
+      const job = await response.json()
+
+      setStatus('success')
+      setTranscriptionJobId(job.job_id)
+      setTranscriptionResult({
+        text: job.text,
+        language: job.language,
+        language_probability: 1.0,
+        duration_seconds: job.duration_seconds,
+        formatted_output: job.formatted_output,
+        output_format: job.output_format,
+        segments: job.segments,
+        diarized: false,
+      })
+    } catch (error) {
+      setStatus('error')
+      setMessage(error instanceof Error ? error.message : 'Failed to fetch transcript')
+    } finally {
+      setFetchLoading(false)
+    }
   }
 
   const handleTranscribe = async () => {
@@ -190,6 +284,11 @@ function TranscribePage() {
         status={status}
         message={message}
         onTranscribe={handleTranscribe}
+        transcriptAvailable={transcriptAvailable}
+        transcriptPlatform={transcriptPlatform}
+        transcriptLanguages={transcriptLanguages}
+        fetchLoading={fetchLoading}
+        onFetchTranscript={handleFetchTranscript}
       />
     </div>
   )

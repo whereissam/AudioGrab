@@ -11,6 +11,7 @@ Download audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, Discor
 - **Audio Downloads** - X Spaces, Apple Podcasts, Spotify, YouTube, Discord, 小宇宙
 - **Video Downloads** - X/Twitter, YouTube, Instagram, 小红书 (480p/720p/1080p)
 - **Transcription** - Local Whisper or API models (OpenAI, Groq, etc.), 99+ languages
+- **Fetch Transcript** - Instantly grab existing YouTube captions or Spotify Read Along transcripts (no Whisper needed)
 - **Live Transcription** - Real-time microphone transcription via WebSocket
 - **Translation** - TranslateGemma (local) or AI providers, 55+ languages
 - **Sentiment Analysis** - Emotional heatmap timeline, detect heated moments & vibe shifts
@@ -99,7 +100,28 @@ SCHEDULER_CHECK_INTERVAL=60
 DEFAULT_WEBHOOK_URL=https://your-webhook.com/hook
 WEBHOOK_RETRY_ATTEMPTS=3
 WEBHOOK_RETRY_DELAY=60
+
+# Spotify Transcript (optional - for fetching Spotify Read Along transcripts)
+# SPOTIFY_SP_DC=your-sp-dc-cookie-value
 ```
+
+### Fetch Transcript
+
+YouTube transcripts work out of the box - no configuration needed. When you paste a YouTube URL in the Transcribe page, it will automatically detect available captions and let you fetch them instantly.
+
+For **Spotify** transcripts, you need to provide your `sp_dc` cookie:
+
+1. Open [https://open.spotify.com](https://open.spotify.com) in your browser and log in
+2. Open DevTools (`F12` or `Cmd+Shift+I`)
+3. Go to **Application** tab (Chrome) or **Storage** tab (Firefox)
+4. Expand **Cookies** → click `https://open.spotify.com`
+5. Find the cookie named `sp_dc` and copy its value
+6. Add to `.env`:
+   ```env
+   SPOTIFY_SP_DC=your-copied-value-here
+   ```
+
+> Note: The `sp_dc` cookie expires periodically. If Spotify transcript fetching stops working, repeat the steps above to get a fresh cookie.
 
 ### API Authentication
 

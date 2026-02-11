@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { Loader2, AlertCircle, Mic, FileAudio, FileText, Upload, Link, Users, Sparkles, Globe } from 'lucide-react'
+import { Loader2, AlertCircle, Mic, FileAudio, FileText, Upload, Link, Users, Sparkles, Globe, Zap, Info } from 'lucide-react'
 import {
   DownloadStatus,
   WhisperModel,
@@ -37,6 +37,12 @@ interface TranscribeFormProps {
   status: DownloadStatus
   message: string
   onTranscribe: () => void
+  // Fetch transcript props
+  transcriptAvailable?: boolean
+  transcriptPlatform?: string | null
+  transcriptLanguages?: { language_code: string; language: string; is_generated: boolean }[]
+  fetchLoading?: boolean
+  onFetchTranscript?: () => void
 }
 
 export function TranscribeForm({
@@ -63,7 +69,14 @@ export function TranscribeForm({
   status,
   message,
   onTranscribe,
+  transcriptAvailable = false,
+  transcriptPlatform = null,
+  transcriptLanguages = [],
+  fetchLoading = false,
+  onFetchTranscript,
 }: TranscribeFormProps) {
+  const platformLabel = transcriptPlatform === 'youtube' ? 'YouTube' : transcriptPlatform === 'spotify' ? 'Spotify' : transcriptPlatform
+
   return (
     <div className="space-y-4">
       {/* Mode Toggle */}
@@ -117,6 +130,37 @@ export function TranscribeForm({
           <p className="text-xs text-muted-foreground mt-1">
             Supports: YouTube, X Spaces, Apple Podcasts, Spotify, 小宇宙
           </p>
+        </div>
+      )}
+
+      {/* Fetch Transcript Banner */}
+      {transcribeMode === 'url' && transcriptAvailable && (
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <Info className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              Transcript available on {platformLabel}
+            </p>
+            <p className="text-xs text-emerald-600/80 dark:text-emerald-400/70 mt-0.5">
+              Fetch it instantly without Whisper processing
+            </p>
+            {transcriptLanguages.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {transcriptLanguages.map((lang) => (
+                  <span
+                    key={lang.language_code}
+                    className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${
+                      lang.is_generated
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-medium'
+                    }`}
+                  >
+                    {lang.language}{lang.is_generated ? ' (auto)' : ''}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -323,25 +367,51 @@ export function TranscribeForm({
         )}
       </div>
 
-      {/* Transcribe Button */}
-      <Button
-        onClick={onTranscribe}
-        disabled={status === 'loading' || (transcribeMode === 'url' ? !url.trim() : !selectedFile)}
-        className="w-full h-12 text-base"
-        size="lg"
-      >
-        {status === 'loading' ? (
-          <>
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Transcribing...
-          </>
-        ) : (
-          <>
-            <FileText className="mr-2 h-5 w-5" />
-            Transcribe
-          </>
+      {/* Action Buttons */}
+      <div className="flex gap-3">
+        {/* Fetch Transcript Button */}
+        {transcribeMode === 'url' && transcriptAvailable && onFetchTranscript && (
+          <Button
+            onClick={onFetchTranscript}
+            disabled={status === 'loading' || !url.trim()}
+            className="flex-1 h-12 text-base bg-emerald-600 hover:bg-emerald-700 text-white"
+            size="lg"
+          >
+            {fetchLoading ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Fetching...
+              </>
+            ) : (
+              <>
+                <Zap className="mr-2 h-5 w-5" />
+                Fetch Transcript
+              </>
+            )}
+          </Button>
         )}
-      </Button>
+
+        {/* Transcribe Button */}
+        <Button
+          onClick={onTranscribe}
+          disabled={status === 'loading' || (transcribeMode === 'url' ? !url.trim() : !selectedFile)}
+          className={`h-12 text-base ${transcriptAvailable && transcribeMode === 'url' ? 'flex-1' : 'w-full'}`}
+          size="lg"
+          variant={transcriptAvailable && transcribeMode === 'url' ? 'outline' : 'default'}
+        >
+          {status === 'loading' && !fetchLoading ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Transcribing...
+            </>
+          ) : (
+            <>
+              <FileText className="mr-2 h-5 w-5" />
+              Transcribe{transcriptAvailable && transcribeMode === 'url' ? ' with Whisper' : ''}
+            </>
+          )}
+        </Button>
+      </div>
 
       {/* Status Message */}
       {message && status !== 'success' && (

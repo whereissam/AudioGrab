@@ -27,6 +27,7 @@ dependencies = [
     "sentry-sdk[fastapi]>=1.40.0",
     "litellm>=1.30.0",
     "opencc-python-reimplemented>=0.1.7",
+    "youtube-transcript-api>=1.0.0",
 ]
 
 [project.optional-dependencies]

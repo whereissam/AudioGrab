@@ -315,6 +315,26 @@ class TranscriptionJob(BaseModel):
     )
 
 
+# ============ Transcript Fetch Schemas ============
+
+
+class FetchTranscriptRequest(BaseModel):
+    """Request to fetch an existing transcript from YouTube/Spotify."""
+
+    url: str = Field(
+        ...,
+        description="YouTube or Spotify episode URL",
+    )
+    language: Optional[str] = Field(
+        default=None,
+        description="Preferred language code (e.g., 'en', 'zh'). Used for YouTube language selection.",
+    )
+    output_format: TranscriptionOutputFormat = Field(
+        default=TranscriptionOutputFormat.TEXT,
+        description="Output format for the fetched transcript",
+    )
+
+
 # ============ Summarization Schemas ============
 
 

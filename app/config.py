@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     # Remote Whisper Service (for Docker/GPU transcription)
     whisper_service_url: str | None = None  # e.g., "http://whisper:8001"
 
+    # Spotify Transcript (sp_dc cookie for Read Along API)
+    spotify_sp_dc: str | None = None
+
     # LLM Summarization
     llm_provider: str = "ollama"  # ollama, openai, anthropic, groq, deepseek, custom
     ollama_base_url: str = "http://localhost:11434"

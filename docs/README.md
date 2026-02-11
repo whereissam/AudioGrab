@@ -68,6 +68,39 @@ Browser Microphone → WebSocket → faster-whisper → Live Transcript
 
 Access via the `/live` route in the web UI.
 
+### Fetch Transcript
+
+Instantly grab existing transcripts from YouTube captions or Spotify Read Along — no Whisper processing needed. The fetched transcript is stored in the same format as Whisper results, so all downstream features (summarize, translate, sentiment analysis, Obsidian export) work unchanged.
+
+#### YouTube
+
+Works out of the box. When you paste a YouTube URL in the Transcribe page, it automatically detects available captions and lets you fetch them. Prefers manual (human-made) captions over auto-generated ones. Supports language selection when multiple caption tracks are available.
+
+**API endpoints:**
+- `GET /api/transcript/check?url=...` — check if transcript is available, list languages
+- `POST /api/transcript/fetch` — fetch the transcript and return a completed job
+
+#### Spotify
+
+Requires a `sp_dc` cookie for authentication. To get it:
+
+1. Open [https://open.spotify.com](https://open.spotify.com) in your browser and log in
+2. Open DevTools (`F12` or `Cmd+Shift+I`)
+3. Go to **Application** tab (Chrome) or **Storage** tab (Firefox)
+4. Expand **Cookies** → click `https://open.spotify.com`
+5. Find the cookie named **`sp_dc`** and copy its value
+6. Add to your `.env`:
+   ```env
+   SPOTIFY_SP_DC=your-copied-value-here
+   ```
+
+> **Note:** The `sp_dc` cookie expires periodically (usually every few weeks/months). If fetching stops working, repeat the steps above to get a fresh value.
+
+#### Known issues
+
+- **Spotify regional blocking:** Spotify's CDN (`open.spotify.com/get_access_token`) blocks requests from certain regions (notably Japan and some cloud provider IPs). If you see a 403 error when fetching Spotify transcripts, try using a VPN to a US or EU region. This is a Spotify-side restriction, not a bug in AudioGrab.
+- **YouTube IP blocking:** YouTube may block transcript requests from IPs that make too many requests, or from cloud provider IPs. If you encounter `RequestBlocked` errors, try again later or use a different IP/proxy.
+
 ## Documentation
 
 - [Architecture Details](./architecture.md) (includes real-time transcription flow)
