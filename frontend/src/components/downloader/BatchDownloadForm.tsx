@@ -233,7 +233,7 @@ export function BatchDownloadForm() {
       )}
 
       {/* Options */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Batch Name (optional)</label>
           <Input
@@ -260,7 +260,7 @@ export function BatchDownloadForm() {
 
       <div>
         <label className="block text-sm font-medium mb-1">Format</label>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {['m4a', 'mp3', 'mp4'].map((f) => (
             <button
               key={f}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { MessageSquare, X, Loader2, Send, RefreshCw } from 'lucide-react'
+import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { AnnotationThread } from './AnnotationThread'
 import { AnnotationForm } from './AnnotationForm'
 
@@ -197,30 +198,20 @@ export function AnnotationPanel({
     }
   }
 
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)')
+    setIsMobile(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
   if (!isOpen) return null
 
-  return (
-    <div className="fixed right-0 top-0 h-full w-96 max-w-full bg-card border-l shadow-xl z-50 flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-primary" />
-          <span className="font-semibold">Annotations</span>
-          <span className="text-xs text-muted-foreground">({annotations.length})</span>
-          {connected && (
-            <span className="w-2 h-2 bg-green-500 rounded-full" title="Real-time updates enabled" />
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={fetchAnnotations} className="h-8 w-8 p-0">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
+  const panelContent = (
+    <>
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
@@ -267,6 +258,39 @@ export function AnnotationPanel({
           </Button>
         )}
       </div>
+    </>
+  )
+
+  if (isMobile) {
+    return (
+      <BottomSheet open={isOpen} onClose={onClose} title="Annotations" snapPoints={[0.6, 0.9]}>
+        {panelContent}
+      </BottomSheet>
+    )
+  }
+
+  return (
+    <div className="fixed right-0 top-0 h-full w-96 max-w-full bg-card border-l shadow-xl z-50 hidden sm:flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-5 w-5 text-primary" />
+          <span className="font-semibold">Annotations</span>
+          <span className="text-xs text-muted-foreground">({annotations.length})</span>
+          {connected && (
+            <span className="w-2 h-2 bg-green-500 rounded-full" title="Real-time updates enabled" />
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={fetchAnnotations} className="h-8 w-8 p-0">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      {panelContent}
     </div>
   )
 }

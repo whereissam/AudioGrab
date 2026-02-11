@@ -215,7 +215,7 @@ export function TranscribeForm({
             <Mic className="inline h-4 w-4 mr-1" />
             Whisper Model
           </label>
-          <div className="grid gap-2 grid-cols-3">
+          <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
             {WHISPER_MODELS.map((opt) => (
               <button
                 key={opt.value}

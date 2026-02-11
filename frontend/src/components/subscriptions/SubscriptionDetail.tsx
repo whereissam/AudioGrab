@@ -135,7 +135,7 @@ export function SubscriptionDetail({
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 text-center">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
           <div className="bg-muted/50 rounded-lg p-3">
             <div className="text-2xl font-bold text-foreground">
               {subscription.total_downloaded}
@@ -249,7 +249,7 @@ export function SubscriptionDetail({
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     {item.content_url && (
                       <Button
                         variant="ghost"

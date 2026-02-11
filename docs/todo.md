@@ -331,7 +331,7 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 - [x] Scheduled downloads (download at specific time) ✅
 - [x] Storage management (auto-cleanup old files) ✅
 - [ ] Multi-language UI
-- [ ] Mobile-responsive Web UI improvements
+- [x] Mobile-responsive Web UI improvements
 - [x] Docker Compose with GPU support for transcription ✅
 - [x] Webhook notifications for job completion ✅
 - [ ] Export to cloud storage (S3, Google Drive, Dropbox) - In progress

@@ -38,7 +38,7 @@ function SettingsPage() {
 
         {/* Content */}
         <Tabs defaultValue={tab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1 h-auto mb-6">
             <TabsTrigger value="ai">AI Summary</TabsTrigger>
             <TabsTrigger value="translation">Translation</TabsTrigger>
             <TabsTrigger value="obsidian">Obsidian</TabsTrigger>
