@@ -1,33 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch",
-      "WebFetch(domain:github.com)",
-      "WebFetch(domain:pypi.org)",
-      "Bash(uv sync:*)",
-      "Bash(ffmpeg:*)",
-      "Bash(brew install:*)",
-      "Bash(uv run xdownloader:*)",
-      "Bash(uv run python:*)",
-      "Bash(yt-dlp:*)",
-      "Bash(ls:*)",
-      "Bash(tree:*)",
-      "Bash(python3:*)",
-      "Bash(uv pip install:*)",
-      "Bash(uv run:*)",
-      "Bash(curl:*)",
-      "Bash(pkill:*)",
-      "Bash(brew upgrade:*)",
-      "Bash(ffprobe:*)",
-      "Bash(bunx tsc:*)",
-      "Bash(lsof:*)",
-      "Bash(bun run build)",
-      "Bash(find:*)",
-      "Bash(xargs:*)",
-      "Bash(uv lock:*)",
-      "Bash(python:*)",
-      "Bash(bun run tsc:*)",
-      "Bash(bunx @tanstack/router-cli generate:*)"
+      "Bash(uv add:*)"
     ]
   }
 }

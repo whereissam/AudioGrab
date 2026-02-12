@@ -73,6 +73,25 @@ Full API documentation available at http://localhost:8000/docs (Swagger UI)
 | Instagram | `instagram.com/reel/...`, `instagram.com/p/...` |
 | 小红书 | `xiaohongshu.com/explore/...`, `xhslink.com/...` |
 
+## Telegram Bot
+
+Download audio/video and transcribe directly from Telegram. Supports all 10 platforms with inline format selection.
+
+```bash
+uv run audiograb-bot  # Polling mode (local dev)
+```
+
+Or run in webhook mode alongside the FastAPI server — set in `.env`:
+
+```env
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_BOT_MODE=webhook
+TELEGRAM_WEBHOOK_URL=https://yourdomain.com/api/telegram/webhook
+TELEGRAM_WEBHOOK_SECRET=optional-secret
+```
+
+**Bot commands:** `/start`, `/help`, `/status`, `/platforms`, `/transcribe`
+
 ## Configuration
 
 Create `.env`:
@@ -86,8 +105,16 @@ DOWNLOAD_DIR=./output
 # API Authentication (optional)
 # API_KEY=your-secret-key  # If set, requires X-API-Key header
 
-# Optional
+# Telegram Bot
 TELEGRAM_BOT_TOKEN=xxx
+TELEGRAM_BOT_MODE=polling         # "polling" or "webhook"
+# TELEGRAM_WEBHOOK_URL=https://yourdomain.com/api/telegram/webhook
+# TELEGRAM_WEBHOOK_SECRET=optional-secret
+
+# YouTube cookies (for bypassing bot detection / age restrictions)
+# YOUTUBE_COOKIES_FILE=./cookies.txt
+
+# Optional
 HUGGINGFACE_TOKEN=hf_xxx  # For speaker diarization
 
 # Queue & Scheduling
@@ -104,6 +131,22 @@ WEBHOOK_RETRY_DELAY=60
 # Spotify Transcript (optional - for fetching Spotify Read Along transcripts)
 # SPOTIFY_SP_DC=your-sp-dc-cookie-value
 ```
+
+### YouTube Cookies
+
+If YouTube shows "Sign in to confirm you're not a bot" or blocks age-restricted / geo-restricted content, you need to provide browser cookies:
+
+1. Open YouTube in your browser and make sure you're logged in
+2. Export cookies using **one** of these methods:
+   - **yt-dlp** (easiest): `yt-dlp --cookies-from-browser chrome --cookies cookies.txt "https://youtube.com"`
+   - **Browser extension**: Install "Get cookies.txt LOCALLY" and export from youtube.com
+3. Place the `cookies.txt` file in your project directory
+4. Add to `.env`:
+   ```env
+   YOUTUBE_COOKIES_FILE=./cookies.txt
+   ```
+
+> Note: YouTube cookies expire periodically. If downloads start failing again, re-export fresh cookies.
 
 ### Fetch Transcript
 

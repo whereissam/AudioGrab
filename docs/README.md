@@ -9,7 +9,7 @@ This project provides:
 - **Core Library**: Python module for programmatic access
 - **FastAPI Backend**: REST API for web integrations
 - **Real-Time Transcription**: WebSocket-based live audio transcription from microphone
-- **Telegram Bot**: Bot interface for easy downloads via chat
+- **Telegram Bot**: Download, format selection, and transcription via Telegram (all 10 platforms, polling + webhook modes)
 
 ## How It Works
 

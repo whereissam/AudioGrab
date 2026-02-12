@@ -99,7 +99,7 @@ class AudioConverter:
                 "-c:a", "aac",
                 "-b:a", self.QUALITY_PRESETS.get(quality, "192k"),
             ])
-        elif output_format == "aac":
+        elif output_format in ("m4a", "aac"):
             cmd.extend([
                 "-c:a", "aac",
                 "-b:a", self.QUALITY_PRESETS.get(quality, "192k"),

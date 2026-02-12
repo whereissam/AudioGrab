@@ -10,7 +10,7 @@ from typing import Optional
 
 from ...config import get_settings
 from ..base import Platform, PlatformDownloader, AudioMetadata, DownloadResult
-from ..exceptions import AudioGrabError, ContentNotFoundError, ToolNotFoundError
+from ..exceptions import AudioGrabError, ContentNotAvailableError, ContentNotFoundError, ToolNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +116,9 @@ class YouTubeDownloader(PlatformDownloader):
                 quality_map = {"low": "64K", "medium": "128K", "high": "192K", "highest": "320K"}
                 cmd.extend(["--audio-quality", quality_map.get(quality, "192K")])
 
+            if self.settings.youtube_cookies_file:
+                cmd.extend(["--cookies", self.settings.youtube_cookies_file])
+
             cmd.append(url)
 
             logger.info("Running yt-dlp for YouTube...")
@@ -138,6 +141,19 @@ class YouTubeDownloader(PlatformDownloader):
                     raise ContentNotFoundError(f"Video is private: {video_id}")
                 if "unavailable" in error_msg.lower():
                     raise ContentNotFoundError(f"Video is unavailable: {video_id}")
+                if "not made this video available in your country" in error_msg:
+                    raise ContentNotAvailableError(
+                        f"Video is geo-restricted and not available in your region: {video_id}"
+                    )
+                if "sign in to confirm" in error_msg.lower():
+                    raise ContentNotAvailableError(
+                        "YouTube requires cookie authentication. "
+                        "The server admin needs to configure browser cookies for yt-dlp."
+                    )
+                if "age" in error_msg.lower() and "restricted" in error_msg.lower():
+                    raise ContentNotAvailableError(
+                        "Video is age-restricted. Cookie authentication is required."
+                    )
 
                 raise AudioGrabError(f"yt-dlp failed: {error_msg[:500]}")
 

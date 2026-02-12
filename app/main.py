@@ -90,6 +90,27 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to start storage manager: {e}")
 
+    # Start Telegram bot in webhook mode
+    telegram_app = None
+    if settings.telegram_bot_token and settings.telegram_bot_mode == "webhook":
+        try:
+            from .bot import AudioGrabBot
+            from .bot.webhook import setup_webhook_mode
+
+            webhook_url = settings.telegram_webhook_url
+            if not webhook_url:
+                logger.error("TELEGRAM_WEBHOOK_URL is required for webhook mode")
+            else:
+                bot = AudioGrabBot(settings.telegram_bot_token)
+                telegram_app = await bot.setup_webhook(
+                    webhook_url=webhook_url,
+                    secret=settings.telegram_webhook_secret,
+                )
+                await setup_webhook_mode(telegram_app, secret=settings.telegram_webhook_secret)
+                logger.info("Telegram bot started (webhook mode)")
+        except Exception as e:
+            logger.error(f"Failed to start Telegram bot: {e}")
+
     yield
 
     # Stop storage manager
@@ -113,6 +134,14 @@ async def lifespan(app: FastAPI):
         await stop_queue_manager()
     except Exception as e:
         logger.error(f"Failed to stop queue manager: {e}")
+
+    # Stop Telegram bot webhook
+    if telegram_app:
+        try:
+            from .bot.webhook import shutdown_webhook_mode
+            await shutdown_webhook_mode()
+        except Exception as e:
+            logger.error(f"Failed to stop Telegram bot: {e}")
 
     # Stop subscription worker
     try:
@@ -173,6 +202,10 @@ app.add_middleware(RequestIDMiddleware)
 
 # Include API routes
 app.include_router(api_router, prefix="/api", tags=["download"])
+
+# Include Telegram webhook route
+from .bot.webhook import router as telegram_router
+app.include_router(telegram_router)
 
 
 @app.get("/")

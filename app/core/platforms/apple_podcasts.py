@@ -108,13 +108,62 @@ class ApplePodcastsDownloader(PlatformDownloader):
         sanitized = re.sub(r'\s+', '_', sanitized)
         return sanitized[:100]
 
-    def _find_episode_by_id(self, feed: feedparser.FeedParserDict, episode_id: str) -> Optional[dict]:
+    async def _resolve_episode_title(self, podcast_id: str, episode_id: str) -> Optional[str]:
+        """Resolve an iTunes episode track ID to its title via the Lookup API."""
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    self.ITUNES_LOOKUP_API,
+                    params={"id": podcast_id, "entity": "podcastEpisode", "limit": "200"},
+                    timeout=30.0,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                for result in data.get("results", []):
+                    if str(result.get("trackId")) == episode_id:
+                        return result.get("trackName")
+        except Exception as e:
+            logger.warning(f"Failed to resolve episode title for {episode_id}: {e}")
+        return None
+
+    async def _find_episode(
+        self, feed: feedparser.FeedParserDict, podcast_id: str, episode_id: str,
+    ) -> Optional[dict]:
         """Find episode in feed by Apple episode ID."""
+        # Try matching GUID directly
         for entry in feed.entries:
-            # Check various ID fields
             guid = entry.get("id", "") or entry.get("guid", "")
             if episode_id in guid:
                 return entry
+
+        # Resolve iTunes track ID to episode title, then match by title
+        title = await self._resolve_episode_title(podcast_id, episode_id)
+        if title:
+            logger.info(f"Resolved episode {episode_id} -> '{title}'")
+            for entry in feed.entries:
+                if entry.get("title") == title:
+                    return entry
+
+        return None
+
+    def _parse_duration(self, raw: Optional[str]) -> Optional[float]:
+        """Parse iTunes duration which can be seconds string or HH:MM:SS."""
+        if not raw:
+            return None
+        try:
+            # Pure numeric (seconds)
+            return float(raw)
+        except (ValueError, TypeError):
+            pass
+        # HH:MM:SS or MM:SS
+        parts = str(raw).split(":")
+        try:
+            if len(parts) == 3:
+                return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+            if len(parts) == 2:
+                return int(parts[0]) * 60 + int(parts[1])
+        except (ValueError, TypeError):
+            pass
         return None
 
     def _get_audio_url(self, entry: dict) -> Optional[str]:
@@ -162,7 +211,7 @@ class ApplePodcastsDownloader(PlatformDownloader):
 
             # Find the episode
             if episode_id:
-                entry = self._find_episode_by_id(feed, episode_id)
+                entry = await self._find_episode(feed, podcast_id, episode_id)
                 if not entry:
                     # Fall back to latest episode
                     logger.warning(f"Episode {episode_id} not found, using latest")
@@ -188,7 +237,7 @@ class ApplePodcastsDownloader(PlatformDownloader):
                 description=entry.get("summary", entry.get("description")),
                 show_name=show_name,
                 artwork_url=podcast_info.get("artworkUrl600"),
-                duration_seconds=entry.get("itunes_duration"),
+                duration_seconds=self._parse_duration(entry.get("itunes_duration")),
             )
 
             # Determine output path
@@ -283,7 +332,7 @@ class ApplePodcastsDownloader(PlatformDownloader):
 
             # Find episode
             if episode_id:
-                entry = self._find_episode_by_id(feed, episode_id)
+                entry = await self._find_episode(feed, podcast_id, episode_id)
                 if not entry:
                     entry = feed.entries[0]
             else:
@@ -299,7 +348,7 @@ class ApplePodcastsDownloader(PlatformDownloader):
                 description=entry.get("summary"),
                 show_name=show_name,
                 artwork_url=podcast_info.get("artworkUrl600"),
-                duration_seconds=entry.get("itunes_duration"),
+                duration_seconds=self._parse_duration(entry.get("itunes_duration")),
             )
 
         except Exception as e:

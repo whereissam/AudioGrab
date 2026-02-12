@@ -33,13 +33,19 @@ TWITTER_CT0=your_ct0_here
 # Or use cookie file instead
 # TWITTER_COOKIE_FILE=/path/to/cookies.txt
 
-# Optional: Telegram Bot
+# Telegram Bot
 TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_BOT_MODE=polling          # "polling" or "webhook"
+# TELEGRAM_WEBHOOK_URL=https://yourdomain.com/api/telegram/webhook
+# TELEGRAM_WEBHOOK_SECRET=optional-secret
+
+# YouTube cookies (for bypassing bot detection / age restrictions)
+# YOUTUBE_COOKIES_FILE=./cookies.txt
 
 # Server Configuration
 HOST=0.0.0.0
 PORT=8000
-DOWNLOAD_DIR=/tmp/xdownloader
+DOWNLOAD_DIR=/tmp/audiograb
 MAX_CONCURRENT_DOWNLOADS=5
 ```
 
@@ -50,13 +56,23 @@ MAX_CONCURRENT_DOWNLOADS=5
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Or use the script
-uv run xdownloader-api
+uv run audiograb-api
 ```
 
 ### 4. Run Telegram Bot
 
+**Polling mode** (local dev — bot runs as a separate process):
+
 ```bash
-uv run xdownloader-bot
+uv run audiograb-bot
+```
+
+**Webhook mode** (production — bot runs inside the FastAPI server):
+
+Set `TELEGRAM_BOT_MODE=webhook` and `TELEGRAM_WEBHOOK_URL` in `.env`, then just start the API server. The bot will register the webhook and process updates via `/api/telegram/webhook`.
+
+```bash
+uv run audiograb-api  # Bot starts automatically in webhook mode
 ```
 
 ## Docker Deployment
@@ -103,9 +119,10 @@ services:
       - ./downloads:/app/downloads
     restart: unless-stopped
 
+  # Option A: Run bot as separate container (polling mode)
   bot:
     build: .
-    command: uv run xdownloader-bot
+    command: uv run audiograb-bot
     environment:
       - TWITTER_AUTH_TOKEN=${TWITTER_AUTH_TOKEN}
       - TWITTER_CT0=${TWITTER_CT0}
@@ -114,6 +131,13 @@ services:
     volumes:
       - ./downloads:/app/downloads
     restart: unless-stopped
+
+  # Option B: Run bot inside API container (webhook mode)
+  # Remove the bot service above and add these env vars to the api service:
+  #   - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+  #   - TELEGRAM_BOT_MODE=webhook
+  #   - TELEGRAM_WEBHOOK_URL=https://yourdomain.com/api/telegram/webhook
+  #   - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET}
 ```
 
 ### Build and Run

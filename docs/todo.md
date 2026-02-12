@@ -341,3 +341,4 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 - [ ] Audio fingerprinting for duplicate detection
 - [x] Integration with note-taking apps (Obsidian ✅, Notion - future)
 - [ ] Voice search within transcripts
+- [x] Telegram bot full upgrade (all 10 platforms, format selection, transcribe, webhook mode) ✅

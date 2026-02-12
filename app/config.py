@@ -29,6 +29,9 @@ class Settings(BaseSettings):
 
     # Telegram Bot
     telegram_bot_token: str | None = None
+    telegram_bot_mode: str = "polling"  # "polling" or "webhook"
+    telegram_webhook_url: str | None = None  # e.g. "https://yourdomain.com/api/telegram/webhook"
+    telegram_webhook_secret: str | None = None
 
     # Server
     host: str = "127.0.0.1"  # Bind to localhost by default for security
@@ -69,6 +72,9 @@ class Settings(BaseSettings):
 
     # Remote Whisper Service (for Docker/GPU transcription)
     whisper_service_url: str | None = None  # e.g., "http://whisper:8001"
+
+    # YouTube cookies (Netscape format file for yt-dlp authentication)
+    youtube_cookies_file: str | None = None  # path to cookies.txt
 
     # Spotify Transcript (sp_dc cookie for Read Along API)
     spotify_sp_dc: str | None = None

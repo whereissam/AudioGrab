@@ -28,6 +28,10 @@ dependencies = [
     "litellm>=1.30.0",
     "opencc-python-reimplemented>=0.1.7",
     "youtube-transcript-api>=1.0.0",
+    "av>=16.1.0",
+    "numpy>=2.2.6",
+    "ctranslate2>=4.6.3",
+    "onnxruntime>=1.23.2",
 ]
 
 [project.optional-dependencies]
