@@ -141,7 +141,7 @@ class YouTubeDownloader(PlatformDownloader):
                     raise ContentNotFoundError(f"Video is private: {video_id}")
                 if "unavailable" in error_msg.lower():
                     raise ContentNotFoundError(f"Video is unavailable: {video_id}")
-                if "not made this video available in your country" in error_msg:
+                if "not made this video available in your country" in error_msg.lower():
                     raise ContentNotAvailableError(
                         f"Video is geo-restricted and not available in your region: {video_id}"
                     )
