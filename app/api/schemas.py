@@ -1142,3 +1142,73 @@ class ObsidianValidateResponse(BaseModel):
 
     valid: bool
     error: Optional[str] = None
+
+
+# ============ Structured Data Extraction Schemas ============
+
+
+class ExtractionPresetEnum(str, Enum):
+    """Available extraction presets."""
+
+    MEETING_NOTES = "meeting_notes"
+    INTERVIEW = "interview"
+    TUTORIAL = "tutorial"
+    NEWS_ANALYSIS = "news_analysis"
+    PRODUCT_REVIEW = "product_review"
+    CUSTOM = "custom"
+
+
+class ExtractRequest(BaseModel):
+    """Request to extract structured data from a transcription."""
+
+    preset: ExtractionPresetEnum = Field(
+        ...,
+        description="Extraction preset to use",
+    )
+    custom_schema: Optional[dict] = Field(
+        default=None,
+        description='Custom schema for "custom" preset. Example: {"fields": [{"name": "topics", "type": "list", "description": "Main topics"}]}',
+    )
+
+
+class ExtractedFieldResponse(BaseModel):
+    """An individual extracted field."""
+
+    key: str = Field(description="Field name")
+    value: object = Field(description="Extracted value (string, list, or object)")
+    field_type: str = Field(description="Type of value: string, list, object_list, object, number, boolean")
+
+
+class ExtractionResponse(BaseModel):
+    """Complete extraction response."""
+
+    success: bool
+    job_id: str
+    preset: Optional[str] = None
+    fields: list[ExtractedFieldResponse] = Field(default_factory=list)
+    raw_output: Optional[str] = Field(
+        default=None,
+        description="Full JSON output as formatted string",
+    )
+    model: Optional[str] = None
+    provider: Optional[str] = None
+    tokens_used: Optional[int] = None
+    error: Optional[str] = None
+
+
+class ExtractionAvailabilityResponse(BaseModel):
+    """Response for extraction availability check."""
+
+    available: bool
+    reason: Optional[str] = None
+    has_transcript: bool
+    ai_available: bool
+
+
+class ExtractionPresetInfo(BaseModel):
+    """Information about an extraction preset."""
+
+    name: str = Field(description="Display name of the preset")
+    value: str = Field(description="API value for the preset")
+    description: str = Field(description="What this preset extracts")
+    example_fields: list[str] = Field(description="Example field names")

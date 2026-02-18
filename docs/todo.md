@@ -1,6 +1,12 @@
 # AudioGrab Feature Roadmap
 
+## Vision
+
+AudioGrab is evolving from a media utility into an **AI-First Knowledge Extraction Platform**. The user's true intent isn't to own an MP3 — it's to get the *insight* trapped inside that MP3. Downloading is a legacy middle step that becomes invisible as the platform matures.
+
 ## Priority Matrix
+
+### v1.x — Utility Foundation (Complete)
 
 | Feature | Difficulty | Impact | Priority |
 |---------|------------|--------|----------|
@@ -14,6 +20,19 @@
 | Sentiment & Vibe Analysis | Medium | Medium | P7 |
 | Social Media Clip Generator | High | High | P8 ✅ |
 | AI Translation & Dubbing | Very High | Very High | P9 (Translation ✅) |
+
+### v2.0 — AI-Native Intelligence (Next)
+
+| Feature | Difficulty | Impact | Priority |
+|---------|------------|--------|----------|
+| Semantic Indexing & Vector Search | High | Very High | P10 |
+| Ask Audio (RAG Chat Interface) | High | Very High | P11 |
+| Agentic Ingest Pipeline | Medium | Very High | P12 |
+| Psychographic Mapping & Contradiction Detection | Medium | High | P13 |
+| Content Distiller (Multi-Source Briefing) | Medium | High | P14 |
+| Neural Audio Reconstruction | Very High | Medium | P15 |
+| Intelligent Webhooks & Agentic Notifications | Low | High | P16 |
+| Structured Data Extraction | Medium | High | P17 |
 
 ---
 
@@ -200,17 +219,17 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 
 ---
 
-## P7: Sentiment & Vibe Analysis
+## P7: Sentiment & Psychographic Mapping
 
-**Goal:** Generate emotional timeline showing the "emotional heat" of audio content.
+**Goal:** Go beyond simple sentiment — generate an emotional & rhetorical intelligence layer for audio content. Don't just detect "heated moments"; use AI to explain *why* they're heated and surface contradictions.
 
 ### Tasks
 
 - [ ] Create sentiment analysis service (`app/core/sentiment_analyzer.py`)
 - [ ] Research and select sentiment analysis approach:
-  - [ ] LLM-based sentiment prompts (most flexible)
+  - [ ] LLM-based sentiment prompts (most flexible, required for reasoning)
   - [ ] FinBERT (financial sentiment, good for podcast discussions)
-  - [ ] General sentiment models from HuggingFace
+  - [ ] General sentiment models from HuggingFace (fast baseline)
 - [ ] Sentiment tagging types:
   - [ ] Positive/Negative/Neutral
   - [ ] Bullish/Bearish (for financial content)
@@ -220,14 +239,22 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
   - [ ] Process each transcript segment individually
   - [ ] Aggregate scores over time windows
   - [ ] Identify "heated" moments and debates
+  - [ ] **AI Reasoning**: For each flagged moment, generate a 1-2 sentence explanation of *why* the sentiment shifted
+- [ ] **Contradiction Detection** (AI-powered):
+  - [ ] Cross-reference statements across the full transcript
+  - [ ] Flag when a speaker's position at timestamp A conflicts with their statement at timestamp B
+  - [ ] Generate contradiction report with evidence quotes and timestamps
+  - [ ] Example output: *"At 10:12, Speaker A claimed X, but at 32:40, Speaker A said Y — these positions are inconsistent."*
 - [ ] Web UI visualization:
   - [ ] Emotional timeline/heatmap alongside transcript
   - [ ] Color-coded segments (red=heated, green=positive, etc.)
   - [ ] Click on timeline to jump to that moment
   - [ ] Summary of overall emotional arc
+  - [ ] Contradiction highlights with linked timestamps
 - [ ] API endpoints:
   - [ ] `POST /jobs/{id}/analyze-sentiment` - Run sentiment analysis
   - [ ] `GET /jobs/{id}/sentiment` - Get sentiment results
+  - [ ] `GET /jobs/{id}/contradictions` - Get detected contradictions
 - [ ] Export sentiment data with transcript
 
 ---
@@ -324,7 +351,7 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 
 ---
 
-## Future Ideas (Backlog)
+## Future Ideas (v1.x Backlog)
 
 - [x] Batch download from URL list/file ✅
 - [x] Download queue priority levels ✅
@@ -342,3 +369,269 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 - [x] Integration with note-taking apps (Obsidian ✅, Notion - future)
 - [ ] Voice search within transcripts
 - [x] Telegram bot full upgrade (all 10 platforms, format selection, transcribe, webhook mode) ✅
+
+---
+
+# v2.0: AI-Native Intelligence Platform
+
+> The shift: from "Where should I save this file?" to "What do you want to learn from this URL?"
+
+---
+
+## P10: Semantic Indexing & Vector Search
+
+**Goal:** Replace keyword search with concept-level retrieval. Turn every transcript into a searchable vector embedding so users can query their entire library by *meaning*.
+
+### Tasks
+
+- [ ] Research and select vector database:
+  - [ ] ChromaDB (lightweight, Python-native, good for local/self-hosted)
+  - [ ] LanceDB (embedded, serverless, good for single-user)
+  - [ ] Qdrant (production-grade, supports filtering)
+- [ ] Create vector indexing service (`app/core/vector_indexer.py`):
+  - [ ] Generate embeddings for transcript segments (sentence-level or paragraph-level)
+  - [ ] Support multiple embedding models:
+    - [ ] `all-MiniLM-L6-v2` (fast, local, via sentence-transformers)
+    - [ ] OpenAI `text-embedding-3-small` (high quality, API)
+    - [ ] Ollama embedding models (local, privacy-first)
+  - [ ] Store embeddings alongside job metadata (job_id, timestamps, speaker)
+  - [ ] Auto-index on transcription completion (pipeline hook)
+- [ ] Migrate from plain SQLite to SQLite + vector store:
+  - [ ] Keep SQLite for structured data (jobs, settings, subscriptions)
+  - [ ] Vector DB for semantic content search
+  - [ ] Maintain referential links between the two
+- [ ] Concept search API:
+  - [ ] `POST /api/search` - Semantic search across all transcripts
+  - [ ] `GET /api/search?q=...&job_id=...` - Search within a specific job
+  - [ ] Return results with timestamps, speaker labels, relevance scores
+  - [ ] Support filters: date range, platform, speaker, job
+- [ ] Web UI search interface:
+  - [ ] Global search bar in top nav
+  - [ ] Results show matching segments with context, clickable timestamps
+  - [ ] "Search within this transcript" option on job detail page
+- [ ] Incremental re-indexing on transcript edits or new annotations
+
+**Example query:** *"Find the part where someone explains the difference between L2s and sidechains"* → Returns the exact 30-second clip from a 3-hour podcast downloaded two months ago.
+
+---
+
+## P11: Ask Audio (RAG Chat Interface)
+
+**Goal:** Let users chat with their downloads. Ask questions, get answers grounded in transcript content with source timestamps.
+
+### Tasks
+
+- [ ] Create RAG service (`app/core/rag_engine.py`):
+  - [ ] Query vector store for relevant transcript segments
+  - [ ] Construct context window from top-K results
+  - [ ] Send to LLM with grounding prompt (cite timestamps, avoid hallucination)
+  - [ ] Return answer with source references (job, timestamp, speaker)
+- [ ] Chat modes:
+  - [ ] **Single Job**: Chat with one specific transcript
+  - [ ] **Library-wide**: Ask questions across all indexed content
+  - [ ] **Multi-Job**: Select 2+ jobs and chat across them (e.g., compare two podcast episodes)
+- [ ] Web UI chat interface:
+  - [ ] Chat panel on job detail page (slide-out or tab)
+  - [ ] Global "Ask Audio" page for library-wide queries
+  - [ ] Message history with source citations (clickable timestamps)
+  - [ ] Suggested questions based on transcript content
+- [ ] API endpoints:
+  - [ ] `POST /api/ask` - Ask a question (library-wide)
+  - [ ] `POST /jobs/{id}/ask` - Ask about a specific job
+  - [ ] `GET /jobs/{id}/chat-history` - Retrieve past Q&A for a job
+- [ ] Telegram bot integration:
+  - [ ] Send a link → bot downloads & indexes → user asks questions → bot answers with timestamps
+  - [ ] `/ask <question>` - Query the most recent download
+- [ ] Conversation memory: follow-up questions understand prior context
+
+**Example:** User sends a YouTube link, then asks *"What did they say about the Fed rate hike?"* → Bot answers with the exact quote and timestamp.
+
+---
+
+## P12: Agentic Ingest Pipeline
+
+**Goal:** When a user pastes a URL, AudioGrab doesn't just download — it triggers an autonomous multi-agent research loop that extracts maximum value.
+
+### Tasks
+
+- [ ] Create pipeline orchestrator (`app/core/agentic_pipeline.py`):
+  - [ ] Define pipeline stages as composable agents
+  - [ ] Support configurable pipeline profiles (e.g., "Quick Summary", "Deep Research", "Full Analysis")
+  - [ ] Parallel execution where possible (e.g., summarization + entity extraction run concurrently)
+- [ ] Pipeline agents:
+  - [ ] **Transcription Agent**: Download → Enhance → Transcribe → Diarize
+  - [ ] **Summarization Agent**: Generate 3-bullet summary, chapter markers, key topics
+  - [ ] **Entity Agent**: Extract mentioned people, companies, products, tickers; link to external data
+  - [ ] **Indexing Agent**: Generate embeddings, store in vector DB, make searchable
+  - [ ] **Notification Agent**: Send webhook/Telegram with summary + key findings
+- [ ] Pipeline configuration:
+  - [ ] Per-job pipeline override (API parameter)
+  - [ ] Per-subscription default pipeline
+  - [ ] Global default pipeline in settings
+- [ ] Web UI pipeline status:
+  - [ ] Multi-stage progress indicator (not just a download bar)
+  - [ ] "Knowledge Canvas" view: shows extracted entities, summary, topics as the pipeline runs
+  - [ ] Pipeline complete notification with quick-access to all outputs
+- [ ] API endpoints:
+  - [ ] `POST /api/ingest` - Submit URL with pipeline profile
+  - [ ] `GET /jobs/{id}/pipeline` - Get pipeline status and partial results
+  - [ ] `GET /api/pipelines` - List available pipeline profiles
+  - [ ] `POST /api/pipelines` - Create custom pipeline profile
+
+---
+
+## P13: Psychographic Mapping & Contradiction Detection
+
+**Goal:** Replace simple sentiment analysis with deep rhetorical intelligence. Understand not just *what* was said but the underlying reasoning, persuasion techniques, and logical consistency.
+
+### Tasks
+
+- [ ] Extend sentiment analyzer with LLM reasoning layer:
+  - [ ] For each flagged segment, generate: *why* the tone shifted, what triggered it
+  - [ ] Detect persuasion techniques (appeal to authority, FOMO, etc.)
+  - [ ] Identify when speakers deflect questions or change topics abruptly
+- [ ] Contradiction detection engine:
+  - [ ] Build statement graph: extract key claims with timestamps and speaker attribution
+  - [ ] LLM-powered cross-referencing: compare claims pairwise for logical consistency
+  - [ ] Confidence scoring for each detected contradiction
+  - [ ] Example: *"At 10:12, the speaker claimed they didn't own any $SOL, but at 32:40, they mentioned 'checking their Phantom wallet' during the dip."*
+- [ ] Cross-platform social graph (for multi-source analysis):
+  - [ ] When the same speaker appears across multiple downloads, track their statements over time
+  - [ ] Detect evolving positions or flip-flops across episodes/spaces
+- [ ] Web UI:
+  - [ ] "Rhetoric Map" view: visual graph of claims, connections, and contradictions
+  - [ ] Contradiction cards with side-by-side quotes and timestamps
+  - [ ] Credibility score per speaker (based on consistency)
+- [ ] API endpoints:
+  - [ ] `POST /jobs/{id}/analyze-rhetoric` - Run deep rhetorical analysis
+  - [ ] `GET /jobs/{id}/contradictions` - Get contradictions
+  - [ ] `GET /jobs/{id}/claims` - Get extracted claims graph
+
+---
+
+## P14: Content Distiller (Multi-Source Briefing)
+
+**Goal:** Feed multiple URLs and get a single synthesized output — a "Daily Briefing" that combines insights from all sources.
+
+### Tasks
+
+- [ ] Create content distiller service (`app/core/distiller.py`):
+  - [ ] Accept multiple job IDs or URLs as input
+  - [ ] Cross-reference transcripts to find common themes, disagreements, unique insights
+  - [ ] Generate unified output formats:
+    - [ ] Written briefing (Markdown, 1-2 pages)
+    - [ ] Audio briefing (TTS-generated 5-minute summary — future, depends on P9 dubbing)
+    - [ ] Structured JSON (topics, per-source positions, consensus/disagreement)
+- [ ] Distillation modes:
+  - [ ] **Daily Digest**: Combine all downloads from today into one summary
+  - [ ] **Topic Deep-Dive**: Filter across library for a specific topic, synthesize all mentions
+  - [ ] **Debate Summary**: Compare two opposing viewpoints from different sources
+- [ ] Web UI:
+  - [ ] "Distill" button to select multiple jobs
+  - [ ] Briefing viewer with per-source attribution
+  - [ ] Schedule daily/weekly auto-distillation from subscriptions
+- [ ] API endpoints:
+  - [ ] `POST /api/distill` - Create a distillation from job IDs
+  - [ ] `GET /api/distill/{id}` - Get distillation result
+  - [ ] `POST /api/distill/schedule` - Schedule recurring distillation
+
+**Example:** Subscribe to 5 crypto podcasts. Every morning, get a single 5-minute briefing: *"3 of 5 hosts are bullish on ETH, 2 flagged regulatory concerns, 1 mentioned a potential airdrop for Project X."*
+
+---
+
+## P15: Neural Audio Reconstruction
+
+**Goal:** Go beyond FFmpeg filters — use AI to re-synthesize low-quality audio into studio-grade clarity.
+
+### Tasks
+
+- [ ] Research and integrate neural audio models:
+  - [ ] **ElevenLabs Speech-to-Speech** (high quality, API-based)
+  - [ ] **OpenVoice** (open source voice cloning)
+  - [ ] **Resemble.AI** (voice cloning + enhancement)
+  - [ ] **AudioSR** (audio super-resolution, open source)
+- [ ] Create neural enhancement service (`app/core/neural_enhancer.py`):
+  - [ ] Speaker voice profiling: analyze audio to build speaker voice model
+  - [ ] Re-synthesize speech using the voice profile at higher fidelity
+  - [ ] Preserve original timing, emphasis, and prosody
+  - [ ] Fallback to FFmpeg enhancement when neural models unavailable
+- [ ] Enhancement levels:
+  - [ ] **Classic**: FFmpeg-based (current, fast, free)
+  - [ ] **Neural**: AI-powered reconstruction (slower, higher quality)
+  - [ ] **Studio**: Full re-synthesis with noise removal + clarity boost (API-dependent)
+- [ ] Web UI:
+  - [ ] Enhancement level selector (Classic / Neural / Studio)
+  - [ ] A/B comparison player (original vs. enhanced)
+- [ ] API endpoints:
+  - [ ] `POST /jobs/{id}/enhance` with `mode` parameter (classic/neural/studio)
+
+---
+
+## P16: Intelligent Webhooks & Agentic Notifications
+
+**Goal:** Webhooks should deliver *intelligence*, not just status updates. Instead of "Job Complete", send: *"Job Complete. This video contains 3 actionable investment tips and 1 logical fallacy. See attached summary."*
+
+### Tasks
+
+- [ ] Extend webhook payload with AI-generated content:
+  - [ ] Include 3-bullet summary in webhook body
+  - [ ] Include detected entities (people, companies, topics)
+  - [ ] Include sentiment overview (overall tone, key heated moments)
+  - [ ] Include contradiction alerts if any were detected
+- [ ] Webhook templates:
+  - [ ] **Minimal**: Status + title (current behavior)
+  - [ ] **Summary**: Status + AI summary + key topics
+  - [ ] **Full Intelligence**: Status + summary + entities + sentiment + contradictions
+  - [ ] Custom templates with variable substitution
+- [ ] Smart notification routing:
+  - [ ] Route different types of content to different webhooks/channels
+  - [ ] Example: Financial content → Slack #trading, Tech discussions → Slack #engineering
+  - [ ] Urgency detection: flag time-sensitive information for immediate notification
+- [ ] API:
+  - [ ] `PUT /api/webhooks/{id}` - Update webhook with template selection
+  - [ ] `GET /api/webhooks/templates` - List available templates
+
+---
+
+## P17: Structured Data Extraction
+
+**Goal:** Transcription output shouldn't just be text — it should be structured, machine-readable data ready for downstream consumption.
+
+### Tasks
+
+- [ ] Create structured extraction service (`app/core/extractor.py`):
+  - [ ] LLM-powered extraction from transcript text
+  - [ ] Configurable extraction schemas (user-defined or preset)
+- [ ] Built-in extraction presets:
+  - [ ] **Meeting Notes**: Attendees, agenda items, decisions, action items, deadlines
+  - [ ] **Interview**: Questions asked, answers given, key quotes
+  - [ ] **Tutorial**: Steps, tools mentioned, prerequisites, links
+  - [ ] **News/Analysis**: Claims, evidence, sources cited, predictions
+  - [ ] **Product Review**: Product name, pros, cons, rating, comparisons
+- [ ] Output formats:
+  - [ ] JSON (structured, machine-readable)
+  - [ ] Markdown (human-readable, Obsidian/Notion-ready)
+  - [ ] CSV (for spreadsheet import)
+  - [ ] Notion page (via API integration)
+- [ ] Web UI:
+  - [ ] "Extract" button with preset/schema selector
+  - [ ] Extracted data viewer with editable fields
+  - [ ] Export to various formats
+- [ ] API endpoints:
+  - [ ] `POST /jobs/{id}/extract` - Extract structured data
+  - [ ] `GET /jobs/{id}/extracted` - Get extraction results
+  - [ ] `POST /api/extraction-schemas` - Define custom extraction schema
+
+---
+
+## v2.0 Backlog (Future Ideas)
+
+- [ ] **Cross-Platform Social Graph**: Track speakers across downloads, build profiles of their positions over time
+- [ ] **Visual Trend Extraction**: For video from 小红书/Instagram, use vision AI to extract aesthetic trends, product placements, visual themes
+- [ ] **AI-Generated Podcast Feed**: Auto-create a personal podcast RSS feed from daily distillations
+- [ ] Audio fingerprinting for duplicate detection
+- [ ] Voice search within transcripts (speak a query, find the answer)
+- [ ] Multi-language UI
+- [ ] Export to cloud storage (S3, Google Drive, Dropbox)
+- [ ] Notion integration for structured data export
+- [ ] MCP server for LLM agent integration (expose AudioGrab as a tool for AI agents)

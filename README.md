@@ -4,25 +4,43 @@
   <img src="frontend/public/logo.svg" alt="AudioGrab" width="200">
 </p>
 
-Download audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, Discord, Instagram, 小红书, and more.
+**AI-First Knowledge Extraction Platform.** Ingest audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, Discord, Instagram, 小红书, and more — then extract, search, and reason over the knowledge inside.
+
+> Downloading is just the first step. AudioGrab turns media into searchable, queryable intelligence.
 
 ## Features
 
-- **Audio Downloads** - X Spaces, Apple Podcasts, Spotify, YouTube, Discord, 小宇宙
+### Ingest & Extract
+- **Multi-Platform Ingest** - X Spaces, Apple Podcasts, Spotify, YouTube, Discord, Instagram, 小红书, 小宇宙
 - **Video Downloads** - X/Twitter, YouTube, Instagram, 小红书 (480p/720p/1080p)
 - **Transcription** - Local Whisper or API models (OpenAI, Groq, etc.), 99+ languages
 - **Fetch Transcript** - Instantly grab existing YouTube captions or Spotify Read Along transcripts (no Whisper needed)
 - **Live Transcription** - Real-time microphone transcription via WebSocket
-- **Translation** - TranslateGemma (local) or AI providers, 55+ languages
-- **Sentiment Analysis** - Emotional heatmap timeline, detect heated moments & vibe shifts
-- **Audio Enhancement** - Noise reduction & voice isolation (FFmpeg-based)
-- **Speaker Diarization** - Identify different speakers (optional)
 - **Smart Metadata** - Auto-embed ID3/MP4 tags with artwork
-- **Job Recovery** - SQLite persistence, auto-resume on restart
+
+### Understand & Analyze
+- **Ask Audio (RAG)** - Chat with your downloads — ask questions, get answers with timestamps (coming soon)
+- **Semantic Search** - Search your entire library by concept, not just keywords, via vector embeddings (coming soon)
+- **Psychographic Mapping** - Emotional heatmap timeline with AI-powered reasoning: detect heated moments, explain *why* they're heated, and spot contradictions across a conversation
+- **LLM Summarization** - Bullet points, chapter markers, key topics, action items via any AI provider
+- **Speaker Diarization** - Identify different speakers (optional)
+- **Contradiction Detection** - AI cross-references statements across the transcript to surface inconsistencies (coming soon)
+
+### Transform & Create
+- **Translation** - TranslateGemma (local) or AI providers, 55+ languages
+- **Social Media Clips** - AI identifies viral-worthy moments, generates captions & hashtags
+- **Audio Enhancement** - Noise reduction & voice isolation (FFmpeg-based), neural voice reconstruction on the roadmap
+- **Content Distiller** - Feed multiple URLs and get a single synthesized briefing (coming soon)
+
+### Automate & Integrate
+- **Agentic Ingest Pipeline** - Paste a URL and AudioGrab auto-triggers summarization, entity extraction, and search indexing (coming soon)
+- **Telegram Research Assistant** - Send a link, then ask questions about the content — the bot answers instantly
+- **Intelligent Webhooks** - Notifications include AI-generated summaries, key findings, and detected insights (coming soon)
+- **Subscriptions** - Auto-monitor RSS feeds, YouTube channels, and playlists
 - **Batch Downloads** - Download multiple URLs at once with progress tracking
 - **Priority Queue** - Prioritize important downloads (1-10 levels)
 - **Scheduled Downloads** - Schedule downloads for specific times
-- **Webhook Notifications** - Get notified when jobs complete/fail
+- **Job Recovery** - SQLite persistence, auto-resume on restart
 - **Collaborative Annotations** - Add comments to transcripts with real-time sync
 
 ## Quick Start
@@ -75,7 +93,7 @@ Full API documentation available at http://localhost:8000/docs (Swagger UI)
 
 ## Telegram Bot
 
-Download audio/video and transcribe directly from Telegram. Supports all 10 platforms with inline format selection.
+More than a download bot — a **research assistant**. Send a link and ask questions about the content. Supports all 10 platforms with inline format selection, transcription, and AI-powered Q&A.
 
 ```bash
 uv run audiograb-bot  # Polling mode (local dev)
@@ -180,6 +198,20 @@ API_KEY=my-secret-key
 curl -H "X-API-Key: my-secret-key" http://localhost:8000/api/health
 ```
 
+## Architecture & Vision
+
+AudioGrab is evolving from a media downloader into an **AI-First Intelligence Platform**. The core insight: users don't want files — they want the *knowledge* inside those files.
+
+```
+URL → Ingest → Transcribe → Understand → Search → Act
+         │          │             │           │        │
+       Download   Whisper    Summarize    Vector DB  Clips
+       Metadata   Diarize    Sentiment    RAG Chat   Export
+                  Enhance    Entities     Ask Audio   Webhook
+```
+
+The **Agentic Pipeline** (on the roadmap) will make this entire chain automatic: paste a URL, and AudioGrab handles the rest — downloading, transcribing, indexing, summarizing, and making the content queryable.
+
 ## Documentation
 
 - **API Docs**: http://localhost:8000/docs (Swagger UI)
@@ -187,6 +219,7 @@ curl -H "X-API-Key: my-secret-key" http://localhost:8000/api/health
 - [X/Twitter API](docs/api-endpoints.md) - Internal API details
 - [Queue & Scheduling](docs/queue-scheduling.md) - Batch downloads, priority queue, scheduling
 - [Webhooks & Annotations](docs/webhooks-annotations.md) - Notifications and collaboration
+- [Feature Roadmap](docs/todo.md) - Full v1.x and v2.0 AI-Native roadmap
 
 ## License
 

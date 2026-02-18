@@ -14,6 +14,7 @@ from .ai_settings_routes import router as ai_settings_router
 from .translation_routes import router as translation_router
 from .clip_routes import router as clip_router, clips_api_router
 from .sentiment_routes import router as sentiment_router
+from .extract_routes import router as extract_router, presets_router as extract_presets_router
 from .obsidian_routes import router as obsidian_router
 from .realtime_routes import router as realtime_router
 
@@ -32,6 +33,8 @@ router.include_router(translation_router)
 router.include_router(clips_api_router)  # /clips/* routes (must be before clip_router)
 router.include_router(clip_router)  # /jobs/{job_id}/clips/* routes
 router.include_router(sentiment_router)  # /jobs/{job_id}/sentiment/* routes
+router.include_router(extract_presets_router)  # /extract/presets route
+router.include_router(extract_router)  # /jobs/{job_id}/extract/* routes
 router.include_router(obsidian_router)  # /obsidian/* routes
 router.include_router(realtime_router)  # /transcribe/live WebSocket
 

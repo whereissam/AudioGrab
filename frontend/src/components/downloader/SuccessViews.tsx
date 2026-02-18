@@ -5,6 +5,7 @@ import { Download, ArrowLeft, Mic, Video, FileText, Copy, Check, Users, Sparkles
 import { ContentInfo, TranscriptionResult, formatDuration } from './types'
 import { useState, useMemo, useEffect } from 'react'
 import { SentimentSection } from '@/components/sentiment'
+import { ExtractSection } from '@/components/extract'
 
 const SUMMARY_TYPES = [
   { value: 'bullet_points', label: 'Bullet Points', desc: 'Key ideas as bullets' },
@@ -682,6 +683,14 @@ export function TranscriptionSuccess({
         <SentimentSection
           jobId={jobId}
           hasSegments={result.segments.length > 0}
+        />
+      )}
+
+      {/* Structured Data Extraction Section */}
+      {jobId && result.text && (
+        <ExtractSection
+          jobId={jobId}
+          hasTranscript={!!result.text}
         />
       )}
 
