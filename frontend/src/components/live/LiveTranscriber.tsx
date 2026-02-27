@@ -22,7 +22,7 @@ export function LiveTranscriber() {
   // Handle audio chunks - send to WebSocket
   const handleAudioChunk = useCallback((blob: Blob) => {
     transcription.sendAudio(blob)
-  }, [transcription])
+  }, [transcription.sendAudio])
 
   // Start live transcription
   const handleStart = useCallback(async () => {
@@ -39,7 +39,7 @@ export function LiveTranscriber() {
     if (transcription.status === 'connected' && !audioCapture.isCapturing) {
       audioCapture.startCapture(handleAudioChunk)
     }
-  }, [transcription.status, audioCapture, handleAudioChunk])
+  }, [transcription.status, audioCapture.isCapturing, audioCapture.startCapture, handleAudioChunk])
 
   // Stop live transcription
   const handleStop = useCallback(() => {

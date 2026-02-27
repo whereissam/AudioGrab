@@ -13,7 +13,7 @@ const NAV_ITEMS = [
 export const Route = createRootRoute({
   component: () => {
     const location = useLocation()
-    const isMainPage = ['/audio', '/video', '/transcribe', '/clips', '/live', '/'].includes(location.pathname)
+    const isMainPage = ['/audio', '/video', '/transcribe', '/clips', '/'].includes(location.pathname)
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex flex-col">

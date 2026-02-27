@@ -5,6 +5,7 @@ import base64
 import logging
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -105,9 +106,6 @@ class AudioBuffer:
         # Calculate start position in circular buffer
         buffer_start = (self.write_pos - (self.total_samples_written - from_sample)) % self.max_samples
 
-        if buffer_start < 0:
-            buffer_start += self.max_samples
-
         # Handle wrap-around
         if buffer_start + n_samples <= self.max_samples:
             return self.buffer[buffer_start:buffer_start + n_samples].copy()
@@ -171,6 +169,43 @@ def convert_webm_to_pcm(webm_bytes: bytes, sample_rate: int = 16000) -> np.ndarr
         return np.array([], dtype=np.float32)
     finally:
         Path(temp_path).unlink(missing_ok=True)
+
+
+class WebmAccumulator:
+    """Accumulates WebM/Opus chunks from MediaRecorder for full-stream decoding.
+
+    MediaRecorder.start(interval) produces chunks where only the first contains
+    the WebM/EBML header and codec initialization data. Subsequent chunks contain
+    only Cluster data and are not valid standalone WebM files. This class
+    accumulates all chunks and decodes the full concatenated stream.
+    """
+
+    def __init__(self, sample_rate: int = 16000):
+        self.sample_rate = sample_rate
+        self._data = bytearray()
+        self._decoded_samples = 0
+
+    def add_chunk(self, chunk: bytes) -> None:
+        """Add a WebM chunk from MediaRecorder."""
+        self._data.extend(chunk)
+
+    def decode_new(self) -> np.ndarray:
+        """Decode full accumulated stream, return only new (previously unreturned) samples."""
+        if not self._data:
+            return np.array([], dtype=np.float32)
+
+        all_audio = convert_webm_to_pcm(bytes(self._data), self.sample_rate)
+        if len(all_audio) <= self._decoded_samples:
+            return np.array([], dtype=np.float32)
+
+        new = all_audio[self._decoded_samples:]
+        self._decoded_samples = len(all_audio)
+        return new
+
+    def clear(self) -> None:
+        """Clear accumulated data."""
+        self._data.clear()
+        self._decoded_samples = 0
 
 
 @dataclass
@@ -451,6 +486,10 @@ class RealtimeTranscriptionSession:
         self.use_context_prompt = use_context_prompt
         self.enable_llm_polish = enable_llm_polish
 
+        # WebM chunk accumulation (individual chunks are not standalone files)
+        self._webm_accumulator = WebmAccumulator()
+        self._last_decode_time = 0.0
+
         # Segment handling
         self.segment_merger = SegmentMerger()
         self.processed_samples = 0
@@ -469,6 +508,10 @@ class RealtimeTranscriptionSession:
         """
         Process incoming audio chunk and yield transcription updates.
 
+        WebM chunks from MediaRecorder are accumulated and decoded as a full
+        stream (individual chunks after the first lack headers). Blocking FFmpeg
+        and Whisper calls are run in threads to avoid blocking the event loop.
+
         Args:
             webm_bytes: WebM/Opus audio chunk from browser
 
@@ -479,13 +522,24 @@ class RealtimeTranscriptionSession:
             return
 
         async with self._lock:
-            # Convert WebM to PCM
-            audio = convert_webm_to_pcm(webm_bytes)
-            if len(audio) == 0:
+            # Accumulate the WebM chunk (individual chunks are not standalone)
+            self._webm_accumulator.add_chunk(webm_bytes)
+
+            # Only decode when enough time has passed (avoid excessive FFmpeg calls)
+            now = time.monotonic()
+            min_decode_interval = self.min_chunk_samples / 16000
+            if self._last_decode_time > 0 and (now - self._last_decode_time) < min_decode_interval * 0.8:
                 return
 
+            # Decode new audio from accumulated stream (in thread — FFmpeg is blocking)
+            new_audio = await asyncio.to_thread(self._webm_accumulator.decode_new)
+            if len(new_audio) == 0:
+                return
+
+            self._last_decode_time = now
+
             # Append to buffer
-            self.buffer.append(audio)
+            self.buffer.append(new_audio)
 
             # Check if we have enough unprocessed audio
             unprocessed_samples = self.buffer.total_samples_written - self.processed_samples
@@ -507,10 +561,11 @@ class RealtimeTranscriptionSession:
                 if context:
                     initial_prompt = context
 
-            # Run transcription
+            # Run transcription in thread (Whisper inference is CPU-intensive)
             try:
-                result = self.transcriber.transcribe_audio_array(
-                    audio=audio_to_process,
+                result = await asyncio.to_thread(
+                    self.transcriber.transcribe_audio_array,
+                    audio_to_process,
                     language=self.language or self.detected_language,
                     initial_prompt=initial_prompt,
                 )
@@ -575,6 +630,11 @@ class RealtimeTranscriptionSession:
         async with self._lock:
             self.is_active = False
 
+            # Decode any remaining accumulated WebM data
+            remaining_audio = await asyncio.to_thread(self._webm_accumulator.decode_new)
+            if len(remaining_audio) > 0:
+                self.buffer.append(remaining_audio)
+
             # Process any remaining unprocessed audio
             remaining_samples = self.buffer.total_samples_written - self.processed_samples
             if remaining_samples > 4800:  # At least 0.3 second
@@ -582,8 +642,9 @@ class RealtimeTranscriptionSession:
                 if len(audio_to_process) > 0:
                     try:
                         context = self.segment_merger.get_recent_context(max_words=30)
-                        result = self.transcriber.transcribe_audio_array(
-                            audio=audio_to_process,
+                        result = await asyncio.to_thread(
+                            self.transcriber.transcribe_audio_array,
+                            audio_to_process,
                             language=self.language or self.detected_language,
                             initial_prompt=context if self.use_context_prompt else None,
                         )
@@ -631,4 +692,5 @@ class RealtimeTranscriptionSession:
         """Clean up session resources."""
         self.is_active = False
         self.buffer.clear()
+        self._webm_accumulator.clear()
         self.segment_merger = SegmentMerger()

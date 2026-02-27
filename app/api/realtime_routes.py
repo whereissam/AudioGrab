@@ -8,6 +8,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from ..core.realtime_transcriber import RealtimeTranscriptionSession, TranscriptPolisher
+from ..core.transcriber import WhisperModel
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,17 @@ async def live_transcription(websocket: WebSocket):
                 # Initialize new session
                 config = data.get("config", {})
                 model = config.get("model", "base")
+
+                # Validate model against allowed models
+                valid_models = {m.value for m in WhisperModel}
+                if model not in valid_models:
+                    await websocket.send_json({
+                        "type": "error",
+                        "error": f"Invalid model '{model}'. Valid: {', '.join(sorted(valid_models))}",
+                        "recoverable": False,
+                    })
+                    continue
+
                 language = config.get("language")
                 min_chunk = config.get("min_chunk_duration", 3.0)
                 use_context = config.get("use_context", True)
