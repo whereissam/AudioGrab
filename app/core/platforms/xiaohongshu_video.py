@@ -125,9 +125,10 @@ class XiaohongshuVideoDownloader(PlatformDownloader):
                 "--print-json",
                 "--merge-output-format", "mp4",
                 "--recode-video", "mp4",  # Recode to mp4 if needed
-                # Xiaohongshu-specific options
-                "--add-header", "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "--add-header", "Referer:https://www.xiaohongshu.com/",
+                # NOTE: do NOT override User-Agent / Referer here. The yt-dlp
+                # XiaoHongShu extractor sets its own headers internally; forcing a
+                # custom UA makes the site return a page with no video data
+                # ("No video formats found!"). Let yt-dlp use its defaults.
                 # Parallel fragment downloads
                 "--concurrent-fragments", "16",
                 "--fragment-retries", "5",
