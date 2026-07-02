@@ -115,6 +115,16 @@ class InstagramVideoDownloader(PlatformDownloader):
                 "--fragment-retries", "5",
             ]
 
+            # Instagram requires an authenticated session for most content.
+            # Prefer reading cookies straight from a local browser; fall back to
+            # an exported Netscape cookies.txt file.
+            if self.settings.instagram_cookies_from_browser:
+                cmd.extend(
+                    ["--cookies-from-browser", self.settings.instagram_cookies_from_browser]
+                )
+            elif self.settings.instagram_cookies_file:
+                cmd.extend(["--cookies", self.settings.instagram_cookies_file])
+
             cmd.append(url)
 
             logger.info("Running yt-dlp for Instagram video...")
@@ -133,8 +143,21 @@ class InstagramVideoDownloader(PlatformDownloader):
 
                 if "404" in error_msg or "not found" in error_msg.lower():
                     raise ContentNotFoundError(f"Content not found: {content_id}")
-                if "login" in error_msg.lower() or "private" in error_msg.lower():
-                    raise ContentNotFoundError(f"Content is private or requires login: {content_id}")
+                # Instagram gate: empty media / missing csrf token means the post
+                # needs an authenticated session.
+                if (
+                    "login" in error_msg.lower()
+                    or "private" in error_msg.lower()
+                    or "empty media response" in error_msg.lower()
+                    or "csrf token" in error_msg.lower()
+                    or "--cookies" in error_msg.lower()
+                ):
+                    raise ContentNotFoundError(
+                        "Instagram requires login to download this reel/post. "
+                        "Export your Instagram cookies to a file and set "
+                        "INSTAGRAM_COOKIES_FILE in your .env. Step-by-step guide "
+                        "(no coding needed): docs/instagram-setup.md"
+                    )
 
                 raise SiftError(f"yt-dlp failed: {error_msg[:500]}")
 

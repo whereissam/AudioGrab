@@ -79,6 +79,14 @@ class Settings(BaseSettings):
     # YouTube cookies (Netscape format file for yt-dlp authentication)
     youtube_cookies_file: str | None = None  # path to cookies.txt
 
+    # Instagram cookies (Netscape format file for yt-dlp authentication).
+    # Instagram requires a logged-in session for most reels/posts.
+    instagram_cookies_file: str | None = None  # path to cookies.txt
+    # Alternatively, read Instagram cookies straight from a local browser.
+    # One of: chrome, chromium, brave, edge, firefox, safari, opera, vivaldi.
+    # Optionally "browser:profile" (e.g. "chrome:Default").
+    instagram_cookies_from_browser: str | None = None
+
     # Spotify Transcript (sp_dc cookie for Read Along API)
     spotify_sp_dc: str | None = None
 
