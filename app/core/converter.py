@@ -84,6 +84,11 @@ class AudioConverter:
             self._ffmpeg_path,
             "-y",  # Overwrite output
             "-i", str(input_path),
+            # Drop any attached-picture / cover-art video stream. Without this,
+            # ffmpeg auto-maps an embedded PNG cover and tries to encode it as
+            # H.264 into the audio container (e.g. m4a/ipod), which fails with
+            # "codec not currently supported in container".
+            "-vn",
         ]
 
         # Add format-specific options
