@@ -223,7 +223,12 @@ class SpeakerDiarizer:
         """Check if pyannote is available."""
         from importlib.util import find_spec
 
-        return find_spec("pyannote.audio") is not None
+        # find_spec raises ModuleNotFoundError (not returns None) when a parent
+        # package like `pyannote` is absent, so guard the dotted lookup.
+        try:
+            return find_spec("pyannote.audio") is not None
+        except ModuleNotFoundError:
+            return False
 
     @staticmethod
     def format_as_dialogue(segments: list[DiarizedSegment]) -> str:
