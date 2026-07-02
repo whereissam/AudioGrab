@@ -6,16 +6,42 @@
 
 **Architecture:** The extension is a detector + thin client; the Sift server does all download/convert/tag work via yt-dlp + ffmpeg. A new `GenericDownloader` slots into the existing `DownloaderFactory` as the lowest-priority fallback so arbitrary URLs/streams work. A new `POST /api/capture` endpoint carries format/quality and routes to a specific platform or the generic fallback; the existing `GET /api/download/{job_id}/file` serves the result to the browser.
 
-**Tech Stack:** Python 3 / FastAPI / yt-dlp / ffmpeg (server, tested with pytest via `uv run pytest`); plain-JS MV3 browser extension (pure helper logic tested with `bun test`).
+**Tech Stack:** Python 3 / FastAPI / yt-dlp / ffmpeg (server, tested with pytest via `uv run pytest`); **[WXT](https://wxt.dev)**-based MV3 browser extension in TypeScript (Vite build; pure helper logic tested with `bunx vitest`).
+
+> ## Update — Framework switched to WXT (2026-07-02)
+>
+> This plan originally specified a **build-step-free plain-JS** extension. That
+> decision is **superseded**: the extension is now built with **WXT** (a
+> Vite-powered web-extension framework), for these reasons —
+>
+> - The capture rebuild roughly doubles extension complexity (webRequest
+>   sniffing, per-tab registry, candidate dedup, polling, `chrome.downloads`).
+>   TypeScript + one shared module beats untyped globals across drifting files.
+> - The repo already uses bun + Vite + React + TS (the frontend), so WXT adds
+>   no new tooling class; the popup can reuse frontend UI patterns.
+> - WXT auto-generates **Chrome (MV3) and Firefox** manifests from one config —
+>   no more hand-maintained `manifest.firefox.json` rename dance.
+>
+> **How this remaps the task list below (paths only — logic is unchanged):**
+>
+> | Plan says (plain JS) | Now (WXT) |
+> |---|---|
+> | `browser-extension/lib/*.js` (globals + `module.exports`) | `extension/utils/*.ts` (ESM `export`) |
+> | `browser-extension/tests/*.test.js` run with `bun test` | `extension/**/*.test.ts` run with `bunx vitest` |
+> | edit `manifest.json` + `manifest.firefox.json` | edit `wxt.config.ts` (`manifest` key) + entrypoint `defineX()` options |
+> | `content.js` / `background.js` / `popup.js` | `entrypoints/content.ts` / `entrypoints/background.ts` / `entrypoints/popup/` |
+>
+> Everything else — the server work (Phases 1), the detection/candidate/registry
+> logic, the privacy and SSRF rules, the phasing — stands as written.
 
 ## Global Constraints
 
 - Package management: `uv` for Python, `bun`/`bunx` for JS — never npm/yarn/npx/pip.
-- All new features must include tests in the appropriate test directory (`tests/` for Python, `browser-extension/tests/` for JS).
+- All new features must include tests in the appropriate test directory (`tests/` for Python, colocated `*.test.ts` in the WXT `extension/` project for JS/TS, run via `bunx vitest`).
 - Only `git add` files modified in the current task — never stage all files.
 - Conventional commit messages (`feat:`, `fix:`, `docs:`, etc.). End commit messages with `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
 - Server work spans `app/core/` (logic) and `app/api/` (HTTP); follow the existing `PlatformDownloader` contract and router patterns.
-- The extension must remain build-step-free: pure helper logic lives in `browser-extension/lib/*.js` files that define top-level functions (global in classic-script context) AND `module.exports` them at the bottom for `bun test`.
+- The extension is built with WXT: entrypoints live in `extension/entrypoints/` (`defineBackground`/`defineContentScript`/popup), pure helper logic in `extension/utils/*.ts` as ESM modules imported by both entrypoints and colocated `*.test.ts` (Vitest). Manifest is generated from `wxt.config.ts` — do not hand-edit a `manifest.json`.
 - Privacy rule (hard): the extension stores only media-typed URLs, in-memory per-tab, never persisted; nothing leaves the browser until the user clicks convert, and only the chosen URL + format/quality are sent.
 - Auth: `POST /api/capture` and the file endpoint require `X-API-Key` when `API_KEY` is configured (the `download_routes` router already enforces `verify_api_key`).
 

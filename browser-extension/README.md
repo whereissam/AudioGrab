@@ -1,4 +1,10 @@
-# Sift Browser Extension
+# Sift Browser Extension (legacy)
+
+> **Superseded by [`../extension/`](../extension/)** — a WXT (TypeScript + Vite)
+> rewrite with a single cross-browser build, a shared platform-detection module,
+> configurable remote-server support, and an API-key field. This plain-JS
+> version is kept for reference and will be removed once the WXT extension is
+> published.
 
 One-click download and transcription from your browser.
 
