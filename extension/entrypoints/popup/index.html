@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sift</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="header">
+      <img src="/icon/48.png" alt="Sift" />
+      <h1>Sift</h1>
+    </div>
+
+    <div class="content">
+      <div id="status" class="status">
+        <span class="status-dot"></span>
+        <span id="status-text">Checking page…</span>
+      </div>
+
+      <div id="url-display" class="url-display" hidden></div>
+
+      <div class="actions">
+        <button id="transcribe-btn" class="btn-primary" disabled>Transcribe</button>
+        <button id="download-btn" class="btn-secondary" disabled>Download Audio</button>
+      </div>
+
+      <div id="message" class="message" hidden></div>
+    </div>
+
+    <div class="settings">
+      <h3>Server</h3>
+      <div class="input-group">
+        <input type="text" id="server-url" placeholder="http://localhost:8000" />
+        <button id="save-btn" class="btn-secondary">Save</button>
+      </div>
+      <input type="password" id="api-key" class="full" placeholder="API key (only if your server sets one)" />
+    </div>
+
+    <div class="footer">
+      <a id="open-ui" href="#">Open Sift Web UI</a>
+    </div>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
