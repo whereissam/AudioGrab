@@ -47,7 +47,22 @@ Follow-up (completed 2026-06-22):
 | Rust Backend (axum) | High | Very High | P1 ✅ |
 | Parallel HLS Downloads (16x) | Low | High | P2 ✅ |
 | SQLite Job Persistence (Rust) | Medium | High | P3 ✅ |
-| Platform Detection (10 platforms) | Low | High | P4 ✅ |
+| Platform Detection (11 platforms) | Low | High | P4 ✅ |
+
+### Platform maintenance (2026-07-02)
+
+- [x] YouTube: enable EJS n-challenge solver (`--remote-components ejs:github`) so
+      formats stop going missing; upgraded yt-dlp 2026.3.17 → 2026.6.9
+- [x] Apple Podcasts: fix ffmpeg conversion crash on episodes with embedded
+      cover art (drop the attached-picture video stream with `-vn`)
+- [x] 小红书 (RedNote): fix "No video formats found" — stop overriding the
+      User-Agent/Referer, which broke the yt-dlp extractor
+- [x] X video: pass Twitter auth cookies to yt-dlp for protected/sensitive posts
+- [x] Instagram: cookie support + non-coder setup guide + in-app Settings tab
+- [x] 喜马拉雅 (Ximalaya): new downloader for single episodes (`/sound/<id>`);
+      album pages return an actionable message
+- [x] `/api/health`: fix 500 from `pyannote` `find_spec` when the optional
+      diarization dependency isn't installed
 
 ### v1.x — Utility Foundation (Complete)
 

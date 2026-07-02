@@ -4,14 +4,14 @@
   <img src="frontend/public/logo.svg" alt="Sift" width="200">
 </p>
 
-**AI-First Knowledge Extraction Platform.** Ingest audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, Discord, Instagram, 小红书, and more — then extract, search, and reason over the knowledge inside.
+**AI-First Knowledge Extraction Platform.** Ingest audio and video from X Spaces, Apple Podcasts, Spotify, YouTube, Discord, Instagram, 小红书, 小宇宙, 喜马拉雅, and more — then extract, search, and reason over the knowledge inside.
 
 > Downloading is just the first step. Sift turns media into searchable, queryable intelligence.
 
 ## Features
 
 ### Ingest & Extract
-- **Multi-Platform Ingest** - X Spaces, Apple Podcasts, Spotify, YouTube, Discord, Instagram, 小红书, 小宇宙
+- **Multi-Platform Ingest** - X Spaces, Apple Podcasts, Spotify, YouTube, Discord, Instagram, 小红书, 小宇宙, 喜马拉雅
 - **Video Downloads** - X/Twitter, YouTube, Instagram, 小红书 (480p/720p/1080p)
 - **Transcription** - Local Whisper or API models (OpenAI, Groq, etc.), 99+ languages
 - **Fetch Transcript** - Instantly grab existing YouTube captions or Spotify Read Along transcripts (no Whisper needed)
@@ -110,13 +110,14 @@ Full API documentation available at http://localhost:8000/docs (Swagger UI)
 | YouTube | `youtube.com/watch?v=...` |
 | Discord | `cdn.discordapp.com/attachments/...` |
 | 小宇宙 | `xiaoyuzhoufm.com/episode/...` |
+| 喜马拉雅 | `ximalaya.com/sound/...` (single episodes; album pages not supported) |
 
 ### Video
 | Platform | URL Pattern |
 |----------|-------------|
 | X/Twitter | `x.com/user/status/...` |
 | YouTube | `youtube.com/watch?v=...` |
-| Instagram | `instagram.com/reel/...`, `instagram.com/p/...` |
+| Instagram | `instagram.com/reel/...`, `instagram.com/p/...` (requires login cookies — see [docs/instagram-setup.md](docs/instagram-setup.md)) |
 | 小红书 | `xiaohongshu.com/explore/...`, `xhslink.com/...` |
 
 ## Telegram Bot

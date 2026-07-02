@@ -2,8 +2,14 @@
 
 ## Overview
 
+Several platforms require a logged-in session to download their content. This guide
+covers Twitter/X in depth; see [Per-Platform Cookie Authentication](#per-platform-cookie-authentication)
+for Instagram and YouTube.
+
 As of July 2023, Twitter/X disabled guest access to their internal APIs. You must now
-provide authenticated cookies to download Spaces.
+provide authenticated cookies to download Spaces. The same `TWITTER_AUTH_TOKEN` /
+`TWITTER_CT0` credentials are also passed to yt-dlp for **protected, private, or
+age-restricted X video** posts (public posts download without them).
 
 ## Required Credentials
 
@@ -124,6 +130,27 @@ def get_auth_headers(auth_token: str, ct0: str) -> dict:
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
 ```
+
+## Per-Platform Cookie Authentication
+
+Beyond X/Twitter, these platforms need a logged-in session. All use a Netscape
+`cookies.txt` file exported from a browser where you're logged in (the
+**"Get cookies.txt LOCALLY"** extension is the easiest source).
+
+| Platform | Env var | Notes |
+|----------|---------|-------|
+| Instagram | `INSTAGRAM_COOKIES_FILE` | Required for most reels/posts. Full non-coder walkthrough: [instagram-setup.md](instagram-setup.md) |
+| YouTube | `YOUTUBE_COOKIES_FILE` | Only needed for age-restricted / "confirm you're not a bot" / geo-blocked videos |
+| X / Twitter (video) | `TWITTER_AUTH_TOKEN` + `TWITTER_CT0` | Reuses the Spaces credentials above; only needed for protected/sensitive posts |
+
+```bash
+# Example: enable Instagram downloads
+export INSTAGRAM_COOKIES_FILE="/path/to/www.instagram.com_cookies.txt"
+```
+
+> Every cookies file is a full login for that account — keep it private, never
+> commit it, and re-export when a session expires (downloads start failing with a
+> "requires login" message).
 
 ## Token Expiration
 
