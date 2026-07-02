@@ -102,6 +102,10 @@ class YouTubeVideoDownloader(PlatformDownloader):
 
             cmd = [
                 self._yt_dlp_path,
+                # Download the EJS challenge solver so YouTube's n-challenge
+                # can be solved (via the local deno runtime); without it some
+                # formats are missing / throttled.
+                "--remote-components", "ejs:github",
                 "--no-progress",
                 "-f", format_spec,
                 "-o", output_template,
@@ -227,6 +231,7 @@ class YouTubeVideoDownloader(PlatformDownloader):
 
             cmd = [
                 self._yt_dlp_path,
+                "--remote-components", "ejs:github",
                 "--no-download",
                 "--print-json",
                 url,
