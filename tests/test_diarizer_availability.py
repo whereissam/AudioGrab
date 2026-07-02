@@ -6,7 +6,6 @@ None) when the parent `pyannote` package is not installed. That crashed the
 plain bool.
 """
 
-import builtins
 import importlib.util
 
 from app.core.diarizer import SpeakerDiarizer
