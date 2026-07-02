@@ -15,6 +15,7 @@ class Platform(str, Enum):
     SPOTIFY = "spotify"
     YOUTUBE = "youtube"
     XIAOYUZHOU = "xiaoyuzhou"
+    XIMALAYA = "ximalaya"
     DISCORD = "discord"
     # Video
     X_VIDEO = "x_video"

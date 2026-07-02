@@ -1,5 +1,5 @@
 export type DownloadStatus = 'idle' | 'loading' | 'success' | 'error'
-export type Platform = 'x_spaces' | 'apple_podcasts' | 'spotify' | 'youtube' | 'xiaoyuzhou' | 'x_video' | 'youtube_video' | 'instagram' | 'xiaohongshu'
+export type Platform = 'x_spaces' | 'apple_podcasts' | 'spotify' | 'youtube' | 'xiaoyuzhou' | 'ximalaya' | 'x_video' | 'youtube_video' | 'instagram' | 'xiaohongshu'
 export type MediaType = 'audio' | 'video' | 'transcribe' | 'clips'
 export type TranscriptionEngineType = 'auto' | 'whisper' | 'sensevoice' | 'apple' | 'cloud'
 export type WhisperModel = 'tiny' | 'base' | 'small' | 'medium' | 'large-v3' | 'turbo'
@@ -34,7 +34,7 @@ export interface TranscriptionResult {
   diarized?: boolean
 }
 
-export const AUDIO_PLATFORMS: Platform[] = ['x_spaces', 'apple_podcasts', 'spotify', 'youtube', 'xiaoyuzhou']
+export const AUDIO_PLATFORMS: Platform[] = ['x_spaces', 'apple_podcasts', 'spotify', 'youtube', 'xiaoyuzhou', 'ximalaya']
 export const VIDEO_PLATFORMS: Platform[] = ['x_video', 'youtube_video', 'instagram', 'xiaohongshu']
 
 // ─── Format options (centralized) ───────────────────────────────
@@ -57,6 +57,7 @@ export const PLATFORM_FORMATS: Record<Platform, FormatOption[]> = {
   spotify: AUDIO_FORMAT_OPTIONS,
   youtube: AUDIO_FORMAT_OPTIONS,
   xiaoyuzhou: AUDIO_FORMAT_OPTIONS,
+  ximalaya: AUDIO_FORMAT_OPTIONS,
   // Video platforms — mp4 only
   x_video: VIDEO_FORMAT_OPTIONS,
   youtube_video: VIDEO_FORMAT_OPTIONS,
@@ -70,6 +71,7 @@ export const PLATFORM_PLACEHOLDERS: Record<Platform, string> = {
   spotify: 'https://open.spotify.com/episode/abc123',
   youtube: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
   xiaoyuzhou: 'https://www.xiaoyuzhoufm.com/episode/abc123',
+  ximalaya: 'https://www.ximalaya.com/sound/123456789',
   x_video: 'https://x.com/user/status/123456789',
   youtube_video: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
   instagram: 'https://www.instagram.com/reel/ABC123xyz',
@@ -82,6 +84,7 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
   spotify: 'Spotify',
   youtube: 'YouTube',
   xiaoyuzhou: '小宇宙',
+  ximalaya: '喜马拉雅',
   x_video: 'X/Twitter',
   youtube_video: 'YouTube',
   instagram: 'Instagram',
@@ -126,6 +129,14 @@ export const PLATFORM_GUIDES: Record<Platform, { steps: string[]; tip?: string }
       'Tap the share icon and copy the link',
       'Paste the link here',
     ],
+  },
+  ximalaya: {
+    steps: [
+      'Open a single episode in 喜马拉雅 (not the album page)',
+      'Copy its link — it should look like ximalaya.com/sound/...',
+      'Paste the link here',
+    ],
+    tip: 'Album/series pages aren’t supported — use a single episode link. Paid/VIP episodes can’t be downloaded.',
   },
   x_video: {
     steps: [
