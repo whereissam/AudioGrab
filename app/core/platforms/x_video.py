@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from ...config import get_settings
+from ..auth import twitter_ytdlp_cookies
 from ..base import Platform, PlatformDownloader, AudioMetadata, DownloadResult
 from ..exceptions import SiftError, ContentNotFoundError, ToolNotFoundError
 
@@ -98,29 +99,40 @@ class XVideoDownloader(PlatformDownloader):
                 "highest": "best[ext=mp4]/best",
             }.get(quality, "best[ext=mp4]/best")
 
-            cmd = [
-                self._yt_dlp_path,
-                "--no-progress",
-                "-f", format_spec,
-                "-o", output_template,
-                "--print-json",
-                "--merge-output-format", "mp4",
-                # Parallel fragment downloads
-                "--concurrent-fragments", "16",
-                "--fragment-retries", "5",
-            ]
+            # X video is always delivered as an mp4 container (default output
+            # format). Log it so callers know what to expect.
+            logger.info("X video output format: mp4 (default)")
 
-            cmd.append(url)
+            with twitter_ytdlp_cookies() as cookies_file:
+                cmd = [
+                    self._yt_dlp_path,
+                    "--no-progress",
+                    "-f", format_spec,
+                    "-o", output_template,
+                    "--print-json",
+                    "--merge-output-format", "mp4",
+                    # Parallel fragment downloads
+                    "--concurrent-fragments", "16",
+                    "--fragment-retries", "5",
+                ]
 
-            logger.info("Running yt-dlp for X video...")
+                # Pass Twitter/X auth (from TWITTER_COOKIE_FILE or
+                # TWITTER_AUTH_TOKEN + TWITTER_CT0) for protected / sensitive /
+                # age-restricted posts. Public posts work without it.
+                if cookies_file:
+                    cmd.extend(["--cookies", cookies_file])
 
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
+                cmd.append(url)
 
-            stdout, stderr = await process.communicate()
+                logger.info("Running yt-dlp for X video...")
+
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+
+                stdout, stderr = await process.communicate()
 
             if process.returncode != 0:
                 error_msg = stderr.decode() if stderr else "Unknown error"
@@ -130,6 +142,27 @@ class XVideoDownloader(PlatformDownloader):
                     raise ContentNotFoundError(f"Post not found: {post_id}")
                 if "no video" in error_msg.lower():
                     raise ContentNotFoundError(f"No video in post: {post_id}")
+                # Auth gate: protected / age-restricted / sensitive posts.
+                if (
+                    "nsfw" in error_msg.lower()
+                    or "age" in error_msg.lower()
+                    or "log in" in error_msg.lower()
+                    or "login" in error_msg.lower()
+                    or "protected" in error_msg.lower()
+                    or "private" in error_msg.lower()
+                    or "--cookies" in error_msg.lower()
+                ):
+                    if not get_settings().has_auth:
+                        raise ContentNotFoundError(
+                            "This X post requires authentication (protected, "
+                            "private, or age-restricted). Set TWITTER_AUTH_TOKEN "
+                            "and TWITTER_CT0 (or TWITTER_COOKIE_FILE) in your .env."
+                        )
+                    raise ContentNotFoundError(
+                        "This X post could not be accessed even with the "
+                        "configured credentials. They may be expired or lack "
+                        "access to this content."
+                    )
 
                 raise SiftError(f"yt-dlp failed: {error_msg[:500]}")
 

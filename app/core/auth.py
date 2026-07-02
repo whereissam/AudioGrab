@@ -1,9 +1,56 @@
 """Authentication management for Twitter/X API."""
 
+import contextlib
+import os
+import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 from ..config import get_settings
 from .exceptions import AuthenticationError
+
+
+def _netscape_cookie_content(auth_token: str, ct0: str) -> str:
+    """Build a Netscape-format cookie file body for yt-dlp (x.com + twitter.com)."""
+    # Far-future expiry (year 2033); yt-dlp only needs the values present.
+    expiry = "2000000000"
+    lines = ["# Netscape HTTP Cookie File"]
+    for domain in (".x.com", ".twitter.com"):
+        lines.append(f"{domain}\tTRUE\t/\tTRUE\t{expiry}\tauth_token\t{auth_token}")
+        lines.append(f"{domain}\tTRUE\t/\tTRUE\t{expiry}\tct0\t{ct0}")
+    return "\n".join(lines) + "\n"
+
+
+@contextlib.contextmanager
+def twitter_ytdlp_cookies() -> Iterator[str | None]:
+    """Yield a path to a Netscape cookie file for yt-dlp, or None if no auth.
+
+    Prefers an explicit ``twitter_cookie_file``. Otherwise, if ``auth_token``
+    and ``ct0`` are configured, writes them to a temporary cookie file that is
+    removed on exit.
+    """
+    settings = get_settings()
+
+    if settings.twitter_cookie_file:
+        yield settings.twitter_cookie_file
+        return
+
+    if settings.twitter_auth_token and settings.twitter_ct0:
+        fd, path = tempfile.mkstemp(suffix=".txt", prefix="x-cookies-")
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write(
+                    _netscape_cookie_content(
+                        settings.twitter_auth_token, settings.twitter_ct0
+                    )
+                )
+            yield path
+        finally:
+            with contextlib.suppress(OSError):
+                os.unlink(path)
+        return
+
+    yield None
 
 
 class AuthManager:
