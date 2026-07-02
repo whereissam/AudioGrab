@@ -190,6 +190,33 @@ See [diarization-setup.md](./diarization-setup.md) for setup instructions.
 - [ ] Show notification/toast on successful queue
 - [ ] Optional: Show download progress in extension popup
 
+### WXT rewrite (2026-07-02)
+
+Migrated the plain-JS extension to the [WXT](https://wxt.dev) framework
+(TypeScript + Vite). New project lives in `extension/`; legacy `browser-extension/`
+kept with a deprecation pointer until the WXT build is published.
+
+- [x] Scaffold WXT project (Chrome MV3 + Firefox from one `wxt.config.ts`)
+- [x] Single source of truth for platform detection (`utils/platforms.ts`),
+      synced with the server — incl. 喜马拉雅 / 小红书 / Instagram / YouTube Shorts
+- [x] Fix: configurable **remote** server via `optional_host_permissions`
+      (old extension hardcoded localhost)
+- [x] Fix: **API-key** field sent as `X-API-Key`
+- [x] Fix: replace always-on subtree MutationObserver with a cheap SPA-nav poll
+- [x] Vitest unit tests (detection + server helpers)
+- [ ] Publish to Chrome Web Store / AMO, then remove `browser-extension/`
+
+### Universal Capture (design + plan ready; not yet built)
+
+Design + implementation plan approved and updated to WXT — see
+`docs/superpowers/specs/` and `docs/superpowers/plans/`. Turns the extension
+into a detect-anything capture surface (DOM + network sniffing → mp3/mp4 pick →
+save to Downloads).
+
+- [ ] Phase 1 — server: `Platform.GENERIC`, `GenericDownloader`, `POST /api/capture`
+- [ ] Phase 2 — detection engine (content-script DOM scan + `webRequest` sniff + per-tab registry)
+- [ ] Phase 3 — capture popup (candidate list, format/quality, poll → `chrome.downloads`)
+
 ---
 
 ## P3: LLM-Powered Summarization ✅ COMPLETED
