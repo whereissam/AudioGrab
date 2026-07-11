@@ -1226,6 +1226,48 @@ Deferred: **Notion** (external `notion-client` + integration token + database), 
 
 ---
 
+## P22: Ingestion API Migration (Asset/Artifact Resource Model)
+
+Full plan: [ingestion-api-migration.md](ingestion-api-migration.md). Goal:
+durable asset identity + versioned transcript artifacts behind a unified
+async `/v1/ingestions` API, keeping all legacy endpoints working.
+
+### Slice 0 — durable job state baseline ✅ (shipped 2026-07-11)
+
+- [x] Fix `/api/api/models` double prefix → `/api/models`
+- [x] Replace in-memory API job dicts with SQLite-backed dict-like mappings
+      (`app/api/durable_jobs.py`): `download_routes.jobs` and
+      `transcription_store.transcription_jobs` now survive restarts;
+      response shapes unchanged; row columns authoritative for live status
+- [x] Persist submission context (`source_url`, format/quality/model) on
+      job rows via `_persist_extras` so restart recovery has full context
+- [x] Regression tests: restart durability, status mapping, type isolation,
+      workflow-blob fallback, endpoint-level download flow (`tests/test_durable_api_jobs.py`, 11 tests)
+
+### Slice 1 — asset identity
+
+- [ ] `assets` table + `jobs.asset_id` (nullable, additive migration)
+- [ ] URL canonicalizers (YouTube + generic + upload SHA-256) in `app/core/asset_identity.py`
+- [ ] `find_or_create_asset` transaction wired into `JobStore.create_job`
+- [ ] Backfill existing jobs (idempotent, marker-guarded, auto-backup first)
+- [ ] `get_asset_for_episode(episode_id)` bridge for the knowledge layer
+
+### Slice 2 — versioned transcript artifacts + segments
+
+- [ ] `transcript_artifacts` + `transcript_segments` tables; dual-write with
+      legacy `transcription_result` blob; persist raw `avg_logprob`
+
+### Slice 3 — unified async ingestion API
+
+- [ ] `POST /v1/ingestions` (+ `Idempotency-Key`), `GET /v1/ingestions/{id}`,
+      `GET /v1/assets/{id}`, stage-based progress; legacy routes become adapters
+
+### Deferred (Slices 4–5)
+
+- [ ] Commercial reliability: API-key principals, usage ledger, quotas,
+      signed webhooks
+- [ ] Evidence retrieval: segment embeddings, hybrid search, MCP `search_segments`
+
 ## v2.0 Backlog (Future Ideas)
 
 - [ ] **Cross-Platform Social Graph**: Track speakers across downloads, build profiles of their positions over time

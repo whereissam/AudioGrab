@@ -7,7 +7,9 @@ from pydantic import BaseModel
 
 from .auth import verify_api_key
 
-router = APIRouter(prefix="/api/models", tags=["models"], dependencies=[Depends(verify_api_key)])
+# Mounted under the global "/api" prefix in app/main.py, so the prefix here
+# must NOT repeat it (a previous "/api/models" prefix produced /api/api/models).
+router = APIRouter(prefix="/models", tags=["models"], dependencies=[Depends(verify_api_key)])
 
 # Default model storage location (inside user data dir)
 MODELS_DIR = Path.home() / ".sift" / "models"

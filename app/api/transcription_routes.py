@@ -48,6 +48,7 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
     job = transcription_jobs[job_id]
     job.status = JobStatus.PROCESSING
     job.progress = 0.1
+    transcription_jobs[job_id] = job
 
     enhanced_path = None  # Track enhanced file for cleanup/keeping
     original_audio_path = audio_path  # Track original for cleanup
@@ -257,6 +258,10 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
         logger.exception(f"Transcription error for job {job_id}")
         job.status = JobStatus.FAILED
         job.error = str(e) if str(e) else "Transcription failed"
+    finally:
+        # Persist the terminal state (durable mapping: writes go through
+        # assignment, not shared-object mutation).
+        transcription_jobs[job_id] = job
 
 
 @router.get("/transcribe/engines")
@@ -367,6 +372,12 @@ async def start_transcription(
         source_job_id=source_job_id,
         created_at=datetime.utcnow(),
     )
+    # Submission context persisted on the job row for restart recovery.
+    job._persist_extras = {
+        "model_size": body.model.value if body.model else None,
+        "language": body.language,
+        "transcription_format": body.output_format.value if body.output_format else None,
+    }
     transcription_jobs[job_id] = job
 
     # Start background transcription

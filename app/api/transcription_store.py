@@ -2,14 +2,16 @@
 
 This module provides a centralized store for transcription jobs
 that can be accessed by multiple route modules without circular imports.
+
+Backed by the SQLite job store (see durable_jobs.py) so jobs survive
+process restarts; the dict-like interface is unchanged.
 """
 
-from typing import Dict
+from .durable_jobs import DurableTranscriptionJobs
 from .schemas import TranscriptionJob
 
-# In-memory store for transcription jobs
-# Key: job_id, Value: TranscriptionJob
-transcription_jobs: Dict[str, TranscriptionJob] = {}
+# Durable store for transcription jobs — dict-like, keyed by job_id.
+transcription_jobs = DurableTranscriptionJobs()
 
 
 def get_transcription_job(job_id: str) -> TranscriptionJob | None:

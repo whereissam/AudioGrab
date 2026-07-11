@@ -25,7 +25,7 @@ class _JobsMixin:
         "output_format", "quality", "model_size", "language", "transcription_format",
         "content_info", "transcription_result", "file_size_mb", "error",
         "progress", "last_checkpoint", "priority", "batch_id", "scheduled_at",
-        "webhook_url", "updated_at", "completed_at",
+        "webhook_url", "updated_at", "completed_at", "created_at",
         # P18 knowledge backfill control-plane columns
         "knowledge_status", "knowledge_version", "knowledge_locked_at",
         "knowledge_worker_id",

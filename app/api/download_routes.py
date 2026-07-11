@@ -5,12 +5,12 @@ import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from .auth import verify_api_key
+from .durable_jobs import DurableDownloadJobs
 from .ratelimit import limiter
 from .schemas import (
     DownloadRequest,
@@ -27,8 +27,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
-# In-memory job storage (use Redis/database for production)
-jobs: Dict[str, DownloadJob] = {}
+# Durable job storage backed by the SQLite job store (dict-like interface).
+# Fetched jobs are copies: mutate, then assign back to persist.
+jobs = DurableDownloadJobs()
 
 
 def _core_platform_to_schema(platform: CorePlatform) -> Platform:
@@ -53,6 +54,7 @@ async def _process_download(job_id: str, request: DownloadRequest):
     job = jobs[job_id]
     job.status = JobStatus.PROCESSING
     job.progress = 0.1
+    jobs[job_id] = job
 
     try:
         downloader = DownloaderFactory.get_downloader(request.url)
@@ -123,31 +125,6 @@ async def _process_download(job_id: str, request: DownloadRequest):
                 except Exception as e:
                     logger.warning(f"[{job_id}] Failed to embed metadata: {e}")
 
-            # Persist to job store
-            try:
-                from ..core.job_store import get_job_store, JobType
-                job_store = get_job_store()
-                job_store.create_job(
-                    job_id=job_id,
-                    job_type=JobType.DOWNLOAD,
-                    source_url=request.url,
-                    platform=job.platform.value if job.platform else None,
-                    output_format=request.format.value,
-                    quality=request.quality.value,
-                    priority=request.priority,
-                    batch_id=None,
-                    webhook_url=request.webhook_url,
-                )
-                job_store.update_job(
-                    job_id,
-                    status="completed",
-                    converted_file_path=str(final_path),
-                    file_size_mb=job.file_size_mb,
-                    content_info=result.metadata.__dict__ if result.metadata else None,
-                )
-            except Exception as e:
-                logger.warning(f"[{job_id}] Failed to persist job: {e}")
-
             # Send webhook notification
             if request.webhook_url:
                 try:
@@ -179,6 +156,10 @@ async def _process_download(job_id: str, request: DownloadRequest):
         job.status = JobStatus.FAILED
         error_msg = str(e) if e else "Download failed"
         job.error = error_msg if error_msg else "Download failed"
+    finally:
+        # Persist the terminal state (durable mapping: writes go through
+        # assignment, not shared-object mutation).
+        jobs[job_id] = job
 
 
 @router.post("/download", response_model=DownloadJob)
@@ -225,6 +206,16 @@ async def start_download(
         progress=0.0,
         created_at=datetime.utcnow(),
     )
+    # Request fields the response model doesn't carry, persisted on the
+    # job row so restart recovery has the full submission context.
+    job._persist_extras = {
+        "source_url": body.url,
+        "platform": job.platform.value if job.platform else None,
+        "output_format": body.format.value,
+        "quality": body.quality.value,
+        "priority": body.priority,
+        "webhook_url": body.webhook_url,
+    }
     jobs[job_id] = job
 
     # Start background download

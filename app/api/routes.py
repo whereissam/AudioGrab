@@ -152,6 +152,8 @@ async def quick_add(
             progress=0.0,
             created_at=datetime.utcnow(),
         )
+        # Persist the submitted URL on the job row (not in the response model).
+        job._persist_extras = {"source_url": url}
         jobs[job_id] = job
 
         # Create download request
