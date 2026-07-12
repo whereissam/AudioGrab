@@ -1260,10 +1260,23 @@ unified async `/v1/ingestions` API, keeping all legacy endpoints working.
 - [x] 17 tests: canonicalizer matrix, concurrency, legacy-DB backfill fixture,
       endpoint-level same-URL→same-asset (`tests/test_asset_identity.py`)
 
-### Slice 2 — versioned transcript artifacts + segments
+### Slice 2 — versioned transcript artifacts + segments ✅ (shipped 2026-07-12)
 
-- [ ] `transcript_artifacts` + `transcript_segments` tables; dual-write with
-      legacy `transcription_result` blob; persist raw `avg_logprob`
+- [x] `transcript_artifacts` (pipeline_version, supersedes_artifact_id) +
+      `transcript_segments` (segment_id, ordinal, start_ms/end_ms, speaker_id,
+      model_confidence_raw) tables — retranscription supersedes, never mutates
+- [x] Dual-write in both transcription paths (WorkflowProcessor + API route);
+      best-effort, never fails the job; `verify_transcript_dual_write`
+      consistency check logged after each write
+- [x] faster-whisper `avg_logprob` captured end-to-end (was dropped at
+      collection); preserved through diarization merge; additive
+      `avg_logprob` on API segment schema. `confidence_normalized` stays
+      NULL until a documented transform is chosen
+- [x] Row-fallback reads: durable mapping rebuilds segments from artifact
+      rows when the legacy blob lacks them (full read-switch deferred until
+      dual-write verifies in production)
+- [x] 6 tests: persistence/ordinals/ms, supersede immutability, verify
+      matrix, row-fallback, API-pipeline dual-write (`tests/test_transcript_artifacts.py`)
 
 ### Slice 3 — unified async ingestion API
 
@@ -1275,6 +1288,15 @@ unified async `/v1/ingestions` API, keeping all legacy endpoints working.
 - [ ] Commercial reliability: API-key principals, usage ledger, quotas,
       signed webhooks
 - [ ] Evidence retrieval: segment embeddings, hybrid search, MCP `search_segments`
+
+## Transcription Engine Ideas
+
+- [ ] **Breeze-ASR-25 engine** (MediaTek, Whisper-large-v2 fine-tune) for
+      Taiwanese Mandarin + zh/en code-switching — slot into
+      `transcription_engine.py` as a new engine; needs CTranslate2 conversion
+      for the faster-whisper runtime or the HF transformers pipeline;
+      pipeline_version stamping (Slice 2) already records which engine
+      produced each artifact
 
 ## v2.0 Backlog (Future Ideas)
 

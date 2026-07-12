@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from ._annotations import _AnnotationsMixin
+from ._artifacts import _ArtifactsMixin
 from ._assets import _AssetsMixin
 from ._backfill import _BackfillMixin
 from ._batches import _BatchesMixin
@@ -22,6 +23,7 @@ class JobStore(
     _SchemaMixin,
     _JobsMixin,
     _AssetsMixin,
+    _ArtifactsMixin,
     _BatchesMixin,
     _AnnotationsMixin,
     _SettingsMixin,

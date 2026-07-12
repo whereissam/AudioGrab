@@ -409,6 +409,65 @@ class _SchemaMixin:
                 )
             """)
 
+            # Slice 2: versioned transcript artifacts. One row per transcript
+            # *generation*; retranscription inserts a new artifact with
+            # supersedes_artifact_id set instead of mutating history.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS transcript_artifacts (
+                    artifact_id             TEXT PRIMARY KEY,
+                    asset_id                TEXT NOT NULL,
+                    job_id                  TEXT,
+                    schema_version          INTEGER NOT NULL DEFAULT 1,
+                    pipeline_version        TEXT NOT NULL,
+                    model_name              TEXT,
+                    language                TEXT,
+                    diarization_enabled     INTEGER NOT NULL DEFAULT 0,
+                    status                  TEXT NOT NULL DEFAULT 'complete',
+                    supersedes_artifact_id  TEXT,
+                    created_at              TEXT NOT NULL,
+                    FOREIGN KEY (asset_id) REFERENCES assets(asset_id)
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_artifacts_asset "
+                "ON transcript_artifacts(asset_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_artifacts_job "
+                "ON transcript_artifacts(job_id)"
+            )
+
+            # Addressable transcript segments. model_confidence_raw is
+            # faster-whisper's avg_logprob verbatim (NOT calibrated);
+            # confidence_normalized stays NULL until a documented transform
+            # is chosen (see docs/knowledge-schema.md when that lands).
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS transcript_segments (
+                    segment_id              TEXT PRIMARY KEY,
+                    transcript_artifact_id  TEXT NOT NULL,
+                    ordinal                 INTEGER NOT NULL,
+                    start_ms                INTEGER NOT NULL,
+                    end_ms                  INTEGER NOT NULL,
+                    speaker_id              TEXT,
+                    text                    TEXT NOT NULL,
+                    model_confidence_raw    REAL,
+                    confidence_normalized   REAL,
+                    source_segment_key      TEXT,
+                    FOREIGN KEY (transcript_artifact_id)
+                        REFERENCES transcript_artifacts(artifact_id)
+                        ON DELETE CASCADE,
+                    UNIQUE (transcript_artifact_id, ordinal)
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_segments_artifact "
+                "ON transcript_segments(transcript_artifact_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_segments_time "
+                "ON transcript_segments(transcript_artifact_id, start_ms)"
+            )
+
             # Run migrations for existing databases
             self._migrate_schema(conn)
 

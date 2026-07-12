@@ -52,6 +52,9 @@ class TranscriptionSegment:
     end: float
     text: str
     speaker: Optional[str] = None
+    # Raw faster-whisper avg_logprob — NOT a calibrated probability. Stored
+    # verbatim so transcript artifacts keep the model's own metric.
+    avg_logprob: Optional[float] = None
 
 
 @dataclass
@@ -341,6 +344,7 @@ class AudioTranscriber:
                         start=segment.start,
                         end=segment.end,
                         text=segment.text.strip(),
+                        avg_logprob=getattr(segment, "avg_logprob", None),
                     )
                 )
                 full_text_parts.append(segment.text.strip())
@@ -488,6 +492,7 @@ class AudioTranscriber:
                         start=segment.start,
                         end=segment.end,
                         text=segment.text.strip(),
+                        avg_logprob=getattr(segment, "avg_logprob", None),
                     )
                 )
                 full_text_parts.append(segment.text.strip())

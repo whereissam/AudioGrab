@@ -139,15 +139,18 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
                             segments, speaker_segments
                         )
 
-                        # Convert back to TranscriptionSegment with speaker labels
+                        # Convert back to TranscriptionSegment with speaker
+                        # labels; diarized output is 1:1 ordered with input,
+                        # so per-segment confidence carries over by position.
                         segments = [
                             TranscriptionSegment(
                                 start=d.start,
                                 end=d.end,
                                 text=d.text,
                                 speaker=d.speaker,
+                                avg_logprob=orig.avg_logprob,
                             )
-                            for d in diarized
+                            for orig, d in zip(segments, diarized)
                         ]
                         logger.info(f"[{job_id}] Diarization complete")
                     else:
@@ -165,6 +168,7 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
                     end=seg.end,
                     text=seg.text,
                     speaker=seg.speaker,
+                    avg_logprob=getattr(seg, "avg_logprob", None),
                 )
                 for seg in segments
             ]
@@ -250,6 +254,34 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
             job.status = JobStatus.COMPLETED
             job.progress = 1.0
             job.completed_at = datetime.utcnow()
+
+            # Slice 2 dual-write: persist the legacy blob first (assignment
+            # below), then addressable segment rows. Best-effort; never
+            # fails the user's transcription.
+            transcription_jobs[job_id] = job
+            try:
+                from ..core.job_store import get_job_store
+
+                store = get_job_store()
+                model_label = getattr(getattr(request, "model", None), "value", None)
+                artifact_id = store.record_transcript_artifact_for_job(
+                    job_id,
+                    segments,
+                    pipeline_version=(
+                        f"{engine_type.value}:{model_label or '-'}"
+                        f"/diar={int(has_speakers)}"
+                    ),
+                    model_name=model_label,
+                    language=result.language,
+                    diarization_enabled=has_speakers,
+                )
+                if artifact_id:
+                    store.verify_transcript_dual_write(job_id)
+            except Exception:
+                logger.warning(
+                    f"[{job_id}] Transcript artifact dual-write failed",
+                    exc_info=True,
+                )
         else:
             job.status = JobStatus.FAILED
             job.error = result.error or "Transcription failed"

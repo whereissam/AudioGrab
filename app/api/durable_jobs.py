@@ -114,13 +114,18 @@ class _DurableJobMapping:
     def __setitem__(self, job_id: str, job) -> None:
         store = get_job_store()
         extras = getattr(job, "_persist_extras", None) or {}
+        fields = self._serialize(job)
         if store.get_job(job_id) is None:
-            store.create_job(
-                job_id,
-                self.job_type,
-                **{k: v for k, v in extras.items() if k in _CREATE_EXTRAS},
-            )
-        store.update_job(job_id, **self._serialize(job))
+            create_kwargs = {
+                k: v for k, v in extras.items() if k in _CREATE_EXTRAS
+            }
+            # Asset resolution happens in create_job, so the source must be
+            # present at creation time — pull it from the serialized model
+            # when the caller didn't stash it in extras.
+            if not create_kwargs.get("source_url") and fields.get("source_url"):
+                create_kwargs["source_url"] = fields["source_url"]
+            store.create_job(job_id, self.job_type, **create_kwargs)
+        store.update_job(job_id, **fields)
 
     def __delitem__(self, job_id: str) -> None:
         if self._get_row(job_id) is None:
@@ -286,6 +291,8 @@ class DurableTranscriptionJobs(_DurableJobMapping):
                 ]
             except Exception:
                 segments = None
+        if segments is None:
+            segments = self._segments_from_artifact_rows(row["job_id"])
 
         return TranscriptionJob(
             job_id=row["job_id"],
@@ -303,3 +310,35 @@ class DurableTranscriptionJobs(_DurableJobMapping):
             created_at=_parse_dt(row["created_at"]) or datetime.utcnow(),
             completed_at=_parse_dt(row.get("completed_at")),
         )
+
+    @staticmethod
+    def _segments_from_artifact_rows(job_id: str):
+        """Slice 2 fallback: when the legacy blob has no usable segments,
+        rebuild them from transcript_segments rows (latest artifact)."""
+        try:
+            from .schemas import TranscriptionSegment
+
+            store = get_job_store()
+            artifact = store.get_transcript_artifact_for_job(job_id)
+            if not artifact:
+                return None
+            rows = store.get_transcript_segments(artifact["artifact_id"])
+            if not rows:
+                return None
+            return [
+                TranscriptionSegment(
+                    start=r["start_ms"] / 1000.0,
+                    end=r["end_ms"] / 1000.0,
+                    text=r["text"],
+                    speaker=r["speaker_id"],
+                    avg_logprob=r["model_confidence_raw"],
+                )
+                for r in rows
+            ]
+        except Exception:
+            logger.warning(
+                "Failed to rebuild segments from artifact rows for %s",
+                job_id,
+                exc_info=True,
+            )
+            return None

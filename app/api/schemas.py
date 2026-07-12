@@ -297,6 +297,13 @@ class TranscriptionSegment(BaseModel):
         default=None,
         description="Speaker label (e.g., 'SPEAKER_00') if diarization was enabled",
     )
+    avg_logprob: Optional[float] = Field(
+        default=None,
+        description=(
+            "Raw model avg_logprob for this segment (faster-whisper). "
+            "Not a calibrated probability."
+        ),
+    )
 
 
 class TranscriptionJob(BaseModel):

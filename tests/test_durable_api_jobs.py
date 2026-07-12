@@ -129,7 +129,12 @@ def test_transcription_job_survives_restart_lossless(store, db_path, monkeypatch
     _restart(db_path, monkeypatch)
 
     loaded = jobs["tr-1"]
-    assert loaded.model_dump() == job.model_dump()
+    # Saving resolves the URL to an asset (Slice 1), so the loaded copy
+    # carries the asset link the in-memory original didn't have yet.
+    assert loaded.asset_id is not None
+    assert loaded.model_dump(exclude={"asset_id"}) == job.model_dump(
+        exclude={"asset_id"}
+    )
 
 
 # ---------------------------------------------------------------------------

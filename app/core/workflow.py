@@ -262,15 +262,18 @@ class WorkflowProcessor:
                             segments, speaker_segments
                         )
 
-                        # Convert back to TranscriptionSegment with speaker labels
+                        # Convert back to TranscriptionSegment with speaker
+                        # labels; diarized output is 1:1 ordered with input,
+                        # so per-segment confidence carries over by position.
                         segments = [
                             TranscriptionSegment(
                                 start=d.start,
                                 end=d.end,
                                 text=d.text,
                                 speaker=d.speaker,
+                                avg_logprob=orig.avg_logprob,
                             )
-                            for d in diarized
+                            for orig, d in zip(segments, diarized)
                         ]
                         logger.info(f"[{job_id}] Diarization complete")
                     else:
@@ -316,6 +319,20 @@ class WorkflowProcessor:
                     "diarized": diarize and any(s.speaker for s in segments),
                 },
             )
+
+            # Slice 2 dual-write: addressable segment rows alongside the
+            # legacy blob above. Best-effort — never fails the job.
+            has_speakers = diarize and any(s.speaker for s in segments)
+            artifact_id = self.job_store.record_transcript_artifact_for_job(
+                job_id,
+                segments,
+                pipeline_version=f"whisper:{model_size}/diar={int(has_speakers)}",
+                model_name=model_size,
+                language=result.language,
+                diarization_enabled=has_speakers,
+            )
+            if artifact_id:
+                self.job_store.verify_transcript_dual_write(job_id)
 
             self.job_store.set_status(job_id, JobStatus.COMPLETED)
             logger.info(f"[{job_id}] Transcription complete")
