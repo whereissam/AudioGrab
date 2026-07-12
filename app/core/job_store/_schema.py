@@ -468,6 +468,21 @@ class _SchemaMixin:
                 "ON transcript_segments(transcript_artifact_id, start_ms)"
             )
 
+            # Slice 3: idempotency keys for /v1 submissions. Same key +
+            # same request_hash replays the original job; same key +
+            # different hash is a 409.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS idempotency_keys (
+                    principal_id     TEXT NOT NULL,
+                    endpoint         TEXT NOT NULL,
+                    idempotency_key  TEXT NOT NULL,
+                    request_hash     TEXT NOT NULL,
+                    job_id           TEXT NOT NULL,
+                    created_at       TEXT NOT NULL,
+                    PRIMARY KEY (principal_id, endpoint, idempotency_key)
+                )
+            """)
+
             # Run migrations for existing databases
             self._migrate_schema(conn)
 
@@ -500,6 +515,9 @@ class _SchemaMixin:
             # (SQLite can't add NOT NULL without a rebuild); the service
             # layer sets it for every new job with a durable source.
             ("asset_id", "TEXT"),
+            # Slice 3: outputs requested at submission (JSON array), so the
+            # ingestion runner knows what to produce after a restart.
+            ("requested_outputs", "TEXT"),
         ]
 
         for col_name, col_type in migrations:

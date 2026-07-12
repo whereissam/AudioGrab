@@ -13,6 +13,7 @@ from ._assets import _AssetsMixin
 from ._backfill import _BackfillMixin
 from ._batches import _BatchesMixin
 from ._digest import _DigestMixin
+from ._idempotency import _IdempotencyMixin
 from ._jobs import _JobsMixin
 from ._knowledge import _KnowledgeMixin
 from ._schema import _SchemaMixin
@@ -24,6 +25,7 @@ class JobStore(
     _JobsMixin,
     _AssetsMixin,
     _ArtifactsMixin,
+    _IdempotencyMixin,
     _BatchesMixin,
     _AnnotationsMixin,
     _SettingsMixin,

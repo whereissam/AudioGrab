@@ -4,6 +4,36 @@
 
 Full interactive documentation available at http://localhost:8000/docs (Swagger UI).
 
+### v1 Ingestion API (unified, async)
+
+The agent-facing ingestion surface: submit a source with an outputs list,
+poll the job, address results by durable asset.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v1/ingestions` | Submit a URL for ingestion (async; supports `Idempotency-Key` header) |
+| GET | `/v1/ingestions/{job_id}` | Job status with stage + media-seconds progress |
+| GET | `/v1/assets/{asset_id}` | Asset with latest transcript artifact summary |
+| GET | `/v1/assets/{asset_id}/artifacts` | All transcript artifact versions for an asset |
+
+```bash
+curl -X POST http://localhost:8000/v1/ingestions \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: my-unique-key" \
+  -d '{
+    "source": {"type": "url", "url": "https://youtu.be/dQw4w9WgXcQ"},
+    "outputs": ["transcript", "speakers"],
+    "processing": {"language": null, "diarization": true, "model": "base"}
+  }'
+# 202 → {"job_id": "…", "status": "queued", "asset_id": "…", "cached": false}
+# 200 + cached:true when the asset already has a satisfying transcript
+# 409 when the Idempotency-Key was used with a different body
+```
+
+`outputs`: `media`, `transcript`, `speakers`, `claims`. Progress is
+stage-based (`queued|downloading|converting|transcribing|extracting|completed|failed`)
+with `{completed, total, unit: "media_seconds"}` once duration is known.
+
 ### Core Endpoints
 
 | Method | Endpoint | Description |

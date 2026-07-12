@@ -12,6 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from .bot.webhook import router as telegram_router
 from .config import get_settings
 from .api import router as api_router
+from .api.ingestion_routes import router as ingestion_router
 from .api.ratelimit import limiter
 from .api.middleware import TimeoutMiddleware, RequestIDMiddleware
 from .logging_config import configure_logging, get_logger
@@ -266,6 +267,9 @@ app.add_middleware(RequestIDMiddleware)
 
 # Include API routes
 app.include_router(api_router, prefix="/api", tags=["download"])
+
+# Versioned ingestion API (Slice 3) — additive, own /v1 prefix
+app.include_router(ingestion_router)
 
 # Include Telegram webhook route
 app.include_router(telegram_router)

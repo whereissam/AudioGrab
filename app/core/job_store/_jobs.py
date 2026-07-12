@@ -26,6 +26,7 @@ class _JobsMixin:
         "content_info", "transcription_result", "file_size_mb", "error",
         "progress", "last_checkpoint", "priority", "batch_id", "scheduled_at",
         "webhook_url", "updated_at", "completed_at", "created_at", "asset_id",
+        "requested_outputs",
         # P18 knowledge backfill control-plane columns
         "knowledge_status", "knowledge_version", "knowledge_locked_at",
         "knowledge_worker_id",
@@ -50,6 +51,7 @@ class _JobsMixin:
         webhook_url: Optional[str] = None,
         content_sha256: Optional[str] = None,
         asset_id: Optional[str] = None,
+        requested_outputs: Optional[list] = None,
     ) -> dict:
         """Create a new job, linked to its asset when the source has a
         durable identity (URL or content-hashed upload). Pass ``asset_id``
@@ -77,13 +79,14 @@ class _JobsMixin:
                     job_id, job_type, status, source_url, platform,
                     output_format, quality, model_size, language, transcription_format,
                     priority, batch_id, scheduled_at, webhook_url, asset_id,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    requested_outputs, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 job_id, job_type.value, JobStatus.PENDING.value,
                 source_url, platform, output_format, quality,
                 model_size, language, transcription_format,
                 priority, batch_id, scheduled_at, webhook_url, asset_id,
+                json.dumps(requested_outputs) if requested_outputs else None,
                 now, now
             ))
 
@@ -345,7 +348,7 @@ class _JobsMixin:
         d = dict(row)
 
         # Parse JSON fields
-        for json_field in ["content_info", "transcription_result", "last_checkpoint"]:
+        for json_field in ["content_info", "transcription_result", "last_checkpoint", "requested_outputs"]:
             if d.get(json_field):
                 try:
                     d[json_field] = json.loads(d[json_field])

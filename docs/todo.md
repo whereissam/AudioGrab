@@ -1278,10 +1278,21 @@ unified async `/v1/ingestions` API, keeping all legacy endpoints working.
 - [x] 6 tests: persistence/ordinals/ms, supersede immutability, verify
       matrix, row-fallback, API-pipeline dual-write (`tests/test_transcript_artifacts.py`)
 
-### Slice 3 — unified async ingestion API
+### Slice 3 — unified async ingestion API ✅ (shipped 2026-07-12)
 
-- [ ] `POST /v1/ingestions` (+ `Idempotency-Key`), `GET /v1/ingestions/{id}`,
-      `GET /v1/assets/{id}`, stage-based progress; legacy routes become adapters
+- [x] `POST /v1/ingestions` with `Idempotency-Key` header (scoped
+      principal+endpoint+key, request-hash checked, 409 on mismatch, replay
+      returns the original job); outputs list (media/transcript/speakers/claims)
+- [x] Cache hit: canonical source with a satisfying transcript artifact
+      returns 200 `cached:true` immediately (diarization-aware)
+- [x] `GET /v1/ingestions/{id}` — stage-based status incl. `extracting`
+      (knowledge running) + progress in media_seconds; `GET /v1/assets/{id}`
+      (+ latest artifact & segment count) and `/artifacts` (all versions)
+- [x] `app/core/ingestion_service.py` runner drives store-status stages on
+      one job row via WorkflowProcessor; restart-safe (reads everything from
+      the job row, incl. new `requested_outputs` column)
+- [x] Legacy `/api` endpoints untouched (adapters deferred until /v1 is the
+      primary surface); 13 tests (`tests/test_ingestion_api.py`)
 
 ### Deferred (Slices 4–5)
 
