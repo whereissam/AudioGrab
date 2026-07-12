@@ -1,4 +1,4 @@
-"""CLI for X Spaces downloader and audio converter."""
+"""CLI for the Sift downloader and audio converter."""
 
 import argparse
 import asyncio
@@ -6,24 +6,24 @@ import logging
 import sys
 from pathlib import Path
 
-from .core import SpaceDownloader, SpaceURLParser
+from .core import download_audio
 from .core.converter import AudioConverter
+from .core.downloader import DownloaderFactory
 
 
 async def download_command(args):
-    """Handle download command."""
-    # Validate URL
-    if not SpaceURLParser.is_valid_space_url(args.url):
-        print(f"Error: Invalid Twitter Space URL: {args.url}", file=sys.stderr)
+    """Handle download command (any supported platform)."""
+    platform = DownloaderFactory.detect_platform(args.url)
+    if not platform:
+        print(f"Error: Unsupported or invalid URL: {args.url}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Downloading Space: {args.url}")
+    print(f"Downloading from {platform.value}: {args.url}")
 
-    downloader = SpaceDownloader()
-    result = await downloader.download(
+    result = await download_audio(
         url=args.url,
-        output_path=args.output,
-        format=args.format,
+        output_path=Path(args.output) if args.output else None,
+        output_format=args.format,
         quality=args.quality,
     )
 
@@ -32,9 +32,10 @@ async def download_command(args):
         print(f"File: {result.file_path}")
         if result.file_size_mb:
             print(f"Size: {result.file_size_mb:.2f} MB")
-        if result.duration_seconds:
-            mins = int(result.duration_seconds // 60)
-            secs = int(result.duration_seconds % 60)
+        duration = result.metadata.duration_seconds if result.metadata else None
+        if duration:
+            mins = int(duration // 60)
+            secs = int(duration % 60)
             print(f"Duration: {mins}m {secs}s")
     else:
         print(f"\nDownload failed: {result.error}", file=sys.stderr)
@@ -92,16 +93,16 @@ async def main():
     # Download command (also default if URL is provided directly)
     download_parser = subparsers.add_parser(
         "download",
-        help="Download a Twitter Space",
+        help="Download audio from any supported platform",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   xdownloader download https://x.com/i/spaces/1vOxwdyYrlqKB
-  xdownloader download -f mp3 https://x.com/i/spaces/1vOxwdyYrlqKB
-  xdownloader download -o my_space.m4a https://x.com/i/spaces/1vOxwdyYrlqKB
+  xdownloader download -f mp3 https://youtube.com/watch?v=dQw4w9WgXcQ
+  xdownloader download -o episode.m4a https://xiaoyuzhoufm.com/episode/...
         """,
     )
-    download_parser.add_argument("url", help="Twitter Space URL to download")
+    download_parser.add_argument("url", help="URL to download (X Spaces, YouTube, podcasts, …)")
     download_parser.add_argument("-o", "--output", help="Output file path")
     download_parser.add_argument(
         "-f", "--format",
