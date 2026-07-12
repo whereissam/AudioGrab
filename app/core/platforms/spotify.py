@@ -1,18 +1,100 @@
-"""Spotify downloader implementation using spotDL."""
+"""Spotify downloader.
+
+Podcast episodes are resolved on the show's public RSS feed (Spotify's own
+streams are DRM-protected): Spotify oEmbed gives the episode title, the
+iTunes Search API locates the RSS enclosure, and the MP3 downloads
+directly. Music (tracks/albums/playlists) still goes through spotDL,
+which matches tracks on YouTube — reliable for music, wrong for podcasts.
+"""
 
 import asyncio
 import json
 import logging
 import re
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 from ...config import get_settings
 from ..base import Platform, PlatformDownloader, AudioMetadata, DownloadResult
 from ..exceptions import SiftError, ContentNotFoundError, ToolNotFoundError
+from ..url_validator import safe_get, safe_stream
 
 logger = logging.getLogger(__name__)
+
+SPOTIFY_OEMBED_URL = "https://open.spotify.com/oembed"
+ITUNES_SEARCH_URL = "https://itunes.apple.com/search"
+
+
+@dataclass
+class ResolvedEpisode:
+    """A Spotify episode located on its public RSS feed."""
+
+    title: str
+    show: Optional[str]
+    mp3_url: str
+    duration_seconds: Optional[float] = None
+
+
+def _pick_itunes_episode(results: list[dict], title: str) -> Optional[dict]:
+    """Pick the best iTunes search result for an episode title.
+
+    Prefer an exact/prefix title match; fall back to the first result with
+    an enclosure URL (the search is already title-scoped).
+    """
+    with_url = [r for r in results if r.get("episodeUrl")]
+    for r in with_url:
+        track = r.get("trackName") or ""
+        if track == title or track.startswith(title) or title.startswith(track):
+            return r
+    return with_url[0] if with_url else None
+
+
+def _sanitize_filename(name: str) -> str:
+    sanitized = re.sub(r'[/\\:*?"<>|]', "_", name)
+    return sanitized.strip()[:150]
+
+
+async def resolve_episode_via_rss(url: str) -> ResolvedEpisode:
+    """Resolve a Spotify episode URL to its public RSS enclosure.
+
+    Raises ContentNotFoundError when the episode isn't publicly syndicated
+    (Spotify-exclusive), SiftError on upstream failures.
+    """
+    resp = await safe_get(SPOTIFY_OEMBED_URL, params={"url": url}, timeout=30.0)
+    if resp.status_code != 200:
+        raise ContentNotFoundError(f"Spotify did not recognize this episode URL: {url}")
+    title = resp.json().get("title")
+    if not title:
+        raise SiftError("Spotify oEmbed returned no episode title")
+
+    resp = await safe_get(
+        ITUNES_SEARCH_URL,
+        params={
+            "term": title,
+            "media": "podcast",
+            "entity": "podcastEpisode",
+            "limit": "10",
+        },
+        timeout=30.0,
+    )
+    if resp.status_code != 200:
+        raise SiftError(f"iTunes episode search failed with HTTP {resp.status_code}")
+    picked = _pick_itunes_episode(resp.json().get("results", []), title)
+    if not picked:
+        raise ContentNotFoundError(
+            f"'{title}' was not found on any public podcast feed — it may be "
+            "Spotify-exclusive, which cannot be downloaded"
+        )
+
+    duration_ms = picked.get("trackTimeMillis")
+    return ResolvedEpisode(
+        title=title,
+        show=picked.get("collectionName"),
+        mp3_url=picked["episodeUrl"],
+        duration_seconds=duration_ms / 1000.0 if duration_ms else None,
+    )
 
 
 class SpotifyDownloader(PlatformDownloader):
@@ -37,20 +119,9 @@ class SpotifyDownloader(PlatformDownloader):
         else:
             self.download_dir = self.settings.get_download_path()
 
+        # Only music needs spotdl; episodes resolve via public RSS with no
+        # external tool, so absence is reported at download time, not here.
         self._spotdl_path = shutil.which("spotdl")
-        self._yt_dlp_path = (
-            shutil.which("yt-dlp")
-            or next(
-                (p for p in ["/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp"]
-                 if Path(p).exists()),
-                None,
-            )
-        )
-
-        if not self._spotdl_path and not self._yt_dlp_path:
-            raise ToolNotFoundError(
-                "Neither spotdl nor yt-dlp found. Install one: brew install yt-dlp"
-            )
 
     @property
     def platform(self) -> Platform:
@@ -72,8 +143,9 @@ class SpotifyDownloader(PlatformDownloader):
 
     @classmethod
     def is_available(cls) -> bool:
-        """Check if spotdl is available."""
-        return shutil.which("spotdl") is not None
+        """Podcast episodes work natively (RSS resolution); music tracks
+        additionally need spotdl, checked at download time."""
+        return True
 
     def _get_content_type(self, url: str) -> str:
         """Determine the type of Spotify content."""
@@ -94,12 +166,25 @@ class SpotifyDownloader(PlatformDownloader):
         output_format: str = "mp3",
         quality: str = "high",
     ) -> DownloadResult:
-        """Download from Spotify using spotDL or yt-dlp fallback."""
+        """Download from Spotify: episodes via public RSS, music via spotDL."""
         logger.info(f"Starting Spotify download for: {url}")
 
-        # Use yt-dlp fallback if spotdl is not installed
-        if not self._spotdl_path and self._yt_dlp_path:
-            return await self._download_with_ytdlp(url, output_path, output_format, quality)
+        # Podcast episodes: resolve on the public RSS feed. spotDL's
+        # YouTube-matching is unreliable for podcasts, and Spotify's own
+        # streams are DRM-protected.
+        if self._get_content_type(url) == "episode":
+            return await self._download_episode_via_rss(url, output_format, quality)
+
+        if not self._spotdl_path:
+            return DownloadResult(
+                success=False,
+                file_path=None,
+                metadata=None,
+                error=(
+                    "Spotify music downloads need spotDL "
+                    "(install with: uv tool install spotdl)"
+                ),
+            )
 
         try:
             content_id = self.extract_content_id(url)
@@ -230,84 +315,43 @@ class SpotifyDownloader(PlatformDownloader):
                 error=f"Unexpected error: {e}",
             )
 
-    async def _download_with_ytdlp(
+    async def _download_episode_via_rss(
         self,
         url: str,
-        output_path: Optional[Path] = None,
         output_format: str = "mp3",
         quality: str = "high",
     ) -> DownloadResult:
-        """Fallback: download Spotify content using yt-dlp."""
-        logger.info("Using yt-dlp fallback for Spotify download")
-
+        """Download a podcast episode from its public RSS enclosure."""
         try:
-            self.download_dir.mkdir(parents=True, exist_ok=True)
-
-            if output_path:
-                output_template = str(output_path)
-            else:
-                output_template = str(self.download_dir / "%(title)s [%(id)s].%(ext)s")
-
-            # For mp4, download as m4a first then convert
-            download_format = "m4a" if output_format == "mp4" else output_format
-            needs_conversion = output_format == "mp4"
-
-            cmd = [
-                self._yt_dlp_path,
-                "--no-progress",
-                "-x",
-                "--audio-format", download_format if download_format == "mp3" else "m4a",
-                "-o", output_template,
-                "--print-json",
-                "--concurrent-fragments", "16",
-                "--fragment-retries", "5",
-            ]
-
-            if download_format == "mp3":
-                quality_map = {"low": "64K", "medium": "128K", "high": "192K", "highest": "320K"}
-                cmd.extend(["--audio-quality", quality_map.get(quality, "192K")])
-
-            cmd.append(url)
-
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            content_id = self.extract_content_id(url)
+            episode = await resolve_episode_via_rss(url)
+            logger.info(
+                f"Resolved Spotify episode to RSS enclosure: "
+                f"{episode.show or '?'} - {episode.title}"
             )
 
-            stdout, stderr = await process.communicate()
+            self.download_dir.mkdir(parents=True, exist_ok=True)
+            base = (
+                f"{episode.show} - {episode.title}" if episode.show else episode.title
+            )
+            file_path = self.download_dir / f"{_sanitize_filename(base)}.mp3"
 
-            if process.returncode != 0:
-                error_msg = stderr.decode() if stderr else "Unknown error"
-                raise SiftError(f"yt-dlp failed for Spotify: {error_msg[:500]}")
+            # safe_stream re-validates the enclosure URL and every redirect
+            # hop (the URL comes from external iTunes data).
+            async with safe_stream(episode.mp3_url, timeout=600.0) as resp:
+                if resp.status_code != 200:
+                    raise SiftError(
+                        f"Episode host rejected the download (HTTP {resp.status_code})"
+                    )
+                with open(file_path, "wb") as f:
+                    async for chunk in resp.aiter_bytes(1024 * 1024):
+                        f.write(chunk)
 
-            # Parse JSON output
-            output = stdout.decode().strip()
-            file_path = None
-            metadata = None
-
-            for line in output.split('\n'):
-                if line.startswith('{'):
-                    try:
-                        data = json.loads(line)
-                        file_path = Path(data.get('_filename', data.get('filename', '')))
-                        metadata = AudioMetadata(
-                            platform=Platform.SPOTIFY,
-                            content_id=data.get('id', ''),
-                            title=data.get('title', 'Unknown'),
-                            creator_name=data.get('uploader') or data.get('artist'),
-                            duration_seconds=data.get('duration'),
-                        )
-                        break
-                    except json.JSONDecodeError:
-                        continue
-
-            if not file_path or not file_path.exists():
-                raise SiftError("Download completed but output file not found")
-
-            # Convert to mp4 if needed
-            if needs_conversion:
+            # Podcast enclosures are mp3; convert only if another format
+            # was explicitly requested.
+            if output_format in ("m4a", "mp4"):
                 from ..converter import AudioConverter
+
                 converter = AudioConverter()
                 file_path = await converter.convert(
                     input_path=file_path,
@@ -317,19 +361,30 @@ class SpotifyDownloader(PlatformDownloader):
                 )
 
             file_size = file_path.stat().st_size
-            logger.info(f"Download complete: {file_path} ({file_size / (1024*1024):.2f} MB)")
+            logger.info(
+                f"Episode download complete: {file_path} "
+                f"({file_size / (1024 * 1024):.2f} MB)"
+            )
 
             return DownloadResult(
                 success=True,
                 file_path=file_path,
-                metadata=metadata,
+                metadata=AudioMetadata(
+                    platform=Platform.SPOTIFY,
+                    content_id=content_id,
+                    title=episode.title,
+                    creator_name=episode.show,
+                    show_name=episode.show,
+                    duration_seconds=episode.duration_seconds,
+                ),
                 file_size_bytes=file_size,
             )
 
-        except (SiftError,) as e:
+        except (ContentNotFoundError, SiftError, ValueError) as e:
+            logger.error(f"Episode download failed: {e}")
             return DownloadResult(success=False, file_path=None, metadata=None, error=str(e))
         except Exception as e:
-            logger.exception(f"yt-dlp fallback error: {e}")
+            logger.exception(f"Unexpected episode download error: {e}")
             return DownloadResult(success=False, file_path=None, metadata=None, error=str(e))
 
     async def get_metadata(self, url: str) -> Optional[AudioMetadata]:

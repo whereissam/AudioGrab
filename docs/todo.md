@@ -1314,8 +1314,12 @@ unified async `/v1/ingestions` API, keeping all legacy endpoints working.
       RSS enclosure MP3 streamed to disk. Music tracks/albums fail with a
       clear DRM message. Unit tests + live resolution test (`cargo test --
       --ignored`).
-- [ ] **Web backend: port the same RSS resolution into `SpotifyDownloader`**
-      for `/episode/` URLs; keep spotDL for music tracks only.
+- [x] **Web backend: same RSS resolution in `SpotifyDownloader`** (2026-07-12):
+      `/episode/` URLs resolve via oEmbed → iTunes search → SSRF-safe
+      enclosure streaming (`safe_get`/`safe_stream`); spotDL kept for music
+      only (clear install hint when missing); removed the dead yt-dlp
+      fallback (always DRM-failed). Verified live: Web3 101 E82, 102 MB,
+      correct title/show/duration. 10 tests (`tests/test_spotify_episode_rss.py`).
 
 ## Transcription Engine Ideas
 
