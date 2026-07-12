@@ -381,6 +381,34 @@ class _SchemaMixin:
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_digest_runs_digest ON digest_runs(digest_id, created_at)")
 
+            # Assets: durable content identity (migration Slice 1).
+            # UNIQUE(source_fingerprint) is the dedup backbone — the same
+            # canonical source always resolves to one asset.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS assets (
+                    asset_id            TEXT PRIMARY KEY,
+                    source_type         TEXT NOT NULL,
+                    canonical_source    TEXT NOT NULL,
+                    source_fingerprint  TEXT NOT NULL UNIQUE,
+                    original_source     TEXT,
+                    platform            TEXT,
+                    created_at          TEXT NOT NULL,
+                    updated_at          TEXT NOT NULL
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_assets_canonical "
+                "ON assets(canonical_source)"
+            )
+
+            # Migration bookkeeping (e.g. one-time backfill completion markers).
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS schema_meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            """)
+
             # Run migrations for existing databases
             self._migrate_schema(conn)
 
@@ -409,6 +437,10 @@ class _SchemaMixin:
             ("knowledge_version", "INTEGER DEFAULT 0"),
             ("knowledge_locked_at", "TEXT"),
             ("knowledge_worker_id", "TEXT"),
+            # Slice 1: durable content identity. Nullable at the SQL level
+            # (SQLite can't add NOT NULL without a rebuild); the service
+            # layer sets it for every new job with a durable source.
+            ("asset_id", "TEXT"),
         ]
 
         for col_name, col_type in migrations:
@@ -439,3 +471,13 @@ class _SchemaMixin:
             )
         except sqlite3.OperationalError:
             pass
+
+        # Slice 1: asset linkage index + one-time backfill of existing jobs.
+        # Both run after the asset_id column migration above.
+        try:
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_asset ON jobs(asset_id)"
+            )
+        except sqlite3.OperationalError:
+            pass
+        self._backfill_assets(conn)

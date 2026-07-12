@@ -1228,9 +1228,9 @@ Deferred: **Notion** (external `notion-client` + integration token + database), 
 
 ## P22: Ingestion API Migration (Asset/Artifact Resource Model)
 
-Full plan: [ingestion-api-migration.md](ingestion-api-migration.md). Goal:
-durable asset identity + versioned transcript artifacts behind a unified
-async `/v1/ingestions` API, keeping all legacy endpoints working.
+Goal: durable asset identity + versioned transcript artifacts behind a
+unified async `/v1/ingestions` API, keeping all legacy endpoints working.
+(Detailed migration plan is kept as a local working document, not committed.)
 
 ### Slice 0 — durable job state baseline ✅ (shipped 2026-07-11)
 
@@ -1244,13 +1244,21 @@ async `/v1/ingestions` API, keeping all legacy endpoints working.
 - [x] Regression tests: restart durability, status mapping, type isolation,
       workflow-blob fallback, endpoint-level download flow (`tests/test_durable_api_jobs.py`, 11 tests)
 
-### Slice 1 — asset identity
+### Slice 1 — asset identity ✅ (shipped 2026-07-12)
 
-- [ ] `assets` table + `jobs.asset_id` (nullable, additive migration)
-- [ ] URL canonicalizers (YouTube + generic + upload SHA-256) in `app/core/asset_identity.py`
-- [ ] `find_or_create_asset` transaction wired into `JobStore.create_job`
-- [ ] Backfill existing jobs (idempotent, marker-guarded, auto-backup first)
-- [ ] `get_asset_for_episode(episode_id)` bridge for the knowledge layer
+- [x] `assets` table (UNIQUE source_fingerprint) + `jobs.asset_id` + `schema_meta`
+      markers (additive migration, automatic pre-migration file backup)
+- [x] URL canonicalizers (YouTube variants + conservative generic + upload
+      SHA-256 + host-specific x.com share-token stripping) in `app/core/asset_identity.py`
+- [x] `find_or_create_asset` (INSERT OR IGNORE on fingerprint) wired into
+      `JobStore.create_job`; uploads hash content while streaming; transcribe-
+      from-download inherits the download's asset
+- [x] Backfill existing jobs (idempotent, marker-guarded; `upload://` rows use
+      literal-string fallback identity; `resume://` stays unlinked)
+- [x] `get_asset_for_episode(episode_id)` bridge + `get_asset_jobs`; additive
+      `asset_id` field on DownloadJob/TranscriptionJob responses
+- [x] 17 tests: canonicalizer matrix, concurrency, legacy-DB backfill fixture,
+      endpoint-level same-URL→same-asset (`tests/test_asset_identity.py`)
 
 ### Slice 2 — versioned transcript artifacts + segments
 

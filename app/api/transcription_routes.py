@@ -378,6 +378,11 @@ async def start_transcription(
         "language": body.language,
         "transcription_format": body.output_format.value if body.output_format else None,
     }
+    if body.job_id:
+        # Transcribing an existing download: same content, same asset.
+        source_asset = download_jobs[body.job_id].asset_id
+        if source_asset:
+            job._persist_extras["asset_id"] = source_asset
     transcription_jobs[job_id] = job
 
     # Start background transcription
@@ -510,6 +515,9 @@ async def transcribe_uploaded_file(
     file_id = str(uuid.uuid4())
     file_path = upload_dir / f"{file_id}{file_ext}"
 
+    import hashlib
+
+    content_digest = hashlib.sha256()
     total_size = 0
     async with aiofiles.open(file_path, "wb") as f:
         while chunk := await file.read(1024 * 1024):  # Read in 1MB chunks
@@ -521,6 +529,7 @@ async def transcribe_uploaded_file(
                     status_code=413,
                     detail=f"File too large. Maximum size: {MAX_UPLOAD_SIZE // (1024*1024)}MB",
                 )
+            content_digest.update(chunk)
             await f.write(chunk)
 
     # Create transcription job
@@ -541,6 +550,9 @@ async def transcribe_uploaded_file(
         source_url=f"upload://{file.filename}",
         created_at=datetime.utcnow(),
     )
+    # Content hash gives uploads a durable asset identity: same bytes under
+    # a different filename resolve to the same asset.
+    job._persist_extras = {"content_sha256": content_digest.hexdigest()}
     transcription_jobs[job_id] = job
 
     # Create a mock request object for the background task

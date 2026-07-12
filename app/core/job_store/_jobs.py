@@ -25,7 +25,7 @@ class _JobsMixin:
         "output_format", "quality", "model_size", "language", "transcription_format",
         "content_info", "transcription_result", "file_size_mb", "error",
         "progress", "last_checkpoint", "priority", "batch_id", "scheduled_at",
-        "webhook_url", "updated_at", "completed_at", "created_at",
+        "webhook_url", "updated_at", "completed_at", "created_at", "asset_id",
         # P18 knowledge backfill control-plane columns
         "knowledge_status", "knowledge_version", "knowledge_locked_at",
         "knowledge_worker_id",
@@ -48,23 +48,42 @@ class _JobsMixin:
         batch_id: Optional[str] = None,
         scheduled_at: Optional[str] = None,
         webhook_url: Optional[str] = None,
+        content_sha256: Optional[str] = None,
+        asset_id: Optional[str] = None,
     ) -> dict:
-        """Create a new job."""
+        """Create a new job, linked to its asset when the source has a
+        durable identity (URL or content-hashed upload). Pass ``asset_id``
+        to inherit an existing asset (e.g. transcribe-from-download)."""
         now = datetime.utcnow().isoformat()
+
+        try:
+            if asset_id is None:
+                from ..asset_identity import canonical_source_for_job
+
+                source = canonical_source_for_job(source_url, content_sha256)
+                if source:
+                    asset_id = self.find_or_create_asset(
+                        source, original_source=source_url
+                    )
+        except Exception:
+            # Asset linkage must never block job creation.
+            logger.warning(
+                f"Asset resolution failed for job {job_id}", exc_info=True
+            )
 
         with self._get_conn() as conn:
             conn.execute("""
                 INSERT INTO jobs (
                     job_id, job_type, status, source_url, platform,
                     output_format, quality, model_size, language, transcription_format,
-                    priority, batch_id, scheduled_at, webhook_url,
+                    priority, batch_id, scheduled_at, webhook_url, asset_id,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 job_id, job_type.value, JobStatus.PENDING.value,
                 source_url, platform, output_format, quality,
                 model_size, language, transcription_format,
-                priority, batch_id, scheduled_at, webhook_url,
+                priority, batch_id, scheduled_at, webhook_url, asset_id,
                 now, now
             ))
 

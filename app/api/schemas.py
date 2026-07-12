@@ -132,6 +132,10 @@ class DownloadJob(BaseModel):
 
     job_id: str
     status: JobStatus
+    asset_id: Optional[str] = Field(
+        default=None,
+        description="Durable content identity; jobs for the same canonical source share it",
+    )
     platform: Optional[Platform] = None
     progress: float = Field(default=0.0, ge=0.0, le=1.0)
     content_info: Optional[ContentInfo] = None
@@ -300,6 +304,10 @@ class TranscriptionJob(BaseModel):
 
     job_id: str
     status: JobStatus
+    asset_id: Optional[str] = Field(
+        default=None,
+        description="Durable content identity; jobs for the same canonical source share it",
+    )
     progress: float = Field(default=0.0, ge=0.0, le=1.0)
     # Transcription results
     text: Optional[str] = None

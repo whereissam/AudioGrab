@@ -48,6 +48,8 @@ _CREATE_EXTRAS = (
     "transcription_format",
     "priority",
     "webhook_url",
+    "content_sha256",
+    "asset_id",
 )
 
 
@@ -203,6 +205,7 @@ class DurableDownloadJobs(_DurableJobMapping):
         job = DownloadJob(
             job_id=row["job_id"],
             status=status,
+            asset_id=row.get("asset_id"),
             platform=platform,
             progress=row.get("progress") or 0.0,
             content_info=content_info,
@@ -254,6 +257,7 @@ class DurableTranscriptionJobs(_DurableJobMapping):
                 job = TranscriptionJob.model_validate(blob)
                 # Row columns are authoritative for live state: other writers
                 # (WorkflowProcessor, set_status) update columns, not the blob.
+                job.asset_id = row.get("asset_id")
                 job.status = _STORE_TO_API_STATUS.get(row["status"], job.status)
                 if row.get("progress") is not None:
                     job.progress = row["progress"]
@@ -286,6 +290,7 @@ class DurableTranscriptionJobs(_DurableJobMapping):
         return TranscriptionJob(
             job_id=row["job_id"],
             status=_STORE_TO_API_STATUS.get(row["status"], ApiStatus.PENDING),
+            asset_id=row.get("asset_id"),
             progress=row.get("progress") or 0.0,
             text=blob.get("text"),
             segments=segments,
