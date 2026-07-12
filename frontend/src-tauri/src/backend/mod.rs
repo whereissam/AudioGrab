@@ -2,6 +2,7 @@ pub mod db;
 pub mod downloader;
 pub mod platform;
 pub mod routes;
+pub mod spotify;
 pub mod types;
 
 use std::collections::HashMap;

@@ -179,6 +179,26 @@ pub async fn execute_download(
         };
     }
 
+    // Spotify never goes through yt-dlp (DRM-protected streams). Podcast
+    // episodes are fetched from their public RSS feed instead; music has
+    // no legitimate download path and fails with a clear message.
+    if matches!(detected_platform, Platform::Spotify) {
+        if super::spotify::is_episode_url(url) {
+            return super::spotify::download_episode(url, output_dir).await;
+        }
+        return DownloadResult {
+            success: false,
+            file_path: None,
+            metadata: None,
+            error: Some(
+                "Spotify music (tracks/albums/playlists) is DRM-protected and cannot be \
+                 downloaded. Podcast episode links (open.spotify.com/episode/…) are supported."
+                    .to_string(),
+            ),
+            file_size_bytes: None,
+        };
+    }
+
     let is_video = matches!(
         detected_platform,
         Platform::XVideo | Platform::YoutubeVideo | Platform::Instagram | Platform::Xiaohongshu

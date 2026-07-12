@@ -69,7 +69,7 @@ function VideoPage() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
-        throw new Error(data.detail || 'Download failed')
+        throw new Error(data.detail || data.error || 'Download failed')
       }
 
       const data = await response.json()

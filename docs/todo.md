@@ -1303,6 +1303,20 @@ unified async `/v1/ingestions` API, keeping all legacy endpoints working.
       session infrastructure, as anticipated in the product plan
 - [ ] Evidence retrieval: segment embeddings, hybrid search, MCP `search_segments`
 
+## Platform Adapter Ideas
+
+- [x] **Desktop: Spotify podcast episodes via RSS resolution** (2026-07-12):
+      Spotify streams are DRM-protected (yt-dlp refuses by design), and
+      spotDL's YouTube-matching is wrong for podcasts (matched a random music
+      track for a Web3 101 episode). Implemented the reliable pipeline in the
+      Rust backend (`frontend/src-tauri/src/backend/spotify.rs`): Spotify
+      oEmbed (episode title) → iTunes Search API (`entity=podcastEpisode`) →
+      RSS enclosure MP3 streamed to disk. Music tracks/albums fail with a
+      clear DRM message. Unit tests + live resolution test (`cargo test --
+      --ignored`).
+- [ ] **Web backend: port the same RSS resolution into `SpotifyDownloader`**
+      for `/episode/` URLs; keep spotDL for music tracks only.
+
 ## Transcription Engine Ideas
 
 - [ ] **Breeze-ASR-25 engine** (MediaTek, Whisper-large-v2 fine-tune) for
