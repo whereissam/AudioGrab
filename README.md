@@ -163,6 +163,8 @@ TELEGRAM_BOT_MODE=polling         # "polling" or "webhook"
 
 # YouTube cookies (for bypassing bot detection / age restrictions)
 # YOUTUBE_COOKIES_FILE=./cookies.txt
+# ...or read fresh cookies straight from a local browser (takes precedence):
+# YOUTUBE_COOKIES_FROM_BROWSER=chrome
 
 # Optional
 HUGGINGFACE_TOKEN=hf_xxx  # For speaker diarization

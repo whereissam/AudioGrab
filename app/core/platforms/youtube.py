@@ -15,6 +15,20 @@ from ..exceptions import SiftError, ContentNotAvailableError, ContentNotFoundErr
 logger = logging.getLogger(__name__)
 
 
+def youtube_cookie_args(settings) -> list[str]:
+    """yt-dlp cookie flags for YouTube.
+
+    Browser cookies take precedence over an exported cookies.txt — they
+    stay fresh, which matters because YouTube bot-blocks datacenter and
+    rate-limited IPs unless requests carry a logged-in session.
+    """
+    if settings.youtube_cookies_from_browser:
+        return ["--cookies-from-browser", settings.youtube_cookies_from_browser]
+    if settings.youtube_cookies_file:
+        return ["--cookies", settings.youtube_cookies_file]
+    return []
+
+
 class YouTubeDownloader(PlatformDownloader):
     """Downloads audio from YouTube videos using yt-dlp."""
 
@@ -125,8 +139,7 @@ class YouTubeDownloader(PlatformDownloader):
                 quality_map = {"low": "64K", "medium": "128K", "high": "192K", "highest": "320K"}
                 cmd.extend(["--audio-quality", quality_map.get(quality, "192K")])
 
-            if self.settings.youtube_cookies_file:
-                cmd.extend(["--cookies", self.settings.youtube_cookies_file])
+            cmd.extend(youtube_cookie_args(self.settings))
 
             cmd.append(url)
 
@@ -156,8 +169,9 @@ class YouTubeDownloader(PlatformDownloader):
                     )
                 if "sign in to confirm" in error_msg.lower():
                     raise ContentNotAvailableError(
-                        "YouTube requires cookie authentication. "
-                        "The server admin needs to configure browser cookies for yt-dlp."
+                        "YouTube requires cookie authentication. Set "
+                        "YOUTUBE_COOKIES_FROM_BROWSER (e.g. 'chrome') or "
+                        "YOUTUBE_COOKIES_FILE to a cookies.txt path."
                     )
                 if "age" in error_msg.lower() and "restricted" in error_msg.lower():
                     raise ContentNotAvailableError(

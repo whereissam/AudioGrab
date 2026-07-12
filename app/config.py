@@ -78,6 +78,12 @@ class Settings(BaseSettings):
 
     # YouTube cookies (Netscape format file for yt-dlp authentication)
     youtube_cookies_file: str | None = None  # path to cookies.txt
+    # Alternatively, read YouTube cookies straight from a local browser —
+    # needed when YouTube bot-blocks the server IP ("Sign in to confirm
+    # you're not a bot" / HTTP 429). Same syntax as Instagram's setting:
+    # chrome, chromium, brave, edge, firefox, safari, opera, vivaldi,
+    # optionally "browser:profile" (e.g. "chrome:Default").
+    youtube_cookies_from_browser: str | None = None
 
     # Instagram cookies (Netscape format file for yt-dlp authentication).
     # Instagram requires a logged-in session for most reels/posts.

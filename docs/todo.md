@@ -1297,7 +1297,10 @@ unified async `/v1/ingestions` API, keeping all legacy endpoints working.
 ### Deferred (Slices 4–5)
 
 - [ ] Commercial reliability: API-key principals, usage ledger, quotas,
-      signed webhooks
+      signed webhooks. Note (2026-07-12): YouTube bot-blocks unauthenticated
+      requests from this network — cookies-from-browser support added
+      (`YOUTUBE_COOKIES_FROM_BROWSER`); hosted acquisition will need proxy /
+      session infrastructure, as anticipated in the product plan
 - [ ] Evidence retrieval: segment embeddings, hybrid search, MCP `search_segments`
 
 ## Transcription Engine Ideas

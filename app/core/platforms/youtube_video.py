@@ -11,6 +11,7 @@ from typing import Optional
 from ...config import get_settings
 from ..base import Platform, PlatformDownloader, AudioMetadata, DownloadResult
 from ..exceptions import SiftError, ContentNotAvailableError, ContentNotFoundError, ToolNotFoundError
+from .youtube import youtube_cookie_args
 
 logger = logging.getLogger(__name__)
 
@@ -119,8 +120,7 @@ class YouTubeVideoDownloader(PlatformDownloader):
                 "--fragment-retries", "5",
             ]
 
-            if self.settings.youtube_cookies_file:
-                cmd.extend(["--cookies", self.settings.youtube_cookies_file])
+            cmd.extend(youtube_cookie_args(self.settings))
 
             cmd.append(url)
 
@@ -150,8 +150,9 @@ class YouTubeVideoDownloader(PlatformDownloader):
                     )
                 if "sign in to confirm" in error_msg.lower():
                     raise ContentNotAvailableError(
-                        "YouTube requires cookie authentication. "
-                        "The server admin needs to configure browser cookies for yt-dlp."
+                        "YouTube requires cookie authentication. Set "
+                        "YOUTUBE_COOKIES_FROM_BROWSER (e.g. 'chrome') or "
+                        "YOUTUBE_COOKIES_FILE to a cookies.txt path."
                     )
                 if "age" in error_msg.lower() and "restricted" in error_msg.lower():
                     raise ContentNotAvailableError(

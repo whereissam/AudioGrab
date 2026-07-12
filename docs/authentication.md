@@ -140,7 +140,7 @@ Beyond X/Twitter, these platforms need a logged-in session. All use a Netscape
 | Platform | Env var | Notes |
 |----------|---------|-------|
 | Instagram | `INSTAGRAM_COOKIES_FILE` | Required for most reels/posts. Full non-coder walkthrough: [instagram-setup.md](instagram-setup.md) |
-| YouTube | `YOUTUBE_COOKIES_FILE` | Only needed for age-restricted / "confirm you're not a bot" / geo-blocked videos |
+| YouTube | `YOUTUBE_COOKIES_FILE` or `YOUTUBE_COOKIES_FROM_BROWSER` | Only needed for age-restricted / "confirm you're not a bot" / geo-blocked videos. `YOUTUBE_COOKIES_FROM_BROWSER=chrome` (or `safari`, `firefox`, … optionally `chrome:Profile`) reads fresh cookies straight from a local browser and takes precedence over the file |
 | X / Twitter (video) | `TWITTER_AUTH_TOKEN` + `TWITTER_CT0` | Reuses the Spaces credentials above; only needed for protected/sensitive posts |
 
 ```bash
