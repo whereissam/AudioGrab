@@ -6,7 +6,6 @@ store singleton with a fresh instance over the same database file.
 """
 
 from datetime import datetime
-from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
