@@ -181,3 +181,41 @@ def test_build_command_audio_encode(maker):
     idx = cmd.index("-c:a")
     assert cmd[idx + 1] == "aac"
     assert "128k" in cmd
+
+
+def test_preflight_missing_input_raises(maker, tmp_path):
+    with pytest.raises(FFmpegError, match="Input file not found"):
+        maker._preflight(tmp_path / "nope.m4a", tmp_path / "out.mp4", None)
+
+
+def test_preflight_existing_output_refused(maker, tmp_path):
+    src = tmp_path / "in.m4a"; src.write_bytes(b"x")
+    out = tmp_path / "out.mp4"; out.write_bytes(b"y")
+    with pytest.raises(FFmpegError, match="refusing to overwrite"):
+        maker._preflight(src, out, None)
+
+
+def test_preflight_missing_image_raises(maker, tmp_path):
+    src = tmp_path / "in.m4a"; src.write_bytes(b"x")
+    with pytest.raises(FFmpegError, match="Image file not found"):
+        maker._preflight(src, tmp_path / "out.mp4", tmp_path / "missing.png")
+
+
+def test_preflight_unwritable_destination(maker, tmp_path, monkeypatch):
+    src = tmp_path / "in.m4a"; src.write_bytes(b"x")
+    monkeypatch.setattr("app.core.video.os.access", lambda p, m: False)
+    with pytest.raises(FFmpegError, match="not writable"):
+        maker._preflight(src, tmp_path / "out.mp4", None)
+
+
+def test_preflight_passes_for_valid_inputs(maker, tmp_path):
+    src = tmp_path / "in.m4a"; src.write_bytes(b"x")
+    maker._preflight(src, tmp_path / "out.mp4", None)  # no raise
+
+
+def test_is_copy_mux_failure_true_for_tag_error(maker):
+    assert maker._is_copy_mux_failure("Could not find tag for codec in stream")
+
+
+def test_is_copy_mux_failure_false_for_missing_encoder(maker):
+    assert not maker._is_copy_mux_failure("Unknown encoder 'libx264'")

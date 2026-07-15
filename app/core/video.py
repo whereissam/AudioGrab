@@ -170,3 +170,22 @@ class AudioToVideo:
             cmd += ["-c:a", "aac", "-b:a", "128k"]
         cmd += ["-shortest", "-movflags", "+faststart", str(output_path)]
         return cmd
+
+    def _preflight(
+        self, input_path: Path, output_path: Path, image: Path | None
+    ) -> None:
+        if not input_path.exists():
+            raise FFmpegError(f"Input file not found: {input_path}")
+        if output_path.exists():
+            raise FFmpegError(
+                f"Output already exists (refusing to overwrite): {output_path}"
+            )
+        if not os.access(output_path.parent, os.W_OK):
+            raise FFmpegError(f"Destination not writable: {output_path.parent}")
+        if image is not None and not image.exists():
+            raise FFmpegError(f"Image file not found: {image}")
+
+    @staticmethod
+    def _is_copy_mux_failure(stderr: str) -> bool:
+        low = stderr.lower()
+        return any(marker in low for marker in _COPY_MUX_ERROR_MARKERS)
