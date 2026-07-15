@@ -189,3 +189,73 @@ class AudioToVideo:
     def _is_copy_mux_failure(stderr: str) -> bool:
         low = stderr.lower()
         return any(marker in low for marker in _COPY_MUX_ERROR_MARKERS)
+
+    async def create(
+        self,
+        input_path: str | Path,
+        output_path: str | Path | None = None,
+        image: str | Path | None = None,
+        resolution: str = "720p",
+        fps: int = 2,
+    ) -> Path:
+        input_path = Path(input_path)
+        output_path = (
+            Path(output_path) if output_path else _default_output_path(input_path)
+        )
+        image = Path(image) if image else None
+        width, height = _resolution_dims(resolution)
+
+        self._preflight(input_path, output_path, image)
+
+        with tempfile.TemporaryDirectory(
+            dir=str(output_path.parent), prefix=".to_video_"
+        ) as tmp:
+            workdir = Path(tmp)
+            tmp_out = workdir / f"{output_path.stem}.tmp.mp4"
+
+            # Resolve the still image: custom > embedded cover > generated bg.
+            image_is_generated = False
+            still = image
+            if still is None:
+                cover_idx = await self._find_attached_cover(input_path)
+                if cover_idx is not None:
+                    still = await self._extract_cover(input_path, cover_idx, workdir)
+                else:
+                    image_is_generated = True
+
+            audio_copy = await self._probe_audio_codec(input_path) == "aac"
+            logger.info(
+                "Creating video: %s -> %s (audio=%s)",
+                input_path.name, output_path.name, "copy" if audio_copy else "aac",
+            )
+
+            def build(copy: bool) -> list[str]:
+                return self._build_command(
+                    image=still, image_is_generated=image_is_generated,
+                    audio_path=input_path, output_path=tmp_out,
+                    width=width, height=height, fps=fps, audio_copy=copy,
+                )
+
+            _, stderr, rc = await self._run(build(audio_copy))
+            if rc != 0:
+                if audio_copy and self._is_copy_mux_failure(stderr):
+                    logger.warning("Audio stream-copy failed; retrying with AAC encode")
+                    if tmp_out.exists():
+                        tmp_out.unlink()
+                    _, stderr2, rc2 = await self._run(build(False))
+                    if rc2 != 0:
+                        raise FFmpegError(
+                            "Video creation failed.\n"
+                            f"Copy attempt: {stderr[:400]}\n"
+                            f"AAC retry: {stderr2[:400]}"
+                        )
+                else:
+                    raise FFmpegError(f"Video creation failed: {stderr[:500]}")
+
+            if not tmp_out.exists():
+                raise FFmpegError(f"Output not created: {tmp_out}")
+            os.replace(str(tmp_out), str(output_path))
+
+        size_mb = output_path.stat().st_size / (1024 * 1024)
+        logger.info("Video complete: %s (%.2f MB)", output_path, size_mb)
+        return output_path

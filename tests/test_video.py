@@ -219,3 +219,130 @@ def test_is_copy_mux_failure_true_for_tag_error(maker):
 
 def test_is_copy_mux_failure_false_for_missing_encoder(maker):
     assert not maker._is_copy_mux_failure("Unknown encoder 'libx264'")
+
+
+@pytest.fixture
+def wired(maker, monkeypatch):
+    """maker with probe/cover stubbed; _run touches its output file on success."""
+    maker._probe_audio_codec = AsyncMock(return_value="aac")
+    maker._find_attached_cover = AsyncMock(return_value=None)
+    maker.calls = []
+
+    async def fake_run(cmd):
+        maker.calls.append(cmd)
+        Path(cmd[-1]).write_bytes(b"\x00" * 16)  # simulate ffmpeg output
+        return ("", "", 0)
+
+    maker._run = fake_run
+    return maker
+
+
+async def test_create_aac_copies_audio_and_writes_default_output(wired, tmp_path):
+    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    out = await wired.create(src)
+    assert out == tmp_path / "podcast.youtube.mp4"
+    assert out.exists()
+    # audio stream-copied, generated background used
+    cmd = wired.calls[-1]
+    assert cmd[cmd.index("-c:a") + 1] == "copy"
+    assert "lavfi" in " ".join(cmd)
+
+
+async def test_create_non_aac_encodes_audio(wired, tmp_path):
+    wired._probe_audio_codec = AsyncMock(return_value="mp3")
+    src = tmp_path / "podcast.mp3"; src.write_bytes(b"audio")
+    await wired.create(src)
+    cmd = wired.calls[-1]
+    assert cmd[cmd.index("-c:a") + 1] == "aac"
+
+
+async def test_create_refuses_existing_output(wired, tmp_path):
+    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    (tmp_path / "podcast.youtube.mp4").write_bytes(b"old")
+    with pytest.raises(FFmpegError, match="refusing to overwrite"):
+        await wired.create(src)
+
+
+async def test_create_handles_non_ascii_paths(wired, tmp_path):
+    src = tmp_path / "对话 周晨 完整版.m4a"; src.write_bytes(b"audio")
+    out = await wired.create(src)
+    assert out.name == "对话 周晨 完整版.youtube.mp4"
+    assert out.exists()
+
+
+async def test_create_uses_embedded_cover(wired, tmp_path):
+    wired._find_attached_cover = AsyncMock(return_value=1)
+    wired._extract_cover = AsyncMock(
+        side_effect=lambda i, idx, wd: (Path(wd) / "cover.png").write_bytes(b"\x89PNG")
+        or (Path(wd) / "cover.png")
+    )
+    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    await wired.create(src)
+    cmd = wired.calls[-1]
+    assert "-loop" in cmd
+    assert "lavfi" not in " ".join(cmd)
+
+
+async def test_create_copy_failure_retries_with_aac(maker, tmp_path):
+    maker._probe_audio_codec = AsyncMock(return_value="aac")
+    maker._find_attached_cover = AsyncMock(return_value=None)
+    maker.calls = []
+    seq = [("", "Could not find tag for codec", 1)]  # first: copy mux failure
+
+    async def fake_run(cmd):
+        maker.calls.append(list(cmd))
+        if seq:
+            return seq.pop(0)
+        Path(cmd[-1]).write_bytes(b"\x00")  # retry succeeds
+        return ("", "", 0)
+
+    maker._run = fake_run
+    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    out = await maker.create(src)
+    assert out.exists()
+    assert len(maker.calls) == 2
+    assert maker.calls[0][maker.calls[0].index("-c:a") + 1] == "copy"
+    assert maker.calls[1][maker.calls[1].index("-c:a") + 1] == "aac"
+
+
+async def test_create_non_mux_failure_does_not_retry(maker, tmp_path):
+    maker._probe_audio_codec = AsyncMock(return_value="aac")
+    maker._find_attached_cover = AsyncMock(return_value=None)
+    calls = []
+
+    async def fake_run(cmd):
+        calls.append(cmd)
+        return ("", "Unknown encoder libx264", 1)  # infrastructure failure
+
+    maker._run = fake_run
+    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    with pytest.raises(FFmpegError, match="Video creation failed"):
+        await maker.create(src)
+    assert len(calls) == 1  # no retry
+
+
+async def test_create_failed_fallback_preserves_both_errors(maker, tmp_path):
+    maker._probe_audio_codec = AsyncMock(return_value="aac")
+    maker._find_attached_cover = AsyncMock(return_value=None)
+    outs = [("", "Could not find tag for codec", 1), ("", "aac encoder exploded", 1)]
+
+    async def fake_run(cmd):
+        return outs.pop(0)
+
+    maker._run = fake_run
+    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    with pytest.raises(FFmpegError) as exc:
+        await maker.create(src)
+    msg = str(exc.value)
+    assert "Could not find tag" in msg and "aac encoder exploded" in msg
+
+
+async def test_create_leaves_no_temp_on_failure(maker, tmp_path):
+    maker._probe_audio_codec = AsyncMock(return_value="aac")
+    maker._find_attached_cover = AsyncMock(return_value=None)
+    maker._run = AsyncMock(return_value=("", "Unknown encoder libx264", 1))
+    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    with pytest.raises(FFmpegError):
+        await maker.create(src)
+    leftovers = [p.name for p in tmp_path.iterdir() if p.name != "podcast.m4a"]
+    assert leftovers == []  # TemporaryDirectory cleaned up
