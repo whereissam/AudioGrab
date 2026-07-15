@@ -64,6 +64,18 @@ Follow-up (completed 2026-06-22):
 - [x] `/api/health`: fix 500 from `pyannote` `find_spec` when the optional
       diarization dependency isn't installed
 
+### Media output (2026-07-15)
+
+- [x] `to-video`: turn an audio file into a YouTube-ready MP4 (still image +
+      H.264/libx264 + AAC, `yuv420p`, faststart). Fixes the old `convert -f mp4`
+      producing audio-only MP4s that YouTube rejects. Codec-aware audio
+      (stream-copy AAC, transcode others) with a narrow AAC fallback;
+      auto-uses embedded cover art else a generated background; atomic writes;
+      refuses to overwrite. New `app/core/video.py` (`AudioToVideo`) + CLI
+      `xdownloader to-video`. `convert -f mp4` left unchanged.
+  - [ ] Follow-up: `--image` custom-image CLI flag (Python API already accepts `image`)
+  - [ ] Follow-up: direct URL input for `to-video` (currently local files only)
+
 ### v1.x — Utility Foundation (Complete)
 
 | Feature | Difficulty | Impact | Priority |
