@@ -403,6 +403,22 @@ async def test_to_video_command_missing_input_exits(tmp_path):
         await cli.to_video_command(args)
 
 
+async def test_to_video_command_missing_ffmpeg_exits_cleanly(tmp_path, monkeypatch, capsys):
+    from app import cli
+
+    src = tmp_path / "in.m4a"
+    src.write_bytes(b"audio")
+
+    def boom(*args, **kwargs):
+        raise FFmpegError("ffmpeg not found in PATH. Please install it: brew install ffmpeg")
+
+    monkeypatch.setattr(cli, "AudioToVideo", boom, raising=False)
+    args = SimpleNamespace(input=str(src), output=None, resolution="720p", fps=2)
+    with pytest.raises(SystemExit):
+        await cli.to_video_command(args)
+    assert "Video creation failed" in capsys.readouterr().err
+
+
 @pytest.mark.skipif(
     not _os.environ.get("RUN_FFMPEG_INTEGRATION") or _shutil.which("ffmpeg") is None,
     reason="opt-in: set RUN_FFMPEG_INTEGRATION=1 and install ffmpeg",

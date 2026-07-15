@@ -84,8 +84,8 @@ async def to_video_command(args):
         sys.exit(1)
 
     print(f"Creating video from: {input_path}")
-    maker = AudioToVideo()
     try:
+        maker = AudioToVideo()
         output = await maker.create(
             input_path=input_path,
             output_path=args.output,
