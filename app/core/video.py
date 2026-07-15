@@ -73,3 +73,39 @@ class AudioToVideo:
             err.decode(errors="replace"),
             proc.returncode,
         )
+
+    async def _probe_audio_codec(self, input_path: Path) -> str:
+        cmd = [
+            self._ffprobe, "-v", "error",
+            "-select_streams", "a:0",
+            "-show_entries", "stream=codec_name",
+            "-of", "json",
+            str(input_path),
+        ]
+        stdout, stderr, rc = await self._run(cmd)
+        if rc != 0:
+            raise FFmpegError(f"ffprobe failed: {stderr[:300]}")
+        streams = json.loads(stdout or "{}").get("streams", [])
+        if not streams:
+            raise FFmpegError(f"No audio stream found in {input_path}")
+        return (streams[0].get("codec_name") or "").strip().lower()
+
+    async def _find_attached_cover(self, input_path: Path) -> int | None:
+        cmd = [
+            self._ffprobe, "-v", "error",
+            "-show_entries",
+            "stream=index,codec_type:stream_disposition=attached_pic",
+            "-of", "json",
+            str(input_path),
+        ]
+        stdout, stderr, rc = await self._run(cmd)
+        if rc != 0:
+            return None
+        for stream in json.loads(stdout or "{}").get("streams", []):
+            disposition = stream.get("disposition", {})
+            if (
+                stream.get("codec_type") == "video"
+                and disposition.get("attached_pic") == 1
+            ):
+                return int(stream["index"])
+        return None

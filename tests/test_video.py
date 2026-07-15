@@ -1,6 +1,8 @@
 """Tests for the audio-to-video (YouTube-ready MP4) module."""
 
+import json as _json
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -47,3 +49,44 @@ def test_missing_ffmpeg_raises(monkeypatch):
 def test_maker_constructs_with_binaries(maker):
     assert maker._ffmpeg == "/usr/bin/ffmpeg"
     assert maker._ffprobe == "/usr/bin/ffprobe"
+
+
+async def test_probe_audio_codec_selects_primary_stream(maker):
+    payload = _json.dumps({"streams": [{"codec_name": "AAC"}]})
+    maker._run = AsyncMock(return_value=(payload, "", 0))
+    codec = await maker._probe_audio_codec(Path("in.m4a"))
+    assert codec == "aac"  # normalized lowercase
+    cmd = maker._run.call_args.args[0]
+    assert "-select_streams" in cmd and "a:0" in cmd  # primary audio only
+
+
+async def test_probe_audio_codec_no_stream_raises(maker):
+    maker._run = AsyncMock(return_value=('{"streams": []}', "", 0))
+    with pytest.raises(FFmpegError, match="No audio stream"):
+        await maker._probe_audio_codec(Path("in.m4a"))
+
+
+async def test_find_attached_cover_returns_index(maker):
+    payload = _json.dumps({"streams": [
+        {"index": 0, "codec_type": "audio", "disposition": {"attached_pic": 0}},
+        {"index": 1, "codec_type": "video", "disposition": {"attached_pic": 1}},
+    ]})
+    maker._run = AsyncMock(return_value=(payload, "", 0))
+    assert await maker._find_attached_cover(Path("in.m4a")) == 1
+
+
+async def test_find_attached_cover_ignores_normal_video(maker):
+    payload = _json.dumps({"streams": [
+        {"index": 0, "codec_type": "audio", "disposition": {"attached_pic": 0}},
+        {"index": 1, "codec_type": "video", "disposition": {"attached_pic": 0}},
+    ]})
+    maker._run = AsyncMock(return_value=(payload, "", 0))
+    assert await maker._find_attached_cover(Path("in.m4a")) is None
+
+
+async def test_find_attached_cover_none_when_audio_only(maker):
+    payload = _json.dumps({"streams": [
+        {"index": 0, "codec_type": "audio", "disposition": {"attached_pic": 0}},
+    ]})
+    maker._run = AsyncMock(return_value=(payload, "", 0))
+    assert await maker._find_attached_cover(Path("in.m4a")) is None
