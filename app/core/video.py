@@ -1,0 +1,75 @@
+"""Audio-to-video (YouTube-ready MP4) creation using FFmpeg."""
+
+import asyncio
+import json
+import logging
+import os
+import shutil
+import tempfile
+from pathlib import Path
+
+from .exceptions import FFmpegError
+
+logger = logging.getLogger(__name__)
+
+RESOLUTIONS: dict[str, tuple[int, int]] = {
+    "480p": (854, 480),
+    "720p": (1280, 720),
+    "1080p": (1920, 1080),
+}
+
+BACKGROUND_COLOR = "0x0f0f14"
+
+# stderr fragments that indicate the AAC stream cannot be copied into MP4.
+_COPY_MUX_ERROR_MARKERS = (
+    "could not find tag",
+    "not currently supported in container",
+    "could not write header",
+    "muxer does not support",
+    "invalid data found",
+)
+
+
+def _default_output_path(input_path: Path) -> Path:
+    return input_path.with_name(f"{input_path.stem}.youtube.mp4")
+
+
+def _resolution_dims(resolution: str) -> tuple[int, int]:
+    try:
+        return RESOLUTIONS[resolution]
+    except KeyError:
+        raise FFmpegError(
+            f"Unsupported resolution: {resolution}. "
+            f"Choose from {', '.join(RESOLUTIONS)}"
+        )
+
+
+class AudioToVideo:
+    """Create a YouTube-ready MP4 from an audio file using FFmpeg."""
+
+    def __init__(self) -> None:
+        self._ffmpeg = self._find("ffmpeg")
+        self._ffprobe = self._find("ffprobe")
+
+    @staticmethod
+    def _find(name: str) -> str:
+        path = shutil.which(name)
+        if not path:
+            raise FFmpegError(
+                f"{name} not found in PATH. Please install it: brew install ffmpeg"
+            )
+        return path
+
+    async def _run(self, cmd: list[str]) -> tuple[str, str, int]:
+        """Run a subprocess, returning (stdout, stderr, returncode)."""
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        out, err = await proc.communicate()
+        return (
+            out.decode(errors="replace"),
+            err.decode(errors="replace"),
+            proc.returncode,
+        )
