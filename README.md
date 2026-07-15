@@ -95,6 +95,17 @@ uv run sift "https://youtube.com/watch?v=xxx" -f mp3
 uv run sift "https://podcasts.apple.com/..." -q highest
 ```
 
+### Audio → YouTube-ready video
+
+Turn a downloaded audio file into an MP4 with a still image (H.264 + AAC,
+faststart) that uploads cleanly to YouTube. AAC audio is stream-copied (no
+re-encode); other codecs are transcoded to AAC.
+
+```bash
+xdownloader to-video podcast.m4a
+xdownloader to-video --resolution 1080p -o show.mp4 podcast.m4a
+```
+
 ## API
 
 Full API documentation available at http://localhost:8000/docs (Swagger UI)

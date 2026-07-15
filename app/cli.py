@@ -9,6 +9,7 @@ from pathlib import Path
 from .core import download_audio
 from .core.converter import AudioConverter
 from .core.downloader import DownloaderFactory
+from .core.video import AudioToVideo
 
 
 async def download_command(args):
@@ -73,6 +74,32 @@ async def convert_command(args):
     except Exception as e:
         print(f"\nConversion failed: {e}", file=sys.stderr)
         sys.exit(1)
+
+
+async def to_video_command(args):
+    """Create a YouTube-ready MP4 (still image + audio) from an audio file."""
+    input_path = Path(args.input)
+    if not input_path.exists():
+        print(f"Error: Input file not found: {input_path}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Creating video from: {input_path}")
+    try:
+        maker = AudioToVideo()
+        output = await maker.create(
+            input_path=input_path,
+            output_path=args.output,
+            resolution=args.resolution,
+            fps=args.fps,
+        )
+    except Exception as e:
+        print(f"\nVideo creation failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    size_mb = output.stat().st_size / (1024 * 1024)
+    print("\nVideo ready!")
+    print(f"Output: {output}")
+    print(f"Size: {size_mb:.2f} MB")
 
 
 async def main():
@@ -152,6 +179,29 @@ Supported formats: mp3, mp4, aac, wav, ogg, flac
         help="Delete original file after conversion",
     )
 
+    # to-video command
+    to_video_parser = subparsers.add_parser(
+        "to-video",
+        help="Create a YouTube-ready MP4 (still image + audio) from an audio file",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  xdownloader to-video podcast.m4a
+  xdownloader to-video --resolution 1080p -o show.mp4 podcast.m4a
+        """,
+    )
+    to_video_parser.add_argument("input", help="Input audio file")
+    to_video_parser.add_argument("-o", "--output", help="Output MP4 path (default: <name>.youtube.mp4)")
+    to_video_parser.add_argument(
+        "--resolution",
+        choices=["480p", "720p", "1080p"],
+        default="720p",
+        help="Video resolution (default: 720p)",
+    )
+    to_video_parser.add_argument(
+        "--fps", type=int, default=2, help="Still-image frame rate (default: 2)"
+    )
+
     # Parse args
     args, remaining = parser.parse_known_args()
 
@@ -176,6 +226,8 @@ Supported formats: mp3, mp4, aac, wav, ogg, flac
         await download_command(args)
     elif args.command == "convert":
         await convert_command(args)
+    elif args.command == "to-video":
+        await to_video_command(args)
     else:
         parser.print_help()
         sys.exit(0)
