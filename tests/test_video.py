@@ -346,3 +346,41 @@ async def test_create_leaves_no_temp_on_failure(maker, tmp_path):
         await maker.create(src)
     leftovers = [p.name for p in tmp_path.iterdir() if p.name != "podcast.m4a"]
     assert leftovers == []  # TemporaryDirectory cleaned up
+
+
+from types import SimpleNamespace
+
+
+async def test_to_video_command_invokes_create(tmp_path, monkeypatch, capsys):
+    from app import cli
+
+    src = tmp_path / "in.m4a"; src.write_bytes(b"audio")
+    out = tmp_path / "in.youtube.mp4"; out.write_bytes(b"\x00" * 2048)
+
+    created = {}
+
+    class FakeMaker:
+        async def create(self, input_path, output_path=None, resolution="720p", fps=2):
+            created["input"] = Path(input_path)
+            created["resolution"] = resolution
+            created["fps"] = fps
+            return out
+
+    monkeypatch.setattr(cli, "AudioToVideo", lambda: FakeMaker(), raising=False)
+    args = SimpleNamespace(
+        input=str(src), output=None, resolution="1080p", fps=1
+    )
+    await cli.to_video_command(args)
+    assert created["input"] == src
+    assert created["resolution"] == "1080p"
+    assert created["fps"] == 1
+    assert "Video ready" in capsys.readouterr().out
+
+
+async def test_to_video_command_missing_input_exits(tmp_path):
+    from app import cli
+
+    args = SimpleNamespace(input=str(tmp_path / "nope.m4a"), output=None,
+                           resolution="720p", fps=2)
+    with pytest.raises(SystemExit):
+        await cli.to_video_command(args)
