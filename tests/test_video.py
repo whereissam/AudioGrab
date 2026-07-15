@@ -5,6 +5,7 @@ import os as _os
 import shutil as _shutil
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -192,27 +193,32 @@ def test_preflight_missing_input_raises(maker, tmp_path):
 
 
 def test_preflight_existing_output_refused(maker, tmp_path):
-    src = tmp_path / "in.m4a"; src.write_bytes(b"x")
-    out = tmp_path / "out.mp4"; out.write_bytes(b"y")
+    src = tmp_path / "in.m4a"
+    src.write_bytes(b"x")
+    out = tmp_path / "out.mp4"
+    out.write_bytes(b"y")
     with pytest.raises(FFmpegError, match="refusing to overwrite"):
         maker._preflight(src, out, None)
 
 
 def test_preflight_missing_image_raises(maker, tmp_path):
-    src = tmp_path / "in.m4a"; src.write_bytes(b"x")
+    src = tmp_path / "in.m4a"
+    src.write_bytes(b"x")
     with pytest.raises(FFmpegError, match="Image file not found"):
         maker._preflight(src, tmp_path / "out.mp4", tmp_path / "missing.png")
 
 
 def test_preflight_unwritable_destination(maker, tmp_path, monkeypatch):
-    src = tmp_path / "in.m4a"; src.write_bytes(b"x")
+    src = tmp_path / "in.m4a"
+    src.write_bytes(b"x")
     monkeypatch.setattr("app.core.video.os.access", lambda p, m: False)
     with pytest.raises(FFmpegError, match="not writable"):
         maker._preflight(src, tmp_path / "out.mp4", None)
 
 
 def test_preflight_passes_for_valid_inputs(maker, tmp_path):
-    src = tmp_path / "in.m4a"; src.write_bytes(b"x")
+    src = tmp_path / "in.m4a"
+    src.write_bytes(b"x")
     maker._preflight(src, tmp_path / "out.mp4", None)  # no raise
 
 
@@ -241,7 +247,8 @@ def wired(maker, monkeypatch):
 
 
 async def test_create_aac_copies_audio_and_writes_default_output(wired, tmp_path):
-    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    src = tmp_path / "podcast.m4a"
+    src.write_bytes(b"audio")
     out = await wired.create(src)
     assert out == tmp_path / "podcast.youtube.mp4"
     assert out.exists()
@@ -253,21 +260,24 @@ async def test_create_aac_copies_audio_and_writes_default_output(wired, tmp_path
 
 async def test_create_non_aac_encodes_audio(wired, tmp_path):
     wired._probe_audio_codec = AsyncMock(return_value="mp3")
-    src = tmp_path / "podcast.mp3"; src.write_bytes(b"audio")
+    src = tmp_path / "podcast.mp3"
+    src.write_bytes(b"audio")
     await wired.create(src)
     cmd = wired.calls[-1]
     assert cmd[cmd.index("-c:a") + 1] == "aac"
 
 
 async def test_create_refuses_existing_output(wired, tmp_path):
-    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    src = tmp_path / "podcast.m4a"
+    src.write_bytes(b"audio")
     (tmp_path / "podcast.youtube.mp4").write_bytes(b"old")
     with pytest.raises(FFmpegError, match="refusing to overwrite"):
         await wired.create(src)
 
 
 async def test_create_handles_non_ascii_paths(wired, tmp_path):
-    src = tmp_path / "对话 周晨 完整版.m4a"; src.write_bytes(b"audio")
+    src = tmp_path / "对话 周晨 完整版.m4a"
+    src.write_bytes(b"audio")
     out = await wired.create(src)
     assert out.name == "对话 周晨 完整版.youtube.mp4"
     assert out.exists()
@@ -279,7 +289,8 @@ async def test_create_uses_embedded_cover(wired, tmp_path):
         side_effect=lambda i, idx, wd: (Path(wd) / "cover.png").write_bytes(b"\x89PNG")
         or (Path(wd) / "cover.png")
     )
-    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    src = tmp_path / "podcast.m4a"
+    src.write_bytes(b"audio")
     await wired.create(src)
     cmd = wired.calls[-1]
     assert "-loop" in cmd
@@ -300,7 +311,8 @@ async def test_create_copy_failure_retries_with_aac(maker, tmp_path):
         return ("", "", 0)
 
     maker._run = fake_run
-    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    src = tmp_path / "podcast.m4a"
+    src.write_bytes(b"audio")
     out = await maker.create(src)
     assert out.exists()
     assert len(maker.calls) == 2
@@ -318,7 +330,8 @@ async def test_create_non_mux_failure_does_not_retry(maker, tmp_path):
         return ("", "Unknown encoder libx264", 1)  # infrastructure failure
 
     maker._run = fake_run
-    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    src = tmp_path / "podcast.m4a"
+    src.write_bytes(b"audio")
     with pytest.raises(FFmpegError, match="Video creation failed"):
         await maker.create(src)
     assert len(calls) == 1  # no retry
@@ -333,7 +346,8 @@ async def test_create_failed_fallback_preserves_both_errors(maker, tmp_path):
         return outs.pop(0)
 
     maker._run = fake_run
-    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    src = tmp_path / "podcast.m4a"
+    src.write_bytes(b"audio")
     with pytest.raises(FFmpegError) as exc:
         await maker.create(src)
     msg = str(exc.value)
@@ -344,21 +358,21 @@ async def test_create_leaves_no_temp_on_failure(maker, tmp_path):
     maker._probe_audio_codec = AsyncMock(return_value="aac")
     maker._find_attached_cover = AsyncMock(return_value=None)
     maker._run = AsyncMock(return_value=("", "Unknown encoder libx264", 1))
-    src = tmp_path / "podcast.m4a"; src.write_bytes(b"audio")
+    src = tmp_path / "podcast.m4a"
+    src.write_bytes(b"audio")
     with pytest.raises(FFmpegError):
         await maker.create(src)
     leftovers = [p.name for p in tmp_path.iterdir() if p.name != "podcast.m4a"]
     assert leftovers == []  # TemporaryDirectory cleaned up
 
 
-from types import SimpleNamespace
-
-
 async def test_to_video_command_invokes_create(tmp_path, monkeypatch, capsys):
     from app import cli
 
-    src = tmp_path / "in.m4a"; src.write_bytes(b"audio")
-    out = tmp_path / "in.youtube.mp4"; out.write_bytes(b"\x00" * 2048)
+    src = tmp_path / "in.m4a"
+    src.write_bytes(b"audio")
+    out = tmp_path / "in.youtube.mp4"
+    out.write_bytes(b"\x00" * 2048)
 
     created = {}
 
