@@ -109,3 +109,19 @@ class AudioToVideo:
             ):
                 return int(stream["index"])
         return None
+
+    async def _extract_cover(
+        self, input_path: Path, stream_index: int, workdir: Path
+    ) -> Path:
+        cover = workdir / "cover.png"
+        cmd = [
+            self._ffmpeg, "-y",
+            "-i", str(input_path),
+            "-map", f"0:{stream_index}",
+            "-frames:v", "1",
+            str(cover),
+        ]
+        _, stderr, rc = await self._run(cmd)
+        if rc != 0 or not cover.exists():
+            raise FFmpegError(f"Failed to extract cover art: {stderr[:300]}")
+        return cover

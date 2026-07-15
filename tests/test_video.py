@@ -90,3 +90,35 @@ async def test_find_attached_cover_none_when_audio_only(maker):
     ]})
     maker._run = AsyncMock(return_value=(payload, "", 0))
     assert await maker._find_attached_cover(Path("in.m4a")) is None
+
+
+async def test_extract_cover_writes_png_and_maps_index(maker, tmp_path):
+    async def fake_run(cmd):
+        Path(cmd[-1]).write_bytes(b"\x89PNG")  # simulate ffmpeg writing the file
+        return ("", "", 0)
+
+    maker._run = fake_run
+    out = await maker._extract_cover(Path("in.m4a"), 3, tmp_path)
+    assert out == tmp_path / "cover.png"
+    assert out.exists()
+
+
+async def test_extract_cover_uses_exact_stream_map(maker, tmp_path):
+    captured = {}
+
+    async def fake_run(cmd):
+        captured["cmd"] = cmd
+        Path(cmd[-1]).write_bytes(b"\x89PNG")
+        return ("", "", 0)
+
+    maker._run = fake_run
+    await maker._extract_cover(Path("in.m4a"), 3, tmp_path)
+    assert "-map" in captured["cmd"]
+    assert "0:3" in captured["cmd"]
+    assert "-frames:v" in captured["cmd"]
+
+
+async def test_extract_cover_failure_raises(maker, tmp_path):
+    maker._run = AsyncMock(return_value=("", "boom", 1))
+    with pytest.raises(FFmpegError, match="cover art"):
+        await maker._extract_cover(Path("in.m4a"), 3, tmp_path)
