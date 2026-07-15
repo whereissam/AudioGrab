@@ -69,3 +69,5 @@ data/
 output/
 faster-whisper
 docs/ingestion-api-migration.md
+docs/superpowers/
+.superpowers/
