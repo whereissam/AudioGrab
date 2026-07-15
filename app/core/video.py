@@ -125,3 +125,48 @@ class AudioToVideo:
         if rc != 0 or not cover.exists():
             raise FFmpegError(f"Failed to extract cover art: {stderr[:300]}")
         return cover
+
+    def _build_command(
+        self,
+        *,
+        image: Path | None,
+        image_is_generated: bool,
+        audio_path: Path,
+        output_path: Path,
+        width: int,
+        height: int,
+        fps: int,
+        audio_copy: bool,
+    ) -> list[str]:
+        vf = (
+            f"scale=w={width}:h={height}:force_original_aspect_ratio=decrease,"
+            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color={BACKGROUND_COLOR},"
+            f"format=yuv420p"
+        )
+        cmd = [self._ffmpeg, "-y"]
+        # Input 0: the still image (looped) or a generated solid background.
+        if image_is_generated:
+            cmd += [
+                "-f", "lavfi",
+                "-i", f"color=c={BACKGROUND_COLOR}:s={width}x{height}:r={fps}",
+            ]
+        else:
+            cmd += ["-loop", "1", "-framerate", str(fps), "-i", str(image)]
+        # Input 1: the source audio.
+        cmd += ["-i", str(audio_path)]
+        cmd += [
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-c:v", "libx264",
+            "-tune", "stillimage",
+            "-preset", "veryfast",
+            "-vf", vf,
+            "-pix_fmt", "yuv420p",
+            "-fps_mode", "cfr",
+        ]
+        if audio_copy:
+            cmd += ["-c:a", "copy"]
+        else:
+            cmd += ["-c:a", "aac", "-b:a", "128k"]
+        cmd += ["-shortest", "-movflags", "+faststart", str(output_path)]
+        return cmd

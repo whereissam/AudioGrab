@@ -122,3 +122,62 @@ async def test_extract_cover_failure_raises(maker, tmp_path):
     maker._run = AsyncMock(return_value=("", "boom", 1))
     with pytest.raises(FFmpegError, match="cover art"):
         await maker._extract_cover(Path("in.m4a"), 3, tmp_path)
+
+
+def _build(maker, **overrides):
+    kwargs = dict(
+        image=None, image_is_generated=True,
+        audio_path=Path("in.m4a"), output_path=Path("out.tmp.mp4"),
+        width=1280, height=720, fps=2, audio_copy=True,
+    )
+    kwargs.update(overrides)
+    return maker._build_command(**kwargs)
+
+
+def test_build_command_generated_background(maker):
+    cmd = _build(maker, image_is_generated=True)
+    joined = " ".join(cmd)
+    assert "lavfi" in joined
+    assert "color=c=0x0f0f14:s=1280x720:r=2" in joined
+    assert "-loop" not in cmd  # generated bg is not a looped image
+
+
+def test_build_command_with_image_loops(maker):
+    cmd = _build(maker, image=Path("cover.png"), image_is_generated=False)
+    assert "-loop" in cmd and "1" in cmd
+    assert "-framerate" in cmd
+    assert str(Path("cover.png")) in cmd
+
+
+def test_build_command_explicit_mapping_and_codecs(maker):
+    cmd = _build(maker)
+    assert cmd.count("-map") == 2
+    assert "0:v:0" in cmd and "1:a:0" in cmd
+    assert "libx264" in cmd
+    assert "yuv420p" in cmd
+    assert "-fps_mode" in cmd and "cfr" in cmd
+    assert "-shortest" in cmd
+    assert "+faststart" in cmd
+    assert cmd[-1] == str(Path("out.tmp.mp4"))
+
+
+def test_build_command_aspect_preserving_filter(maker):
+    cmd = _build(maker)
+    vf = cmd[cmd.index("-vf") + 1]
+    assert "force_original_aspect_ratio=decrease" in vf
+    assert "pad=1280:720" in vf
+    assert "format=yuv420p" in vf
+
+
+def test_build_command_audio_copy(maker):
+    cmd = _build(maker, audio_copy=True)
+    idx = cmd.index("-c:a")
+    assert cmd[idx + 1] == "copy"
+    assert "aac" not in cmd
+
+
+def test_build_command_audio_encode(maker):
+    cmd = _build(maker, audio_copy=False)
+    idx = cmd.index("-c:a")
+    assert cmd[idx + 1] == "aac"
+    assert "128k" in cmd
