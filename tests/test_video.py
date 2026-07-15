@@ -1,6 +1,9 @@
 """Tests for the audio-to-video (YouTube-ready MP4) module."""
 
 import json as _json
+import os as _os
+import shutil as _shutil
+import subprocess
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -384,3 +387,32 @@ async def test_to_video_command_missing_input_exits(tmp_path):
                            resolution="720p", fps=2)
     with pytest.raises(SystemExit):
         await cli.to_video_command(args)
+
+
+@pytest.mark.skipif(
+    not _os.environ.get("RUN_FFMPEG_INTEGRATION") or _shutil.which("ffmpeg") is None,
+    reason="opt-in: set RUN_FFMPEG_INTEGRATION=1 and install ffmpeg",
+)
+async def test_integration_creates_youtube_ready_mp4(tmp_path):
+    # Build a 1s AAC/m4a fixture with ffmpeg.
+    src = tmp_path / "fixture.m4a"
+    subprocess.run(
+        ["ffmpeg", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
+         "-c:a", "aac", str(src)],
+        check=True, capture_output=True,
+    )
+    out = await AudioToVideo().create(src)
+    assert out.exists()
+
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries",
+         "stream=codec_type,codec_name,pix_fmt:format=duration",
+         "-of", "json", str(out)],
+        check=True, capture_output=True, text=True,
+    )
+    data = _json.loads(probe.stdout)
+    streams = {s["codec_type"]: s for s in data["streams"]}
+    assert streams["video"]["codec_name"] == "h264"
+    assert streams["video"]["pix_fmt"] == "yuv420p"
+    assert streams["audio"]["codec_name"] == "aac"
+    assert abs(float(data["format"]["duration"]) - 1.0) < 0.5
