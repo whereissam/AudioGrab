@@ -112,7 +112,7 @@ Follow-up (completed 2026-06-22):
 | Psychographic Mapping & Contradiction Detection | Medium | High | P13 |
 | Content Distiller (Multi-Source Briefing) | Medium | High | P14 |
 | Neural Audio Reconstruction | Very High | Medium | P15 |
-| Intelligent Webhooks & Agentic Notifications | Low | High | P16 |
+| Intelligent Webhooks & Agentic Notifications | Low | High | P16 🚧 (Phase 1 shipped) |
 | Structured Data Extraction | Medium | High | P17 |
 
 ### v2.5 — Capability Surface & Knowledge Pipeline (Planned)
@@ -862,29 +862,77 @@ Canvas / multi-stage progress UI.
 
 ---
 
-## P16: Intelligent Webhooks & Agentic Notifications
+## P16: Intelligent Webhooks & Agentic Notifications 🚧 (Phase 1 shipped)
 
 **Goal:** Webhooks should deliver *intelligence*, not just status updates. Instead of "Job Complete", send: *"Job Complete. This video contains 3 actionable investment tips and 1 logical fallacy. See attached summary."*
 
+> **Phase 1 status (✅ SHIPPED):** the three payload templates rendered from
+> already-extracted data (never a fresh LLM call on the webhook path), the
+> global-setting + per-job template selection, and the templates listing
+> endpoint. Contradiction alerts (needs P13), custom variable-substitution
+> templates, and smart routing/urgency are deferred. See "P16 Phase 1 — what
+> shipped".
+
 ### Tasks
 
-- [ ] Extend webhook payload with AI-generated content:
-  - [ ] Include 3-bullet summary in webhook body
-  - [ ] Include detected entities (people, companies, topics)
-  - [ ] Include sentiment overview (overall tone, key heated moments)
-  - [ ] Include contradiction alerts if any were detected
-- [ ] Webhook templates:
-  - [ ] **Minimal**: Status + title (current behavior)
-  - [ ] **Summary**: Status + AI summary + key topics
-  - [ ] **Full Intelligence**: Status + summary + entities + sentiment + contradictions
-  - [ ] Custom templates with variable substitution
-- [ ] Smart notification routing:
+- [~] Extend webhook payload with AI-generated content:
+  - [x] Include AI summary in webhook body (from the P12 summarize stage's
+        persisted result when the job ran one — never generated at send time)
+  - [x] Include detected entities (people, companies, …) + key topics
+        (ranked by claim count from the P18 layer)
+  - [x] Include sentiment overview (overall sentiment, heat score, dominant
+        emotions from the cached P7 result)
+  - [ ] Include contradiction alerts if any were detected — needs P13
+- [~] Webhook templates:
+  - [x] **Minimal**: Status + title (current behavior; stays the default)
+  - [x] **Summary**: Status + AI summary + key topics
+  - [x] **Full Intelligence**: Status + summary + entities + sentiment +
+        claim/prediction counts (contradictions pending P13)
+  - [ ] Custom templates with variable substitution — deferred
+- [ ] Smart notification routing — deferred:
   - [ ] Route different types of content to different webhooks/channels
   - [ ] Example: Financial content → Slack #trading, Tech discussions → Slack #engineering
   - [ ] Urgency detection: flag time-sensitive information for immediate notification
-- [ ] API:
-  - [ ] `PUT /api/webhooks/{id}` - Update webhook with template selection
-  - [ ] `GET /api/webhooks/templates` - List available templates
+- [~] API:
+  - [x] Template selection: global `WEBHOOK_TEMPLATE` setting (surfaced in
+        `GET /api/webhooks/config`) + per-job `webhook_template` override
+        (settable on `POST /api/ingest`) — webhooks are config-based, there
+        are no webhook entities to PUT
+  - [x] `GET /api/webhooks/templates` - List available templates
+
+### P16 Phase 1 — what shipped
+
+Hard rule: the webhook path assembles, it never generates. Payloads are
+built entirely from data other stages already persisted, so a notification
+is fast, free, and safe to fire from any worker.
+
+- `app/core/webhook_intelligence.py` (new) — template registry (`minimal` /
+  `summary` / `full_intelligence`), `resolve_template` (job override → global
+  setting → minimal on anything invalid), `build_job_completed_payload`:
+  summary comes from the P12 summarize stage's persisted `detail`, topics and
+  entities are ranked by claim frequency from the P18 layer (capped 8/10),
+  sentiment reads the cached P7 result, plus knowledge status and
+  claim/prediction counts. Every enrichment source is individually
+  best-effort — a failure drops the field, never the delivery.
+- `app/core/webhook_notifier.py` — `notify_job_complete` renders through the
+  template layer with a fallback to the legacy minimal payload if rendering
+  itself crashes (delivery beats enrichment).
+- `app/config.py` — `webhook_template: str = "minimal"` (default preserves
+  the legacy payload exactly; enriched payloads are opt-in).
+- Job store — `webhook_template` column (migration + update allowlist).
+- `app/api/webhook_routes.py` — `GET /api/webhooks/templates`; `template`
+  surfaced on `GET /api/webhooks/config`.
+- `app/api/ingest_routes.py` — `webhook_template` accepted on
+  `POST /api/ingest` (validated, 400 on unknown) and persisted per job.
+- `README.md` — webhook templates paragraph under Agentic Ingest.
+- `tests/` — `test_webhook_intelligence.py` (10: template resolution
+  incl. invalid fallback, legacy shape preservation, summary + topic
+  ranking, entities/sentiment/counts, broken-source tolerance, notifier
+  crash fallback, templates endpoint), +2 ingest-route template tests —
+  **12 new tests**, 756/756 suite green (1 skipped).
+
+Deferred: contradiction alerts (P13 substrate), custom variable-substitution
+templates, smart per-content routing, urgency detection.
 
 ---
 

@@ -389,6 +389,8 @@ curl http://localhost:8000/api/pipelines                # list profiles
 
 A transcription failure aborts the run; enrichment-stage failures (say, no LLM provider configured) are recorded on that stage and the rest continues. Stage results land where the rest of the app expects them — the transcript, search index, knowledge base, sentiment and clips endpoints all see pipeline-produced output.
 
+**Intelligent webhooks:** the completion webhook can carry more than a status line. Pick a payload template — `minimal` (legacy), `summary` (adds the AI summary + key topics), or `full_intelligence` (adds entities, sentiment overview, and claim/prediction counts) — globally via the `WEBHOOK_TEMPLATE` setting or per job with `webhook_template` on `POST /api/ingest`. Payloads are assembled from already-extracted data, never a fresh LLM call. `GET /api/webhooks/templates` lists them.
+
 ## Ask Audio
 
 Grounded Q&A on top of the semantic index. Answers come from the configured `chat` LLM preset (AI Settings), are restricted to retrieved transcript excerpts, and cite numbered sources with timestamps and speakers — if the transcript doesn't cover it, the answer says so instead of guessing.

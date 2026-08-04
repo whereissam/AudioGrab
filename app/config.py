@@ -149,6 +149,10 @@ class Settings(BaseSettings):
     # Best-effort — an index failure never fails the transcription.
     search_auto_index: bool = True
 
+    # P16: default webhook payload template — minimal | summary |
+    # full_intelligence. Per-job `webhook_template` overrides this.
+    webhook_template: str = "minimal"
+
     # P20: subscription digest pipeline (cross-episode synthesis)
     digest_enabled: bool = True  # Background digest runner worker
     digest_interval: int = 3600  # Runner tick interval (seconds) — hourly

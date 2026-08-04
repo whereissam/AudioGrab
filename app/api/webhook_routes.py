@@ -27,7 +27,30 @@ async def get_webhook_config():
         default_url=settings.default_webhook_url,
         retry_attempts=settings.webhook_retry_attempts,
         retry_delay=settings.webhook_retry_delay,
+        template=settings.webhook_template,
     )
+
+
+@router.get("/templates")
+async def list_webhook_templates():
+    """List payload templates for the job_completed event (P16).
+
+    The global default comes from the WEBHOOK_TEMPLATE setting; each job can
+    override it via `webhook_template` (e.g. on POST /api/ingest).
+    """
+    from ..core.webhook_intelligence import (
+        TEMPLATE_DESCRIPTIONS,
+        WEBHOOK_TEMPLATES,
+    )
+
+    settings = get_settings()
+    return {
+        "default": settings.webhook_template,
+        "templates": [
+            {"name": name, "description": TEMPLATE_DESCRIPTIONS[name]}
+            for name in WEBHOOK_TEMPLATES
+        ],
+    }
 
 
 @router.post("/test", response_model=WebhookTestResponse)

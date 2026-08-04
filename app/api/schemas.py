@@ -581,6 +581,11 @@ class WebhookConfig(BaseModel):
         default=None,
         description="Default webhook URL for all jobs",
     )
+    template: Optional[str] = Field(
+        default=None,
+        description="Default job_completed payload template "
+        "(minimal | summary | full_intelligence)",
+    )
     retry_attempts: int = Field(
         default=3,
         description="Number of retry attempts for failed webhooks",

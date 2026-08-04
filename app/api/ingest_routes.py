@@ -45,6 +45,9 @@ class IngestRequest(BaseModel):
     model_size: Optional[str] = None
     language: Optional[str] = None
     webhook_url: Optional[HttpUrl] = None
+    # P16: payload template for the notify stage
+    # (minimal | summary | full_intelligence); default = global setting.
+    webhook_template: Optional[str] = None
 
 
 class IngestResponse(BaseModel):
@@ -108,6 +111,15 @@ async def ingest(request: Request, body: IngestRequest, background_tasks: Backgr
             detail=f"Unknown profile '{body.profile}'. "
             f"Valid: {sorted(PIPELINE_PROFILES)}",
         )
+    if body.webhook_template is not None:
+        from ..core.webhook_intelligence import WEBHOOK_TEMPLATES
+
+        if body.webhook_template not in WEBHOOK_TEMPLATES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown webhook_template '{body.webhook_template}'. "
+                f"Valid: {list(WEBHOOK_TEMPLATES)}",
+            )
     store = get_job_store()
     job_id = str(uuid.uuid4())
     store.create_job(
@@ -121,6 +133,8 @@ async def ingest(request: Request, body: IngestRequest, background_tasks: Backgr
     )
     if body.webhook_url:
         store.update_job(job_id, webhook_url=str(body.webhook_url))
+    if body.webhook_template:
+        store.update_job(job_id, webhook_template=body.webhook_template)
     init_pipeline_state(job_id, body.profile, job_store=store)
     background_tasks.add_task(_run_pipeline_background, job_id)
     return IngestResponse(

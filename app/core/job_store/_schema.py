@@ -556,6 +556,9 @@ class _SchemaMixin:
             # P12: agentic pipeline state — JSON {profile, stages: [{name,
             # status, ...}]} maintained by app/core/agentic_pipeline.py.
             ("pipeline_state", "TEXT"),
+            # P16: per-job webhook payload template override
+            # (minimal | summary | full_intelligence).
+            ("webhook_template", "TEXT"),
             # Slice 1: durable content identity. Nullable at the SQL level
             # (SQLite can't add NOT NULL without a rebuild); the service
             # layer sets it for every new job with a durable source.

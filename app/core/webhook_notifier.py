@@ -82,22 +82,34 @@ class WebhookNotifier:
         """
         Notify when a job completes successfully.
 
+        The payload is rendered by the P16 template layer (minimal / summary /
+        full_intelligence — per-job ``webhook_template`` override, else the
+        global setting) from already-extracted data. A template-rendering
+        problem falls back to the minimal payload rather than dropping the
+        notification.
+
         Args:
             job: The completed job data
 
         Returns:
             True if webhook was delivered
         """
-        payload = {
-            "job_id": job.get("job_id"),
-            "status": "completed",
-            "job_type": job.get("job_type"),
-            "content_info": job.get("content_info"),
-            "file_path": job.get("converted_file_path") or job.get("raw_file_path"),
-            "file_size_mb": job.get("file_size_mb"),
-            "error": None,
-            "batch_id": job.get("batch_id"),
-        }
+        from .webhook_intelligence import build_job_completed_payload
+
+        try:
+            payload = build_job_completed_payload(job)
+        except Exception as e:  # noqa: BLE001 - delivery beats enrichment
+            logger.warning("Webhook payload enrichment failed: %s", e)
+            payload = {
+                "job_id": job.get("job_id"),
+                "status": "completed",
+                "job_type": job.get("job_type"),
+                "content_info": job.get("content_info"),
+                "file_path": job.get("converted_file_path") or job.get("raw_file_path"),
+                "file_size_mb": job.get("file_size_mb"),
+                "error": None,
+                "batch_id": job.get("batch_id"),
+            }
 
         webhook_url = job.get("webhook_url")
         return await self.notify("job_completed", payload, webhook_url)

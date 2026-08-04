@@ -129,3 +129,21 @@ class TestProfiles:
         assert names == {"quick", "deep", "full"}
         full = next(p for p in body["profiles"] if p["name"] == "full")
         assert "sentiment" in full["stages"] and "clips" in full["stages"]
+
+
+class TestWebhookTemplate:
+    def test_webhook_template_persisted(self, client: TestClient, store: JobStore):
+        r = client.post(
+            "/ingest",
+            json={"url": "https://youtu.be/abc", "webhook_template": "summary"},
+        )
+        job = store.get_job(r.json()["job_id"])
+        assert job["webhook_template"] == "summary"
+
+    def test_unknown_webhook_template_400(self, client: TestClient):
+        r = client.post(
+            "/ingest",
+            json={"url": "https://youtu.be/abc", "webhook_template": "loud"},
+        )
+        assert r.status_code == 400
+        assert "loud" in r.json()["detail"]
