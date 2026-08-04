@@ -144,6 +144,11 @@ class Settings(BaseSettings):
     # backfill worker picks them up; enqueue is non-blocking and idempotent.
     knowledge_auto_extract: bool = True
 
+    # P10: semantic search. Auto-index transcript segments into the embedding
+    # store when a transcription completes (local model, no LLM cost).
+    # Best-effort — an index failure never fails the transcription.
+    search_auto_index: bool = True
+
     # P20: subscription digest pipeline (cross-episode synthesis)
     digest_enabled: bool = True  # Background digest runner worker
     digest_interval: int = 3600  # Runner tick interval (seconds) — hourly

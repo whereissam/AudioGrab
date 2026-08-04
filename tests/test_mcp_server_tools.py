@@ -76,6 +76,12 @@ class FakeSift:
         return {"success": True, "written": body.get("write") is not False,
                 "template": body.get("template"), "target": body.get("target")}
 
+    async def search(self, body):
+        self.calls.append(("search", body))
+        return self.overrides.get(
+            "search", {"query": body.get("query"), "count": 0, "results": []}
+        )
+
 
 def _server(fake: FakeSift):
     return build_server(MCPConfig(api_url="http://x"), client=fake)
@@ -90,13 +96,14 @@ class TestRegistration:
             "ingest_url", "get_transcript", "get_segment", "get_summary",
             "get_chapters", "get_clips", "get_highlights", "get_claims",
             "get_entities", "get_topics", "get_predictions", "export_to_vault",
+            "search_library", "search_segments",
         }
 
     @pytest.mark.asyncio
     async def test_deferred_tools_absent(self):
         m = _server(FakeSift())
         names = {t.name for t in await m.list_tools()}
-        for absent in ("ask_episode", "search_library", "compare_episodes", "summarize_trend"):
+        for absent in ("ask_episode", "compare_episodes", "summarize_trend"):
             assert absent not in names
 
 
@@ -262,3 +269,43 @@ class TestExportTool:
         await m.call_tool("export_to_vault", {"episode_id": "ep1", "preview": True})
         _, _, body = fake.calls[-1]
         assert body["write"] is False
+
+
+class TestSearchTools:
+    @pytest.mark.asyncio
+    async def test_search_library_passes_query_and_limits(self):
+        fake = FakeSift()
+        m = _server(fake)
+        out = _parse(await m.call_tool(
+            "search_library", {"query": "fed rate hike", "limit": 5}
+        ))
+        assert out["query"] == "fed rate hike"
+        _, body = fake.calls[-1]
+        assert body == {"query": "fed rate hike", "k": 5, "min_score": 0.3}
+
+    @pytest.mark.asyncio
+    async def test_search_library_optional_filters_forwarded(self):
+        fake = FakeSift()
+        m = _server(fake)
+        await m.call_tool(
+            "search_library",
+            {"query": "L2s", "platform": "youtube", "speaker": "Host A"},
+        )
+        _, body = fake.calls[-1]
+        assert body["platform"] == "youtube"
+        assert body["speaker"] == "Host A"
+
+    @pytest.mark.asyncio
+    async def test_search_segments_scopes_to_episode(self):
+        fake = FakeSift(search={"query": "L2s", "count": 1, "results": [
+            {"job_id": "ep1", "chunk_id": "seg_ep1_0001", "text": "about L2s",
+             "start_s": 30.0, "end_s": 55.0, "score": 0.81}
+        ]})
+        m = _server(fake)
+        out = _parse(await m.call_tool(
+            "search_segments", {"episode_id": "ep1", "query": "L2s"}
+        ))
+        assert out["count"] == 1
+        _, body = fake.calls[-1]
+        assert body["job_id"] == "ep1"
+        assert body["k"] == 10

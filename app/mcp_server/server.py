@@ -4,11 +4,11 @@
 single ``SiftClient`` so the whole surface shares one HTTP connection pool and a
 test can inject an in-process (ASGI) client.
 
-Scope: tools backed by P18 + existing routes, plus ``export_to_vault`` (P21).
-Tools that need unbuilt phases — ``ask_episode`` / ``ask_at_timestamp`` (P11 RAG),
-``search_library`` (P10), ``compare_episodes`` / ``find_contradictions`` /
-``summarize_trend`` (P13 + P20) — are intentionally absent until their substrate
-ships.
+Scope: tools backed by P18 + existing routes, plus ``export_to_vault`` (P21)
+and the P10 semantic-search pair (``search_library`` / ``search_segments``).
+Tools that need unbuilt phases — ``ask_episode`` / ``ask_at_timestamp`` (P11
+RAG), ``compare_episodes`` / ``find_contradictions`` / ``summarize_trend``
+(P13 + P20) — are intentionally absent until their substrate ships.
 """
 
 from __future__ import annotations
@@ -28,9 +28,10 @@ SERVER_INSTRUCTIONS = (
     "`ingest_url` to get an `episode_id` (a job id), then read its transcript, "
     "summary, clips, and the structured knowledge layer (claims, entities, "
     "topics, predictions) by that id. Knowledge extraction is asynchronous: a "
-    "knowledge tool may report `status='pending'` — retry shortly. Q&A, "
-    "library-wide semantic search, cross-episode synthesis, and vault export "
-    "are not yet available."
+    "knowledge tool may report `status='pending'` — retry shortly. Semantic "
+    "search is available via `search_library` (whole library) and "
+    "`search_segments` (one episode). Q&A and cross-episode synthesis are "
+    "not yet available."
 )
 
 
@@ -252,6 +253,42 @@ def build_server(
             except Exception:  # noqa: BLE001 - a prediction row may not exist yet
                 continue
         return {"episode_id": episode_id, "predictions": predictions}
+
+    # ===== search (P10) =====
+
+    @mcp.tool()
+    async def search_library(
+        query: str,
+        limit: int = 10,
+        min_score: float = 0.3,
+        platform: str | None = None,
+        speaker: str | None = None,
+    ) -> dict:
+        """Semantic search across every indexed episode. Returns matching
+        transcript chunks with episode id, timestamps, speaker, and a cosine
+        relevance score — use `get_segment` on a hit's time range for more
+        context."""
+        body: dict = {"query": query, "k": limit, "min_score": min_score}
+        if platform:
+            body["platform"] = platform
+        if speaker:
+            body["speaker"] = speaker
+        return await sift.search(body)
+
+    @mcp.tool()
+    async def search_segments(
+        episode_id: str, query: str, limit: int = 10, min_score: float = 0.3
+    ) -> dict:
+        """Semantic search scoped to one episode. Returns the episode's most
+        relevant transcript chunks with timestamps and scores."""
+        return await sift.search(
+            {
+                "query": query,
+                "job_id": episode_id,
+                "k": limit,
+                "min_score": min_score,
+            }
+        )
 
     # ===== export (P21) =====
 

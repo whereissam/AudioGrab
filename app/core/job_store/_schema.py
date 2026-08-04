@@ -468,6 +468,30 @@ class _SchemaMixin:
                 "ON transcript_segments(transcript_artifact_id, start_ms)"
             )
 
+            # P10: semantic-search chunks. Windows of consecutive transcript
+            # segments sized for the embedding model; the vector itself lives
+            # in the generic `embeddings` table under object_type='segment'
+            # keyed by chunk_id, so this table only carries the metadata a
+            # search hit needs to render (timestamps, speaker, text).
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS search_chunks (
+                    chunk_id        TEXT PRIMARY KEY,
+                    job_id          TEXT NOT NULL,
+                    ordinal         INTEGER NOT NULL,
+                    start_s         REAL,
+                    end_s           REAL,
+                    speaker         TEXT,
+                    text            TEXT NOT NULL,
+                    embedding_model TEXT,
+                    created_at      TEXT NOT NULL,
+                    UNIQUE (job_id, ordinal)
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_search_chunks_job "
+                "ON search_chunks(job_id)"
+            )
+
             # Slice 3: idempotency keys for /v1 submissions. Same key +
             # same request_hash replays the original job; same key +
             # different hash is a 409.

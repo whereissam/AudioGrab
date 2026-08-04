@@ -157,6 +157,13 @@ class SiftClient:
         _, data = await self._request("GET", f"/api/predictions/{claim_id}")
         return data
 
+    # ===== search (P10) =====
+
+    async def search(self, body: dict) -> dict:
+        """POST /api/search — semantic search over indexed transcripts."""
+        _, data = await self._request("POST", "/api/search", json=body)
+        return data
+
     # ===== export (P21) =====
 
     async def export_job(self, job_id: str, body: dict) -> dict:

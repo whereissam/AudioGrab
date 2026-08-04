@@ -340,6 +340,9 @@ class WorkflowProcessor:
             # P18 Phase D: flow the fresh transcript into the knowledge base.
             self._enqueue_knowledge_extraction(job_id)
 
+            # P10: make the fresh transcript semantically searchable.
+            await self._index_search_segments(job_id)
+
             return self.job_store.get_job(job_id)
 
         except Exception as e:
@@ -368,6 +371,28 @@ class WorkflowProcessor:
             logger.warning(
                 f"[{job_id}] Could not queue knowledge extraction: {e}"
             )
+
+    async def _index_search_segments(self, job_id: str) -> None:
+        """Index the fresh transcript for semantic search (P10).
+
+        Runs inline because embedding is a local model call (no LLM budget)
+        and the job is already COMPLETED — a couple of extra seconds here
+        doesn't delay anything the user is waiting on. Gated on
+        ``search_auto_index``; best-effort so an embedding hiccup (e.g.
+        sentence-transformers not installed) never fails the transcription.
+        """
+        from ..config import get_settings
+
+        if not get_settings().search_auto_index:
+            return
+        try:
+            from .segment_indexer import get_segment_indexer
+
+            n = await get_segment_indexer().index_job(job_id)
+            if n:
+                logger.info(f"[{job_id}] Search-indexed {n} chunk(s)")
+        except Exception as e:  # best-effort — never break the transcription
+            logger.warning(f"[{job_id}] Could not build search index: {e}")
 
     async def retry_job(self, job_id: str) -> dict:
         """Retry a failed or interrupted job from its last successful phase."""

@@ -106,7 +106,7 @@ Follow-up (completed 2026-06-22):
 
 | Feature | Difficulty | Impact | Priority |
 |---------|------------|--------|----------|
-| Semantic Indexing & Vector Search | High | Very High | P10 |
+| Semantic Indexing & Vector Search | High | Very High | P10 🚧 (Phase 1 shipped) |
 | Ask Audio (RAG Chat Interface) | High | Very High | P11 |
 | Agentic Ingest Pipeline | Medium | Very High | P12 |
 | Psychographic Mapping & Contradiction Detection | Medium | High | P13 |
@@ -493,38 +493,103 @@ save to Downloads).
 
 ---
 
-## P10: Semantic Indexing & Vector Search
+## P10: Semantic Indexing & Vector Search 🚧 (Phase 1 shipped)
 
 **Goal:** Replace keyword search with concept-level retrieval. Turn every transcript into a searchable vector embedding so users can query their entire library by *meaning*.
 
+> **Phase 1 status (✅ SHIPPED):** segment indexing on the P18 embedding
+> substrate, auto-index on transcription completion, the filtered search API
+> (POST + GET), reindex/status endpoints, and the MCP `search_library` /
+> `search_segments` tools. Web UI, extra embedding models, and hybrid
+> (keyword+vector) search are deferred. See "P10 Phase 1 — what shipped".
+
 ### Tasks
 
-- [ ] Research and select vector database:
-  - [ ] ChromaDB (lightweight, Python-native, good for local/self-hosted)
-  - [ ] LanceDB (embedded, serverless, good for single-user)
-  - [ ] Qdrant (production-grade, supports filtering)
-- [ ] Create vector indexing service (`app/core/vector_indexer.py`):
-  - [ ] Generate embeddings for transcript segments (sentence-level or paragraph-level)
-  - [ ] Support multiple embedding models:
-    - [ ] `all-MiniLM-L6-v2` (fast, local, via sentence-transformers)
-    - [ ] OpenAI `text-embedding-3-small` (high quality, API)
-    - [ ] Ollama embedding models (local, privacy-first)
-  - [ ] Store embeddings alongside job metadata (job_id, timestamps, speaker)
-  - [ ] Auto-index on transcription completion (pipeline hook)
-- [ ] Migrate from plain SQLite to SQLite + vector store:
-  - [ ] Keep SQLite for structured data (jobs, settings, subscriptions)
-  - [ ] Vector DB for semantic content search
-  - [ ] Maintain referential links between the two
-- [ ] Concept search API:
-  - [ ] `POST /api/search` - Semantic search across all transcripts
-  - [ ] `GET /api/search?q=...&job_id=...` - Search within a specific job
-  - [ ] Return results with timestamps, speaker labels, relevance scores
-  - [ ] Support filters: date range, platform, speaker, job
-- [ ] Web UI search interface:
+- [x] Research and select vector database — resolved by the P18 locked
+      decision: SQLite blobs + Python cosine behind the `EmbeddingStore`
+      interface; Chroma/Qdrant/pgvector stays a one-file swap when ANN scale
+      demands it (no new dependency for Phase 1)
+- [x] Create vector indexing service (`app/core/segment_indexer.py` — reuses
+      the P18 embedding infra rather than the roadmap's aspirational
+      `vector_indexer.py`):
+  - [x] Generate embeddings for transcript chunks (windows of consecutive
+        segments, ~700 chars, 1-segment overlap — paragraph-level)
+  - [~] Support multiple embedding models:
+    - [x] `all-MiniLM-L6-v2` (fast, local, via sentence-transformers)
+    - [ ] OpenAI `text-embedding-3-small` (high quality, API) — deferred
+    - [ ] Ollama embedding models (local, privacy-first) — deferred
+  - [x] Store embeddings alongside job metadata (job_id, timestamps, speaker
+        in `search_chunks`; vectors in the generic `embeddings` table)
+  - [x] Auto-index on transcription completion (workflow hook, best-effort,
+        gated on `search_auto_index`)
+- [x] Migrate from plain SQLite to SQLite + vector store — N/A as designed:
+      the P18 generic `embeddings` table already is the vector store;
+      `search_chunks` keeps the referential link to jobs
+- [x] Concept search API:
+  - [x] `POST /api/search` - Semantic search across all transcripts
+  - [x] `GET /api/search?q=...&job_id=...` - Search within a specific job
+  - [x] Return results with timestamps, speaker labels, relevance scores
+  - [x] Support filters: date range, platform, speaker, job
+- [ ] Web UI search interface — deferred:
   - [ ] Global search bar in top nav
   - [ ] Results show matching segments with context, clickable timestamps
   - [ ] "Search within this transcript" option on job detail page
-- [ ] Incremental re-indexing on transcript edits or new annotations
+- [~] Incremental re-indexing — manual per-job re-index
+      (`POST /api/jobs/{id}/search-index`, idempotent replace) + bounded bulk
+      backfill (`POST /api/search/reindex`); auto re-index on transcript
+      edits/annotations deferred
+
+### P10 Phase 1 — what shipped
+
+Built directly on the P18 substrate — the generic `embeddings` table and the
+lazy-loaded local MiniLM model were designed for exactly this, so Phase 1 adds
+no new dependencies and no LLM cost (embedding is local CPU).
+
+- `app/core/job_store/_search.py` (new `_SearchMixin`) + `search_chunks` table
+  in `_schema.py` — chunk metadata rows (job_id, ordinal, start_s/end_s,
+  speaker, text, embedding_model; UNIQUE job+ordinal).
+  `replace_search_chunks_for_job` deletes prior chunk rows *and* their
+  orphaned embedding rows in one tx; `list_search_chunk_ids` resolves
+  job/speaker filters chunk-side and platform/date filters via a jobs join;
+  `get_search_index_stats` / `list_unindexed_search_jobs` power status +
+  backfill.
+- `app/core/segment_indexer.py` (new) — `build_chunks` windows whole segments
+  up to ~700 chars (MiniLM's effective context) with a 1-segment overlap so
+  boundary-straddling sentences are findable from either side; dominant-
+  speaker attribution by character count. `SegmentIndexer.index_job` resolves
+  segments warm/cold via the shared `resolve_segments_for_job`, embeds
+  batched off the event loop, and persists chunks + vectors idempotently.
+  Stores resolve lazily so the singleton never pins a stale JobStore.
+- `app/core/semantic_search.py` (new) — embeds the query with the same model,
+  scopes the cosine scan to SQL-resolved candidate IDs when filters are
+  present (batched under SQLite's bound-variable ceiling), joins chunk + job
+  context (title/source_url/platform), applies `min_score` (default 0.3).
+- `app/core/workflow.py` — `_index_search_segments(job_id)` after the P18
+  knowledge enqueue: inline (local model, job already COMPLETED), gated on
+  `search_auto_index`, best-effort so an embedding hiccup never fails the
+  transcription.
+- `app/api/search_routes.py` (new) — `POST /api/search` + `GET /api/search`
+  (same search, body vs query params), `GET /api/search/status`,
+  `POST /api/search/reindex` (bounded cold-inventory sweep, 2/min),
+  `POST /api/jobs/{id}/search-index` (per-job re-index, 404 on unknown job);
+  503 when sentence-transformers isn't installed. Wired in `app/api/__init__.py`.
+- `app/config.py` — `search_auto_index: bool = True`.
+- `app/mcp_server/` — `SiftClient.search` + `search_library(query, limit?,
+  min_score?, platform?, speaker?)` and `search_segments(episode_id, query,
+  limit?)` tools; server instructions updated. The P19 server is now 14 tools.
+- `README.md` — Semantic Search section with curl examples; MCP tool list +
+  feature bullet updated.
+- `tests/` — `test_segment_indexer.py` (14: chunk windowing, overlap,
+  speaker attribution, index/reindex idempotency, no-segments),
+  `test_search_store.py` (12: chunk CRUD, orphan-embedding cleanup, filter
+  queries, stats/backfill listing), `test_search_api.py` (12: index/status/
+  reindex endpoints, ranked search, min_score, GET variant, job/platform
+  scoping, empty index, validation), +3 MCP search-tool tests (+2 updated) —
+  **41 new tests**, 696/696 suite green (1 skipped).
+
+Deferred: Web UI search surface, OpenAI/Ollama embedding model options,
+hybrid keyword+vector search (the P22 Slice 5 "evidence retrieval" remainder),
+and auto re-index on transcript edits/annotations.
 
 **Example query:** *"Find the part where someone explains the difference between L2s and sidechains"* → Returns the exact 30-second clip from a 3-hour podcast downloaded two months ago.
 
@@ -1076,10 +1141,10 @@ Scope notes: `workflow.py`'s overall coverage stays low (28%) because its downlo
   - [x] `get_entities(episode_id)` — people / companies / tickers / projects (composed from claims)
   - [x] `get_topics(episode_id)` — topic graph (composed from claims)
   - [x] `get_predictions(episode_id)` — falsifiable forward-looking claims (composed from claims)
-- [ ] **Q&A** (deferred — depends on P10/P11)
+- [~] **Q&A** (search shipped with P10; RAG chat depends on P11)
   - [ ] `ask_episode(episode_id, question)` — RAG against single episode (depends on P11)
   - [ ] `ask_at_timestamp(episode_id, time_range, question)` — scoped Q&A
-  - [ ] `search_library(query, filters?)` — semantic search across all episodes (depends on P10)
+  - [x] `search_library(query, filters?)` — semantic search across all episodes (P10 Phase 1; plus per-episode `search_segments`)
 - [ ] **Cross-episode synthesis** (deferred — depends on P13/P20)
   - [ ] `compare_episodes(episode_ids[], topic?)` — agreements / disagreements
   - [ ] `find_contradictions(speaker?, topic?, timeframe?)` — surface inconsistencies
@@ -1313,7 +1378,9 @@ unified async `/v1/ingestions` API, keeping all legacy endpoints working.
       requests from this network — cookies-from-browser support added
       (`YOUTUBE_COOKIES_FROM_BROWSER`); hosted acquisition will need proxy /
       session infrastructure, as anticipated in the product plan
-- [ ] Evidence retrieval: segment embeddings, hybrid search, MCP `search_segments`
+- [~] Evidence retrieval: segment embeddings + semantic search + MCP
+      `search_segments` shipped with P10 Phase 1; *hybrid* (keyword+vector)
+      search still open
 
 ## Platform Adapter Ideas
 
