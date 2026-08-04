@@ -37,7 +37,7 @@
 - **Vault & Note-App Export** - Turn any episode into a templated markdown note for **Obsidian / Logseq / plain markdown** — YAML frontmatter, clickable timestamp links, claim cards, pull-quote highlights, a collapsible transcript, and `[[wikilinks]]` for canonical entities. Served over the API and the MCP `export_to_vault` tool. See [Vault Export](#vault--note-app-export).
 - **Subscription Digests (Cross-Episode Synthesis)** - Define a digest over a set of subscriptions and Sift generates a scheduled cross-source brief: what several episodes agreed on, where they disagreed, repeated narratives, and predictions worth tracking. The differentiator over single-episode summaries is reading *across* sources. Also on-demand per-topic synthesis. See [Subscription Digests](#subscription-digests).
 - **MCP Server (Capability Surface)** - Expose Sift to Claude Desktop, Cursor, and custom agents as MCP tools (`ingest_url`, `get_transcript`, `get_claims`, `get_entities`, `get_topics`, `get_predictions`, …). One server, N agent skills. See [MCP Server](#mcp-server) below.
-- **Agentic Ingest Pipeline** - Paste a URL and Sift auto-triggers summarization, entity extraction, and search indexing (coming soon)
+- **Agentic Ingest Pipeline** - Paste a URL with a profile (`quick` / `deep` / `full`) and Sift runs the whole chain — transcribe, search-index, knowledge extraction, summary, sentiment, clips, webhook — with per-stage status at `GET /api/jobs/{id}/pipeline`. See [Agentic Ingest](#agentic-ingest).
 - **Telegram Research Assistant** - Send a link, then ask questions about the content — the bot answers instantly
 - **Intelligent Webhooks** - Notifications include AI-generated summaries, key findings, and detected insights (coming soon)
 - **Subscriptions** - Auto-monitor RSS feeds, YouTube channels, and playlists
@@ -367,6 +367,27 @@ curl -X POST http://localhost:8000/api/search \
 ```
 
 Hits return the matching transcript chunk with timestamps, speaker, cosine score, and episode context (title / source URL / platform) — jump straight to the moment. Older episodes transcribed before this feature: `POST /api/search/reindex` sweeps them in batches, `POST /api/jobs/{id}/search-index` (re)indexes one job, and `GET /api/search/status` reports coverage. Auto-indexing is gated on `SEARCH_AUTO_INDEX` (default on).
+
+## Agentic Ingest
+
+One call, maximum value. `POST /api/ingest` takes a URL and a pipeline profile and drives it through every stage, with per-stage progress you can poll:
+
+| Profile | Stages |
+|---------|--------|
+| `quick` | download + transcribe → search index → webhook |
+| `deep` (default) | quick + knowledge extraction (claims/entities/topics) + LLM summary |
+| `full` | deep + sentiment/heat analysis + viral clip suggestions |
+
+```bash
+curl -X POST http://localhost:8000/api/ingest \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://youtu.be/...", "profile": "deep"}'
+
+curl http://localhost:8000/api/jobs/<job_id>/pipeline   # stage-by-stage status
+curl http://localhost:8000/api/pipelines                # list profiles
+```
+
+A transcription failure aborts the run; enrichment-stage failures (say, no LLM provider configured) are recorded on that stage and the rest continues. Stage results land where the rest of the app expects them — the transcript, search index, knowledge base, sentiment and clips endpoints all see pipeline-produced output.
 
 ## Ask Audio
 

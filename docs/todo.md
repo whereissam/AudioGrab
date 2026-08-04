@@ -108,7 +108,7 @@ Follow-up (completed 2026-06-22):
 |---------|------------|--------|----------|
 | Semantic Indexing & Vector Search | High | Very High | P10 🚧 (Phase 1 shipped) |
 | Ask Audio (RAG Chat Interface) | High | Very High | P11 🚧 (Phase 1 shipped) |
-| Agentic Ingest Pipeline | Medium | Very High | P12 |
+| Agentic Ingest Pipeline | Medium | Very High | P12 🚧 (Phase 1 shipped) |
 | Psychographic Mapping & Contradiction Detection | Medium | High | P13 |
 | Content Distiller (Multi-Source Briefing) | Medium | High | P14 |
 | Neural Audio Reconstruction | Very High | Medium | P15 |
@@ -685,35 +685,93 @@ conversation memory (each ask is currently single-turn).
 
 ---
 
-## P12: Agentic Ingest Pipeline
+## P12: Agentic Ingest Pipeline 🚧 (Phase 1 shipped)
 
 **Goal:** When a user pastes a URL, Sift doesn't just download — it triggers an autonomous multi-agent research loop that extracts maximum value.
 
+> **Phase 1 status (✅ SHIPPED):** the pipeline orchestrator with three
+> built-in profiles (quick / deep / full) composing the existing services,
+> per-stage status persisted on the job, and the ingest/status/profiles API.
+> Custom user-defined profiles, per-subscription defaults, parallel stage
+> execution, and the Knowledge Canvas UI are deferred. See "P12 Phase 1 —
+> what shipped".
+
 ### Tasks
 
-- [ ] Create pipeline orchestrator (`app/core/agentic_pipeline.py`):
-  - [ ] Define pipeline stages as composable agents
-  - [ ] Support configurable pipeline profiles (e.g., "Quick Summary", "Deep Research", "Full Analysis")
-  - [ ] Parallel execution where possible (e.g., summarization + entity extraction run concurrently)
-- [ ] Pipeline agents:
-  - [ ] **Transcription Agent**: Download → Enhance → Transcribe → Diarize
-  - [ ] **Summarization Agent**: Generate 3-bullet summary, chapter markers, key topics
-  - [ ] **Entity Agent**: Extract mentioned people, companies, products, tickers; link to external data
-  - [ ] **Indexing Agent**: Generate embeddings, store in vector DB, make searchable
-  - [ ] **Notification Agent**: Send webhook/Telegram with summary + key findings
-- [ ] Pipeline configuration:
-  - [ ] Per-job pipeline override (API parameter)
-  - [ ] Per-subscription default pipeline
-  - [ ] Global default pipeline in settings
-- [ ] Web UI pipeline status:
+- [~] Create pipeline orchestrator (`app/core/agentic_pipeline.py`):
+  - [x] Define pipeline stages as composable agents (stage registry over
+        existing services; transcribe is load-bearing, enrichment stages are
+        additive and never abort the run)
+  - [x] Support configurable pipeline profiles (`quick` / `deep` / `full`)
+  - [ ] Parallel execution where possible — deferred (stages run sequentially)
+- [x] Pipeline agents (all composed from services that already shipped):
+  - [x] **Transcription Agent**: Download → Transcribe (enhance/diarize
+        options deferred to keep Phase 1 parameter surface small)
+  - [x] **Summarization Agent**: bullet-point summary via the summarizer
+        (chapter markers/key topics available through the existing
+        `/api/summarize` modes)
+  - [x] **Entity Agent**: rides the P18 knowledge extraction stage (claims +
+        entities + topics + predictions via the backfill worker)
+  - [x] **Indexing Agent**: P10 segment indexer (embeddings → searchable)
+  - [x] **Notification Agent**: webhook on completion (Telegram deferred)
+- [~] Pipeline configuration:
+  - [x] Per-job pipeline override (API parameter `profile`)
+  - [ ] Per-subscription default pipeline — deferred
+  - [ ] Global default pipeline in settings — deferred (code default: `deep`)
+- [ ] Web UI pipeline status — deferred:
   - [ ] Multi-stage progress indicator (not just a download bar)
   - [ ] "Knowledge Canvas" view: shows extracted entities, summary, topics as the pipeline runs
   - [ ] Pipeline complete notification with quick-access to all outputs
-- [ ] API endpoints:
-  - [ ] `POST /api/ingest` - Submit URL with pipeline profile
-  - [ ] `GET /jobs/{id}/pipeline` - Get pipeline status and partial results
-  - [ ] `GET /api/pipelines` - List available pipeline profiles
-  - [ ] `POST /api/pipelines` - Create custom pipeline profile
+- [~] API endpoints:
+  - [x] `POST /api/ingest` - Submit URL with pipeline profile
+  - [x] `GET /jobs/{id}/pipeline` - Get pipeline status and partial results
+  - [x] `GET /api/pipelines` - List available pipeline profiles
+  - [ ] `POST /api/pipelines` - Create custom pipeline profile — deferred
+
+### P12 Phase 1 — what shipped
+
+Composition, not construction: every stage delegates to a service that
+already has its own suite (WorkflowProcessor, SegmentIndexer, knowledge
+backfill, summarizer, sentiment analyzer, clip generator, webhook notifier),
+so the orchestrator's own surface is profiles, ordering, state bookkeeping,
+and failure policy.
+
+- `app/core/agentic_pipeline.py` (new) — `PIPELINE_PROFILES` (`quick` =
+  transcribe + index; `deep` adds knowledge + summarize; `full` adds
+  sentiment + clips; every profile ends with `notify`), `PipelineRunner.run`
+  (sequential; reads everything from the job row so a crashed run's state is
+  inspectable). Failure policy: `transcribe` failure aborts and marks the
+  rest `skipped`; enrichment failures are recorded on their stage and the
+  run continues (same additive-signal stance as the P18 topic/prediction
+  passes). Stages that lack their prerequisite (no LLM provider, no
+  webhook_url) end `skipped` with a reason, not `failed`. LLM stages record
+  spend in the shared daily budget ledger. The knowledge stage *enqueues*
+  (the C.3 backfill worker owns the run) and the status endpoint surfaces
+  the live `knowledge_status` alongside; sentiment/clip results also land in
+  the existing API caches so the P7/P8 GET endpoints see pipeline-produced
+  results.
+- `app/core/job_store/_pipeline.py` (new `_PipelineMixin`) + `pipeline_state`
+  jobs column (migration) — JSON `{profile, started_at, completed_at,
+  stages: [{name, status, started_at, completed_at, error, detail}]}`;
+  statuses `pending | running | completed | skipped | failed`; per-stage
+  `detail` carries partial results (segment counts, chunk counts, summary
+  content, clip list).
+- `app/api/ingest_routes.py` (new) — `POST /api/ingest` (validates profile,
+  creates the job, initializes state, launches the background run; 10/min),
+  `GET /api/jobs/{id}/pipeline` (404 distinguishes unknown job vs.
+  non-pipeline job), `GET /api/pipelines`. Wired in `app/api/__init__.py`.
+- `README.md` — Agentic Ingest section with profile table + curl examples.
+- `tests/` — `test_agentic_pipeline.py` (14: state CRUD incl. malformed
+  JSON, stage ordering per profile, abort-vs-continue failure policy, skip
+  reasons, real index/knowledge/notify stage behavior),
+  `test_ingest_api.py` (9: job + state creation, background scheduling,
+  default/unknown profile, webhook persistence, status + 404 variants,
+  profile listing) — **23 new tests**, 744/744 suite green (1 skipped).
+
+Deferred: custom profiles (`POST /api/pipelines`), per-subscription default
+profile, global default in settings, parallel stage execution, diarize/
+enhance options on the ingest call, Telegram notification, and the Knowledge
+Canvas / multi-stage progress UI.
 
 ---
 

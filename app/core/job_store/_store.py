@@ -17,6 +17,7 @@ from ._digest import _DigestMixin
 from ._idempotency import _IdempotencyMixin
 from ._jobs import _JobsMixin
 from ._knowledge import _KnowledgeMixin
+from ._pipeline import _PipelineMixin
 from ._schema import _SchemaMixin
 from ._search import _SearchMixin
 from ._settings import _SettingsMixin
@@ -36,6 +37,7 @@ class JobStore(
     _DigestMixin,
     _SearchMixin,
     _ChatMixin,
+    _PipelineMixin,
 ):
     """SQLite-based persistent job storage.
 
