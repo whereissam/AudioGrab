@@ -20,7 +20,7 @@
 
 ### Understand & Analyze
 - **Knowledge Extraction** - Structured, citable claims (fact / opinion / prediction / question / recommendation) with timestamps, speaker attribution, and confidence scores. Canonical entities (people, companies, tickers, projects) and topic clusters are resolved across episodes so the same concept collapses to one node in the graph. Prediction claims get lifecycle metadata (target horizon, conditions, falsifier) and a resolve / revert API for tracking accuracy over time. Queryable across your library via `/api/claims`, `/api/entities`, `/api/topics`, and `/api/predictions`. Newly transcribed episodes are **auto-queued for extraction** the moment a transcript completes (toggle with `knowledge_auto_extract`), so the knowledge base stays current with no manual step. Extraction also runs **on demand** (a `GET /api/jobs/{id}/knowledge` on an un-extracted job runs inline for short transcripts, or returns `202` and queues longer ones) and via a **background backfill worker** that processes the back catalogue under a claim-lock with per-day cost guardrails (daily budget + automatic model downgrade); enqueue with `POST /api/jobs/{id}/knowledge/enqueue` and watch progress at `GET /api/knowledge/backfill-status`. The full schema contract lives in [`docs/knowledge-schema.md`](docs/knowledge-schema.md).
-- **Ask Audio (RAG)** - Chat with your downloads — ask questions, get answers with timestamps (coming soon)
+- **Ask Audio (RAG)** - Chat with your downloads — ask questions, get answers grounded in the transcript with cited timestamps, per episode or library-wide, via `POST /api/ask` or the MCP `ask_episode` / `ask_at_timestamp` tools. See [Ask Audio](#ask-audio).
 - **Semantic Search** - Search your entire library by concept, not just keywords. Transcripts are auto-indexed into vector embeddings (local model, free) on completion; query via `POST /api/search` with job/platform/speaker/date filters, or the MCP `search_library` / `search_segments` tools. See [Semantic Search](#semantic-search).
 - **Psychographic Mapping** - Emotional heatmap timeline with AI-powered reasoning: detect heated moments, explain *why* they're heated, and spot contradictions across a conversation
 - **LLM Summarization** - Bullet points, chapter markers, key topics, action items via any AI provider
@@ -368,11 +368,32 @@ curl -X POST http://localhost:8000/api/search \
 
 Hits return the matching transcript chunk with timestamps, speaker, cosine score, and episode context (title / source URL / platform) — jump straight to the moment. Older episodes transcribed before this feature: `POST /api/search/reindex` sweeps them in batches, `POST /api/jobs/{id}/search-index` (re)indexes one job, and `GET /api/search/status` reports coverage. Auto-indexing is gated on `SEARCH_AUTO_INDEX` (default on).
 
+## Ask Audio
+
+Grounded Q&A on top of the semantic index. Answers come from the configured `chat` LLM preset (AI Settings), are restricted to retrieved transcript excerpts, and cite numbered sources with timestamps and speakers — if the transcript doesn't cover it, the answer says so instead of guessing.
+
+```bash
+# Ask one episode (with optional time-range scoping)
+curl -X POST http://localhost:8000/api/jobs/<id>/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What did they say about the Fed rate hike?"}'
+
+# Ask across your whole library
+curl -X POST http://localhost:8000/api/ask \
+  -d '{"question": "Who has been bullish on ETH this month?"}'
+
+# Past Q&A
+curl http://localhost:8000/api/jobs/<id>/chat-history
+curl http://localhost:8000/api/ask/history
+```
+
+Every exchange is persisted (per-episode and library-wide histories are separate), and LLM spend counts against the same daily budget as knowledge extraction. Agents get the same capability through the MCP `ask_episode` / `ask_at_timestamp` tools.
+
 ## MCP Server
 
 Sift ships an [MCP](https://modelcontextprotocol.io) server (`sift-mcp`) that exposes its primitives as tools to Claude Desktop, Cursor, and any MCP client. It's a thin HTTP client of the Sift REST API — point it at a local or remote Sift instance with `SIFT_API_URL` / `SIFT_API_KEY` (the key is sent as `X-API-Key`). The MCP process holds no database of its own.
 
-**Tools (this release):** `ingest_url`, `get_transcript`, `get_segment`, `get_summary`, `get_chapters`, `get_clips`, `get_highlights`, `get_claims`, `get_entities`, `get_topics`, `get_predictions`, `export_to_vault`, `search_library`, `search_segments`. The knowledge tools (`get_claims`/`entities`/`topics`/`predictions`) read the P18 layer and return `status: "pending"` while extraction is still running — just retry. `export_to_vault` writes an Obsidian/Logseq note (P21). `search_library` semantically searches every indexed episode; `search_segments` scopes to one episode (P10). Q&A (`ask_episode`) is not yet exposed (it awaits P11 RAG).
+**Tools (this release):** `ingest_url`, `get_transcript`, `get_segment`, `get_summary`, `get_chapters`, `get_clips`, `get_highlights`, `get_claims`, `get_entities`, `get_topics`, `get_predictions`, `export_to_vault`, `search_library`, `search_segments`, `ask_episode`, `ask_at_timestamp`. The knowledge tools (`get_claims`/`entities`/`topics`/`predictions`) read the P18 layer and return `status: "pending"` while extraction is still running — just retry. `export_to_vault` writes an Obsidian/Logseq note (P21). `search_library` semantically searches every indexed episode; `search_segments` scopes to one episode (P10). `ask_episode` answers questions grounded in one episode's transcript with cited timestamps; `ask_at_timestamp` scopes the answer to a time range (P11).
 
 **Install & run** (needs a running Sift API — see [Web Mode](#web-mode-self-hosted-full-features)):
 

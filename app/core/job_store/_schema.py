@@ -492,6 +492,24 @@ class _SchemaMixin:
                 "ON search_chunks(job_id)"
             )
 
+            # P11: Ask Audio Q&A history. job_id NULL = library-wide ask.
+            # sources is the JSON list of RAGSource dicts the answer cited.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS chat_history (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id      TEXT,
+                    question    TEXT NOT NULL,
+                    answer      TEXT NOT NULL,
+                    sources     TEXT,
+                    model       TEXT,
+                    created_at  TEXT NOT NULL
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_chat_history_job "
+                "ON chat_history(job_id, created_at)"
+            )
+
             # Slice 3: idempotency keys for /v1 submissions. Same key +
             # same request_hash replays the original job; same key +
             # different hash is a 409.

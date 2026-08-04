@@ -12,6 +12,7 @@ from ._artifacts import _ArtifactsMixin
 from ._assets import _AssetsMixin
 from ._backfill import _BackfillMixin
 from ._batches import _BatchesMixin
+from ._chat import _ChatMixin
 from ._digest import _DigestMixin
 from ._idempotency import _IdempotencyMixin
 from ._jobs import _JobsMixin
@@ -34,6 +35,7 @@ class JobStore(
     _BackfillMixin,
     _DigestMixin,
     _SearchMixin,
+    _ChatMixin,
 ):
     """SQLite-based persistent job storage.
 

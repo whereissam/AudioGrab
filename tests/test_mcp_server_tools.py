@@ -82,6 +82,14 @@ class FakeSift:
             "search", {"query": body.get("query"), "count": 0, "results": []}
         )
 
+    async def ask_job(self, job_id, body):
+        self.calls.append(("ask_job", job_id, body))
+        return self.overrides.get(
+            "ask",
+            {"success": True, "question": body.get("question"),
+             "answer": "grounded [1]", "sources": []},
+        )
+
 
 def _server(fake: FakeSift):
     return build_server(MCPConfig(api_url="http://x"), client=fake)
@@ -96,14 +104,14 @@ class TestRegistration:
             "ingest_url", "get_transcript", "get_segment", "get_summary",
             "get_chapters", "get_clips", "get_highlights", "get_claims",
             "get_entities", "get_topics", "get_predictions", "export_to_vault",
-            "search_library", "search_segments",
+            "search_library", "search_segments", "ask_episode", "ask_at_timestamp",
         }
 
     @pytest.mark.asyncio
     async def test_deferred_tools_absent(self):
         m = _server(FakeSift())
         names = {t.name for t in await m.list_tools()}
-        for absent in ("ask_episode", "compare_episodes", "summarize_trend"):
+        for absent in ("compare_episodes", "find_contradictions", "summarize_trend"):
             assert absent not in names
 
 
@@ -309,3 +317,29 @@ class TestSearchTools:
         _, body = fake.calls[-1]
         assert body["job_id"] == "ep1"
         assert body["k"] == 10
+
+
+class TestAskTools:
+    @pytest.mark.asyncio
+    async def test_ask_episode_posts_question(self):
+        fake = FakeSift()
+        m = _server(fake)
+        out = _parse(await m.call_tool(
+            "ask_episode", {"episode_id": "ep1", "question": "what about ETH?"}
+        ))
+        assert out["answer"] == "grounded [1]"
+        _, job_id, body = fake.calls[-1]
+        assert job_id == "ep1"
+        assert body == {"question": "what about ETH?", "k": 8}
+
+    @pytest.mark.asyncio
+    async def test_ask_at_timestamp_scopes_time_range(self):
+        fake = FakeSift()
+        m = _server(fake)
+        await m.call_tool(
+            "ask_at_timestamp",
+            {"episode_id": "ep1", "start": 60.0, "end": 120.0, "question": "q?"},
+        )
+        _, job_id, body = fake.calls[-1]
+        assert job_id == "ep1"
+        assert body["start_s"] == 60.0 and body["end_s"] == 120.0

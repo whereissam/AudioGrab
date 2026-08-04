@@ -107,7 +107,7 @@ Follow-up (completed 2026-06-22):
 | Feature | Difficulty | Impact | Priority |
 |---------|------------|--------|----------|
 | Semantic Indexing & Vector Search | High | Very High | P10 🚧 (Phase 1 shipped) |
-| Ask Audio (RAG Chat Interface) | High | Very High | P11 |
+| Ask Audio (RAG Chat Interface) | High | Very High | P11 🚧 (Phase 1 shipped) |
 | Agentic Ingest Pipeline | Medium | Very High | P12 |
 | Psychographic Mapping & Contradiction Detection | Medium | High | P13 |
 | Content Distiller (Multi-Source Briefing) | Medium | High | P14 |
@@ -595,34 +595,91 @@ and auto re-index on transcript edits/annotations.
 
 ---
 
-## P11: Ask Audio (RAG Chat Interface)
+## P11: Ask Audio (RAG Chat Interface) 🚧 (Phase 1 shipped)
 
 **Goal:** Let users chat with their downloads. Ask questions, get answers grounded in transcript content with source timestamps.
 
+> **Phase 1 status (✅ SHIPPED):** the RAG engine over the P10 index, single-
+> episode + library-wide ask endpoints with persisted Q&A history, and the MCP
+> `ask_episode` / `ask_at_timestamp` tools. Web UI chat, multi-job mode,
+> Telegram integration, and conversation memory are deferred. See "P11 Phase 1
+> — what shipped".
+
 ### Tasks
 
-- [ ] Create RAG service (`app/core/rag_engine.py`):
-  - [ ] Query vector store for relevant transcript segments
-  - [ ] Construct context window from top-K results
-  - [ ] Send to LLM with grounding prompt (cite timestamps, avoid hallucination)
-  - [ ] Return answer with source references (job, timestamp, speaker)
-- [ ] Chat modes:
-  - [ ] **Single Job**: Chat with one specific transcript
-  - [ ] **Library-wide**: Ask questions across all indexed content
-  - [ ] **Multi-Job**: Select 2+ jobs and chat across them (e.g., compare two podcast episodes)
-- [ ] Web UI chat interface:
+- [x] Create RAG service (`app/core/rag_engine.py`):
+  - [x] Query vector store for relevant transcript segments (P10 search layer)
+  - [x] Construct context window from top-K results (numbered sources with
+        timestamps, speaker, episode title)
+  - [x] Send to LLM with grounding prompt (cite `[n]` sources, refuse to
+        answer beyond them) — uses the P18 `chat` task preset
+  - [x] Return answer with source references (job, timestamp, speaker) and
+        per-source `cited` flags parsed from the answer's citations
+- [~] Chat modes:
+  - [x] **Single Job**: Chat with one specific transcript (plus
+        `start_s`/`end_s` time-range scoping)
+  - [x] **Library-wide**: Ask questions across all indexed content
+        (platform/speaker filters supported)
+  - [ ] **Multi-Job**: Select 2+ jobs and chat across them — deferred
+- [ ] Web UI chat interface — deferred:
   - [ ] Chat panel on job detail page (slide-out or tab)
   - [ ] Global "Ask Audio" page for library-wide queries
   - [ ] Message history with source citations (clickable timestamps)
   - [ ] Suggested questions based on transcript content
-- [ ] API endpoints:
-  - [ ] `POST /api/ask` - Ask a question (library-wide)
-  - [ ] `POST /jobs/{id}/ask` - Ask about a specific job
-  - [ ] `GET /jobs/{id}/chat-history` - Retrieve past Q&A for a job
-- [ ] Telegram bot integration:
+- [x] API endpoints:
+  - [x] `POST /api/ask` - Ask a question (library-wide)
+  - [x] `POST /jobs/{id}/ask` - Ask about a specific job
+  - [x] `GET /jobs/{id}/chat-history` - Retrieve past Q&A for a job
+        (+ `GET /api/ask/history` for the library-wide scope)
+- [ ] Telegram bot integration — deferred:
   - [ ] Send a link → bot downloads & indexes → user asks questions → bot answers with timestamps
   - [ ] `/ask <question>` - Query the most recent download
-- [ ] Conversation memory: follow-up questions understand prior context
+- [ ] Conversation memory: follow-up questions understand prior context — deferred
+
+### P11 Phase 1 — what shipped
+
+Grounded Q&A end to end on the P10 retrieval substrate. No new dependencies:
+retrieval is the local embedding model, answering goes through the existing
+LiteLLM provider layer via the P18 `chat` task preset (user-mappable in AI
+Settings), and spend lands in the same per-UTC-day budget ledger as knowledge
+extraction and digests.
+
+- `app/core/rag_engine.py` (new) — `RAGEngine.from_settings()` resolves the
+  `chat` preset; `ask(question, job_id?, start_s?/end_s?, platform?,
+  speaker?, k, min_score)` retrieves via `semantic_search.search_segments`
+  (looser default `min_score=0.2` — weak context the model can ignore beats
+  missing context), post-filters to the time range for `ask_at_timestamp`,
+  builds a numbered-source prompt (`[n] (start–end, speaker — title, episode
+  id): text`), and calls the LLM with a strict grounding system prompt.
+  Citations `[n]` are parsed back onto `RAGSource.cited`. Graceful-degradation
+  parity with `digest_synthesizer`: no provider / nothing retrieved / LLM
+  failure all return a non-success `RAGAnswer` (the empty-retrieval error
+  points at the search-index endpoint), never raise.
+- `app/core/job_store/_chat.py` (new `_ChatMixin`) + `chat_history` table —
+  one row per answered question; `job_id NULL` = library-wide, so the two
+  scopes share a table but history reads are scope-exact. Malformed persisted
+  `sources` JSON degrades to `[]` instead of crashing a read.
+- `app/api/ask_routes.py` (new) — `POST /api/ask`, `POST /api/jobs/{id}/ask`
+  (404 on unknown job; forwards time-range scoping, which the library route
+  deliberately ignores), `GET /api/jobs/{id}/chat-history`,
+  `GET /api/ask/history`. 10/min rate limit on the ask routes; 503 when the
+  embedding backend is missing. Successful answers record LLM spend via
+  `knowledge_budget` and persist history best-effort (a history write failure
+  never fails the answer); failed asks are not persisted.
+- `app/mcp_server/` — `SiftClient.ask_job` + `ask_episode(episode_id,
+  question, limit?)` and `ask_at_timestamp(episode_id, start, end, question,
+  limit?)` tools; server instructions updated. The P19 server is now 16 tools.
+- `README.md` — Ask Audio section with curl examples; MCP tool list updated.
+- `tests/` — `test_rag_engine.py` (10: degradation branches, citation
+  parsing, prompt shape, job scoping, time-range filter/empty),
+  `test_chat_store.py` (5: CRUD, scope isolation, ordering/limit, malformed
+  sources, delete), `test_ask_api.py` (8: answer + history persistence,
+  failed-ask not persisted, job scoping + 404s, time-range forwarding, budget
+  recording, validation, end-to-end over a real index with a fake LLM), +2
+  MCP ask-tool tests — **25 new tests**, 721/721 suite green (1 skipped).
+
+Deferred: Web UI chat surfaces, multi-job mode, Telegram `/ask`, and
+conversation memory (each ask is currently single-turn).
 
 **Example:** User sends a YouTube link, then asks *"What did they say about the Fed rate hike?"* → Bot answers with the exact quote and timestamp.
 
@@ -1141,9 +1198,9 @@ Scope notes: `workflow.py`'s overall coverage stays low (28%) because its downlo
   - [x] `get_entities(episode_id)` — people / companies / tickers / projects (composed from claims)
   - [x] `get_topics(episode_id)` — topic graph (composed from claims)
   - [x] `get_predictions(episode_id)` — falsifiable forward-looking claims (composed from claims)
-- [~] **Q&A** (search shipped with P10; RAG chat depends on P11)
-  - [ ] `ask_episode(episode_id, question)` — RAG against single episode (depends on P11)
-  - [ ] `ask_at_timestamp(episode_id, time_range, question)` — scoped Q&A
+- [x] **Q&A** (shipped with P10 + P11 Phase 1)
+  - [x] `ask_episode(episode_id, question)` — RAG against single episode (P11 Phase 1)
+  - [x] `ask_at_timestamp(episode_id, time_range, question)` — scoped Q&A (P11 Phase 1)
   - [x] `search_library(query, filters?)` — semantic search across all episodes (P10 Phase 1; plus per-episode `search_segments`)
 - [ ] **Cross-episode synthesis** (deferred — depends on P13/P20)
   - [ ] `compare_episodes(episode_ids[], topic?)` — agreements / disagreements

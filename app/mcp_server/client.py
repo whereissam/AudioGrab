@@ -164,6 +164,13 @@ class SiftClient:
         _, data = await self._request("POST", "/api/search", json=body)
         return data
 
+    # ===== ask (P11) =====
+
+    async def ask_job(self, job_id: str, body: dict) -> dict:
+        """POST /api/jobs/{job_id}/ask — grounded Q&A over one episode."""
+        _, data = await self._request("POST", f"/api/jobs/{job_id}/ask", json=body)
+        return data
+
     # ===== export (P21) =====
 
     async def export_job(self, job_id: str, body: dict) -> dict:

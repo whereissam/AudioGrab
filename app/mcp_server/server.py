@@ -4,11 +4,12 @@
 single ``SiftClient`` so the whole surface shares one HTTP connection pool and a
 test can inject an in-process (ASGI) client.
 
-Scope: tools backed by P18 + existing routes, plus ``export_to_vault`` (P21)
-and the P10 semantic-search pair (``search_library`` / ``search_segments``).
-Tools that need unbuilt phases — ``ask_episode`` / ``ask_at_timestamp`` (P11
-RAG), ``compare_episodes`` / ``find_contradictions`` / ``summarize_trend``
-(P13 + P20) — are intentionally absent until their substrate ships.
+Scope: tools backed by P18 + existing routes, plus ``export_to_vault`` (P21),
+the P10 semantic-search pair (``search_library`` / ``search_segments``), and
+the P11 Q&A pair (``ask_episode`` / ``ask_at_timestamp``). Tools that need
+unbuilt phases — ``compare_episodes`` / ``find_contradictions`` /
+``summarize_trend`` (P13 + P20) — are intentionally absent until their
+substrate ships.
 """
 
 from __future__ import annotations
@@ -30,8 +31,8 @@ SERVER_INSTRUCTIONS = (
     "topics, predictions) by that id. Knowledge extraction is asynchronous: a "
     "knowledge tool may report `status='pending'` — retry shortly. Semantic "
     "search is available via `search_library` (whole library) and "
-    "`search_segments` (one episode). Q&A and cross-episode synthesis are "
-    "not yet available."
+    "`search_segments` (one episode); grounded Q&A via `ask_episode` and "
+    "`ask_at_timestamp`. Cross-episode synthesis is not yet available."
 )
 
 
@@ -288,6 +289,30 @@ def build_server(
                 "k": limit,
                 "min_score": min_score,
             }
+        )
+
+    # ===== ask (P11) =====
+
+    @mcp.tool()
+    async def ask_episode(episode_id: str, question: str, limit: int = 8) -> dict:
+        """Ask a question about one episode. Answers are grounded in the
+        episode's transcript with [n]-numbered source citations carrying
+        timestamps and speakers; if the transcript doesn't cover it, the
+        answer says so instead of guessing."""
+        return await sift.ask_job(
+            episode_id, {"question": question, "k": limit}
+        )
+
+    @mcp.tool()
+    async def ask_at_timestamp(
+        episode_id: str, start: float, end: float, question: str, limit: int = 8
+    ) -> dict:
+        """Ask a question scoped to the [start, end] time range (seconds) of
+        one episode — only transcript chunks overlapping that range are used
+        as sources."""
+        return await sift.ask_job(
+            episode_id,
+            {"question": question, "start_s": start, "end_s": end, "k": limit},
         )
 
     # ===== export (P21) =====
