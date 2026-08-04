@@ -492,6 +492,33 @@ class _SchemaMixin:
                 "ON search_chunks(job_id)"
             )
 
+            # P13: contradiction pairs over P18 claims. The pair-hash PK makes
+            # re-analysis an upsert; episode/speaker columns are denormalized
+            # from the claims for cheap filtered reads.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS contradictions (
+                    contradiction_id  TEXT PRIMARY KEY,
+                    claim_id_a        TEXT NOT NULL,
+                    claim_id_b        TEXT NOT NULL,
+                    episode_id_a      TEXT,
+                    episode_id_b      TEXT,
+                    speaker           TEXT,
+                    explanation       TEXT,
+                    confidence        REAL,
+                    detected_at       TEXT NOT NULL,
+                    FOREIGN KEY (claim_id_a) REFERENCES claims(claim_id),
+                    FOREIGN KEY (claim_id_b) REFERENCES claims(claim_id)
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_contradictions_speaker "
+                "ON contradictions(speaker)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_contradictions_episode "
+                "ON contradictions(episode_id_a, episode_id_b)"
+            )
+
             # P11: Ask Audio Q&A history. job_id NULL = library-wide ask.
             # sources is the JSON list of RAGSource dicts the answer cited.
             conn.execute("""

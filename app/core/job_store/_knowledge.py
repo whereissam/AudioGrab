@@ -222,6 +222,18 @@ class _KnowledgeMixin:
                 """,
                 (job_id,),
             )
+            # P13: contradictions reference claims from both sides.
+            conn.execute(
+                """
+                DELETE FROM contradictions
+                WHERE claim_id_a IN (
+                    SELECT claim_id FROM claims WHERE episode_id = ?
+                ) OR claim_id_b IN (
+                    SELECT claim_id FROM claims WHERE episode_id = ?
+                )
+                """,
+                (job_id, job_id),
+            )
             conn.execute("DELETE FROM claims WHERE episode_id = ?", (job_id,))
             if mentions is not None:
                 conn.execute(

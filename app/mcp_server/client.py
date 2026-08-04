@@ -171,6 +171,31 @@ class SiftClient:
         _, data = await self._request("POST", f"/api/jobs/{job_id}/ask", json=body)
         return data
 
+    # ===== contradictions (P13) =====
+
+    async def analyze_contradictions(self, job_id: str) -> dict:
+        """POST /api/jobs/{job_id}/analyze-contradictions."""
+        _, data = await self._request(
+            "POST", f"/api/jobs/{job_id}/analyze-contradictions"
+        )
+        return data
+
+    async def get_contradictions(self, params: dict) -> dict:
+        """GET /api/contradictions with filters."""
+        _, data = await self._request("GET", "/api/contradictions", params=params)
+        return data
+
+    async def get_job_contradictions(
+        self, job_id: str, *, min_confidence: float = 0.5
+    ) -> dict:
+        """GET /api/jobs/{job_id}/contradictions."""
+        _, data = await self._request(
+            "GET",
+            f"/api/jobs/{job_id}/contradictions",
+            params={"min_confidence": min_confidence},
+        )
+        return data
+
     # ===== export (P21) =====
 
     async def export_job(self, job_id: str, body: dict) -> dict:

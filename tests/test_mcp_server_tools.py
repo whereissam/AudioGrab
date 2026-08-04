@@ -90,6 +90,19 @@ class FakeSift:
              "answer": "grounded [1]", "sources": []},
         )
 
+    async def analyze_contradictions(self, job_id):
+        self.calls.append(("analyze_contradictions", job_id))
+        return {"success": True, "scope": f"episode:{job_id}",
+                "contradiction_count": 0, "contradictions": []}
+
+    async def get_contradictions(self, params):
+        self.calls.append(("get_contradictions", params))
+        return {"count": 0, "contradictions": []}
+
+    async def get_job_contradictions(self, job_id, *, min_confidence=0.5):
+        self.calls.append(("get_job_contradictions", job_id, min_confidence))
+        return {"count": 0, "contradictions": []}
+
 
 def _server(fake: FakeSift):
     return build_server(MCPConfig(api_url="http://x"), client=fake)
@@ -105,13 +118,14 @@ class TestRegistration:
             "get_chapters", "get_clips", "get_highlights", "get_claims",
             "get_entities", "get_topics", "get_predictions", "export_to_vault",
             "search_library", "search_segments", "ask_episode", "ask_at_timestamp",
+            "find_contradictions",
         }
 
     @pytest.mark.asyncio
     async def test_deferred_tools_absent(self):
         m = _server(FakeSift())
         names = {t.name for t in await m.list_tools()}
-        for absent in ("compare_episodes", "find_contradictions", "summarize_trend"):
+        for absent in ("compare_episodes", "summarize_trend"):
             assert absent not in names
 
 
@@ -343,3 +357,34 @@ class TestAskTools:
         _, job_id, body = fake.calls[-1]
         assert job_id == "ep1"
         assert body["start_s"] == 60.0 and body["end_s"] == 120.0
+
+
+class TestContradictionTools:
+    @pytest.mark.asyncio
+    async def test_find_contradictions_episode_analyzes_by_default(self):
+        fake = FakeSift()
+        m = _server(fake)
+        out = _parse(await m.call_tool(
+            "find_contradictions", {"episode_id": "ep1"}
+        ))
+        assert out["scope"] == "episode:ep1"
+        assert fake.calls[-1] == ("analyze_contradictions", "ep1")
+
+    @pytest.mark.asyncio
+    async def test_find_contradictions_episode_read_only(self):
+        fake = FakeSift()
+        m = _server(fake)
+        await m.call_tool(
+            "find_contradictions",
+            {"episode_id": "ep1", "analyze": False, "min_confidence": 0.7},
+        )
+        assert fake.calls[-1] == ("get_job_contradictions", "ep1", 0.7)
+
+    @pytest.mark.asyncio
+    async def test_find_contradictions_speaker_reads_library(self):
+        fake = FakeSift()
+        m = _server(fake)
+        await m.call_tool("find_contradictions", {"speaker": "Guru"})
+        name, params = fake.calls[-1]
+        assert name == "get_contradictions"
+        assert params == {"min_confidence": 0.5, "speaker": "Guru"}

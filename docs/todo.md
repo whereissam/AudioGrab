@@ -109,7 +109,7 @@ Follow-up (completed 2026-06-22):
 | Semantic Indexing & Vector Search | High | Very High | P10 🚧 (Phase 1 shipped) |
 | Ask Audio (RAG Chat Interface) | High | Very High | P11 🚧 (Phase 1 shipped) |
 | Agentic Ingest Pipeline | Medium | Very High | P12 🚧 (Phase 1 shipped) |
-| Psychographic Mapping & Contradiction Detection | Medium | High | P13 |
+| Psychographic Mapping & Contradiction Detection | Medium | High | P13 🚧 (Contradictions shipped) |
 | Content Distiller (Multi-Source Briefing) | Medium | High | P14 |
 | Neural Audio Reconstruction | Very High | Medium | P15 |
 | Intelligent Webhooks & Agentic Notifications | Low | High | P16 🚧 (Phase 1 shipped) |
@@ -775,32 +775,96 @@ Canvas / multi-stage progress UI.
 
 ---
 
-## P13: Psychographic Mapping & Contradiction Detection
+## P13: Psychographic Mapping & Contradiction Detection 🚧 (Contradictions shipped)
 
 **Goal:** Replace simple sentiment analysis with deep rhetorical intelligence. Understand not just *what* was said but the underlying reasoning, persuasion techniques, and logical consistency.
 
+> **Phase 1 status (✅ SHIPPED):** the contradiction detection engine —
+> episode-scoped and cross-episode speaker-scoped — with persisted,
+> confidence-scored pairs, API + MCP surface, and the P16 webhook alert
+> count. The psychographic/rhetoric layer (persuasion, deflection, tone
+> reasoning), credibility scores, and the Rhetoric Map UI are deferred.
+> See "P13 Phase 1 — what shipped".
+
 ### Tasks
 
-- [ ] Extend sentiment analyzer with LLM reasoning layer:
+- [ ] Extend sentiment analyzer with LLM reasoning layer — deferred:
   - [ ] For each flagged segment, generate: *why* the tone shifted, what triggered it
   - [ ] Detect persuasion techniques (appeal to authority, FOMO, etc.)
   - [ ] Identify when speakers deflect questions or change topics abruptly
-- [ ] Contradiction detection engine:
-  - [ ] Build statement graph: extract key claims with timestamps and speaker attribution
-  - [ ] LLM-powered cross-referencing: compare claims pairwise for logical consistency
-  - [ ] Confidence scoring for each detected contradiction
-  - [ ] Example: *"At 10:12, the speaker claimed they didn't own any $SOL, but at 32:40, they mentioned 'checking their Phantom wallet' during the dip."*
-- [ ] Cross-platform social graph (for multi-source analysis):
-  - [ ] When the same speaker appears across multiple downloads, track their statements over time
-  - [ ] Detect evolving positions or flip-flops across episodes/spaces
-- [ ] Web UI:
+- [x] Contradiction detection engine:
+  - [x] Build statement graph: extract key claims with timestamps and speaker
+        attribution — delivered by P18 (claims are the statement graph)
+  - [x] LLM-powered cross-referencing: compare claims pairwise for logical
+        consistency (candidate pairs must share an entity or topic; capped;
+        batched JSON-mode judging on the `synthesize` preset)
+  - [x] Confidence scoring for each detected contradiction (0.1 storage
+        floor, 0.5 read default — mirrors the P18 confidence model)
+  - [x] Example: *"At 10:12, the speaker claimed they didn't own any $SOL, but at 32:40, they mentioned 'checking their Phantom wallet' during the dip."*
+- [~] Cross-platform social graph (for multi-source analysis):
+  - [x] Same-speaker cross-episode flip-flop detection
+        (`POST /api/contradictions/analyze {speaker}` over `query_claims`)
+  - [ ] Track statements over time / evolving-position timeline — deferred
+- [ ] Web UI — deferred:
   - [ ] "Rhetoric Map" view: visual graph of claims, connections, and contradictions
   - [ ] Contradiction cards with side-by-side quotes and timestamps
   - [ ] Credibility score per speaker (based on consistency)
-- [ ] API endpoints:
-  - [ ] `POST /jobs/{id}/analyze-rhetoric` - Run deep rhetorical analysis
-  - [ ] `GET /jobs/{id}/contradictions` - Get contradictions
-  - [ ] `GET /jobs/{id}/claims` - Get extracted claims graph
+- [~] API endpoints:
+  - [ ] `POST /jobs/{id}/analyze-rhetoric` - Run deep rhetorical analysis — deferred with the rhetoric layer
+  - [x] `POST /jobs/{id}/analyze-contradictions` + `POST /api/contradictions/analyze` (speaker-scoped)
+  - [x] `GET /jobs/{id}/contradictions` + `GET /api/contradictions?speaker=&min_confidence=`
+  - [x] `GET /jobs/{id}/claims` - delivered by P18 (`GET /jobs/{id}/knowledge`)
+
+### P13 Phase 1 — what shipped
+
+The P18 claims layer is the statement graph, so detection is a judging
+problem, not an extraction one. Cost is bounded before the LLM ever runs:
+candidate pairs must share ≥1 entity or topic (unrelated claims can't
+meaningfully contradict), pairs are ranked by joint confidence and capped
+(120/run, 40/prompt), and judging is batched JSON-mode on the `synthesize`
+preset with spend recorded in the shared daily ledger.
+
+- `app/core/contradiction_detector.py` (new) — `select_candidate_pairs`
+  (entity/topic-overlap filter → joint-confidence ranking → cap),
+  `ContradictionDetector.detect` (batched pairwise judging, conservative
+  system prompt — hedges/opinions/different-time claims are not
+  contradictions), per-record validation (bad index / empty explanation /
+  non-numeric or sub-floor confidence dropped), stable order-independent
+  `con_<hash>` pair IDs, same-speaker attribution on the stored row.
+  Graceful-degradation parity with `digest_synthesizer`; a no-shared-context
+  claim set is a *successful* empty result, not an error.
+- `app/core/job_store/_contradictions.py` (new `_ContradictionsMixin`) +
+  `contradictions` table — pair-hash PK so re-analysis upserts (fresher
+  explanation/confidence) instead of duplicating; episode filter matches
+  either side of the pair; `get_claims_by_ids` hydration helper;
+  `count_contradictions_for_episode` for the webhook. `replace_claims_for_job`
+  now clears the episode's contradictions in the same tx (the
+  claim_topics/predictions orphan-cleanup pattern).
+- `app/api/contradiction_routes.py` (new) — `POST /api/jobs/{id}/analyze-contradictions`
+  (400 with a pointer at extract-knowledge when the episode has no claims),
+  `GET /api/jobs/{id}/contradictions`, `POST /api/contradictions/analyze`
+  (speaker-scoped cross-episode), `GET /api/contradictions`. Responses
+  hydrate both claims (quote + speaker + timestamps) so every hit is
+  verifiable. 5/min on the analyze routes.
+- `app/core/webhook_intelligence.py` — `contradiction_count` added to the
+  full_intelligence knowledge block (stored rows only — the webhook path
+  still never runs detection), closing the P16 deferred item.
+- `app/mcp_server/` — `find_contradictions(episode_id?, speaker?,
+  min_confidence?, analyze?)` tool + three client methods; episode scope
+  judges on demand (or reads stored with `analyze=false`), speaker scope
+  reads the cross-episode library. The P19 server is now 17 tools.
+- `README.md` — Contradiction Detection feature bullet made real.
+- `tests/` — `test_contradiction_detector.py` (14: pair selection/ranking/
+  caps, stable IDs, all degradation branches, record validation, prompt
+  content, cross-speaker attribution), `test_contradiction_api.py` (12:
+  upsert/filter/orphan-cleanup store behavior, analyze persist+hydrate+
+  budget, 404/400 guards, speaker-scoped analyze, reads), +3 MCP tool tests
+  (+1 webhook count assertion) — **29 new tests**, 785/785 suite green
+  (1 skipped).
+
+Deferred: persuasion/deflection/tone-reasoning layer (`analyze-rhetoric`),
+credibility scores, Rhetoric Map UI, topic/timeframe filters on
+`find_contradictions`, statement-evolution timelines.
 
 ---
 
@@ -882,12 +946,13 @@ Canvas / multi-stage progress UI.
         (ranked by claim count from the P18 layer)
   - [x] Include sentiment overview (overall sentiment, heat score, dominant
         emotions from the cached P7 result)
-  - [ ] Include contradiction alerts if any were detected — needs P13
+  - [x] Include contradiction alerts — `contradiction_count` in the
+        full_intelligence knowledge block (P13 stored rows, never a fresh run)
 - [~] Webhook templates:
   - [x] **Minimal**: Status + title (current behavior; stays the default)
   - [x] **Summary**: Status + AI summary + key topics
   - [x] **Full Intelligence**: Status + summary + entities + sentiment +
-        claim/prediction counts (contradictions pending P13)
+        claim/prediction/contradiction counts
   - [ ] Custom templates with variable substitution — deferred
 - [ ] Smart notification routing — deferred:
   - [ ] Route different types of content to different webhooks/channels
@@ -1310,7 +1375,7 @@ Scope notes: `workflow.py`'s overall coverage stays low (28%) because its downlo
   - [x] `search_library(query, filters?)` — semantic search across all episodes (P10 Phase 1; plus per-episode `search_segments`)
 - [ ] **Cross-episode synthesis** (deferred — depends on P13/P20)
   - [ ] `compare_episodes(episode_ids[], topic?)` — agreements / disagreements
-  - [ ] `find_contradictions(speaker?, topic?, timeframe?)` — surface inconsistencies
+  - [x] `find_contradictions(episode_id?, speaker?, analyze?)` — surface inconsistencies (P13 Phase 1; topic/timeframe filters deferred)
   - [ ] `summarize_trend(topic, last_n_days)` — narrative evolution over time
 - [ ] **Export** (deferred — depends on P21)
   - [ ] `export_to_vault(episode_id, target, template?)` — Obsidian / Notion / Logseq (depends on P21)

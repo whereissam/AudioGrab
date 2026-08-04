@@ -25,7 +25,7 @@
 - **Psychographic Mapping** - Emotional heatmap timeline with AI-powered reasoning: detect heated moments, explain *why* they're heated, and spot contradictions across a conversation
 - **LLM Summarization** - Bullet points, chapter markers, key topics, action items via any AI provider
 - **Speaker Diarization** - Identify different speakers (optional)
-- **Contradiction Detection** - AI cross-references statements across the transcript to surface inconsistencies (coming soon)
+- **Contradiction Detection** - AI cross-references extracted claims — within an episode or by one speaker across episodes — and surfaces pairs that can't both be true, with quotes, timestamps, and confidence. `POST /api/jobs/{id}/analyze-contradictions`, `GET /api/contradictions?speaker=`, or the MCP `find_contradictions` tool.
 
 ### Transform & Create
 - **Translation** - TranslateGemma (local) or AI providers, 55+ languages

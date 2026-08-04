@@ -176,7 +176,8 @@ class TestFullTemplate:
         }
         assert intel["sentiment"]["overall_sentiment"] == "mixed"
         assert intel["knowledge"] == {
-            "status": "ready", "claim_count": 2, "prediction_count": 1
+            "status": "ready", "claim_count": 2, "prediction_count": 1,
+            "contradiction_count": 0,
         }
 
     def test_broken_sources_never_block_payload(self, settings_template):

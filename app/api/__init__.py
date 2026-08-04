@@ -32,6 +32,7 @@ from .export_routes import router as export_router
 from .search_routes import router as search_router
 from .ask_routes import router as ask_router
 from .ingest_routes import router as ingest_router
+from .contradiction_routes import router as contradiction_router
 
 # Create combined router
 router = APIRouter()
@@ -67,5 +68,6 @@ router.include_router(export_router)  # P21: /export-templates, /jobs/{id}/expor
 router.include_router(search_router)  # P10: /search, /search/status, /jobs/{id}/search-index
 router.include_router(ask_router)  # P11: /ask, /jobs/{id}/ask, /jobs/{id}/chat-history
 router.include_router(ingest_router)  # P12: /ingest, /jobs/{id}/pipeline, /pipelines
+router.include_router(contradiction_router)  # P13: /jobs/{id}/[analyze-]contradictions, /contradictions
 
 __all__ = ["router"]

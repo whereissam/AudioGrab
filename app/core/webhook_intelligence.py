@@ -103,6 +103,13 @@ def build_job_completed_payload(job: dict, *, job_store=None) -> dict:
             "prediction_count": sum(
                 1 for c in claims if c.get("claim_type") == "prediction"
             ),
+            # P13: stored rows only — the webhook path never runs detection.
+            "contradiction_count": _safe(
+                lambda: job_store.count_contradictions_for_episode(
+                    job_id, min_confidence=_CLAIM_CONFIDENCE_FLOOR
+                )
+            )
+            or 0,
         }
 
     payload["intelligence"] = intelligence

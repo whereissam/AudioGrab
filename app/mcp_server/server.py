@@ -5,11 +5,11 @@ single ``SiftClient`` so the whole surface shares one HTTP connection pool and a
 test can inject an in-process (ASGI) client.
 
 Scope: tools backed by P18 + existing routes, plus ``export_to_vault`` (P21),
-the P10 semantic-search pair (``search_library`` / ``search_segments``), and
-the P11 Q&A pair (``ask_episode`` / ``ask_at_timestamp``). Tools that need
-unbuilt phases — ``compare_episodes`` / ``find_contradictions`` /
-``summarize_trend`` (P13 + P20) — are intentionally absent until their
-substrate ships.
+the P10 semantic-search pair (``search_library`` / ``search_segments``), the
+P11 Q&A pair (``ask_episode`` / ``ask_at_timestamp``), and P13's
+``find_contradictions``. Tools that need unbuilt phases —
+``compare_episodes`` / ``summarize_trend`` (P20 scheduled synthesis) — are
+intentionally absent until their substrate ships.
 """
 
 from __future__ import annotations
@@ -32,7 +32,8 @@ SERVER_INSTRUCTIONS = (
     "knowledge tool may report `status='pending'` — retry shortly. Semantic "
     "search is available via `search_library` (whole library) and "
     "`search_segments` (one episode); grounded Q&A via `ask_episode` and "
-    "`ask_at_timestamp`. Cross-episode synthesis is not yet available."
+    "`ask_at_timestamp`; logical-consistency checks via `find_contradictions`. "
+    "Scheduled cross-episode synthesis is not yet available."
 )
 
 
@@ -314,6 +315,31 @@ def build_server(
             episode_id,
             {"question": question, "start_s": start, "end_s": end, "k": limit},
         )
+
+    # ===== contradictions (P13) =====
+
+    @mcp.tool()
+    async def find_contradictions(
+        episode_id: str | None = None,
+        speaker: str | None = None,
+        min_confidence: float = 0.5,
+        analyze: bool = True,
+    ) -> dict:
+        """Surface logical contradictions between extracted claims. With
+        `episode_id`, judges that episode's claim pairs (set analyze=false to
+        only read previously stored results); with `speaker` alone, reads the
+        stored cross-episode contradictions for that speaker. Each hit carries
+        both claims' quotes and timestamps."""
+        if episode_id:
+            if analyze:
+                return await sift.analyze_contradictions(episode_id)
+            return await sift.get_job_contradictions(
+                episode_id, min_confidence=min_confidence
+            )
+        params: dict = {"min_confidence": min_confidence}
+        if speaker:
+            params["speaker"] = speaker
+        return await sift.get_contradictions(params)
 
     # ===== export (P21) =====
 
