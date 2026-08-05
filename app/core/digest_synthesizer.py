@@ -106,9 +106,14 @@ class DigestSynthesizer:
         *,
         window_label: str = "",
         max_claims: int = DEFAULT_MAX_CLAIMS,
+        framing: str = "",
     ) -> DigestRunResult:
         """Synthesize across the given claims. Never raises for an expected
-        degradation (no provider / too few claims / malformed output)."""
+        degradation (no provider / too few claims / malformed output).
+
+        ``framing`` is an optional extra instruction prepended to the prompt —
+        the P14 distiller uses it to steer modes (e.g. debate emphasis)
+        without forking the synthesis pipeline."""
         episode_ids = {c.get("episode_id") for c in claims if c.get("episode_id")}
         base = {"episode_count": len(episode_ids), "claim_count": len(claims)}
 
@@ -126,7 +131,8 @@ class DigestSynthesizer:
             )
 
         prompt = (
-            (f"Time window: {window_label}\n\n" if window_label else "")
+            (f"{framing.strip()}\n\n" if framing.strip() else "")
+            + (f"Time window: {window_label}\n\n" if window_label else "")
             + f"Claims across {len(episode_ids)} episode(s):\n"
             + _format_claims_for_prompt(claims, max_claims)
             + "\n\n"

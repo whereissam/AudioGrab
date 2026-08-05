@@ -519,6 +519,26 @@ class _SchemaMixin:
                 "ON contradictions(episode_id_a, episode_id_b)"
             )
 
+            # P14: on-demand distillation runs (explicit job sets; the
+            # scheduled/subscription case lives in digest_runs).
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS distillations (
+                    distill_id     TEXT PRIMARY KEY,
+                    job_ids        TEXT NOT NULL,
+                    mode           TEXT NOT NULL,
+                    result         TEXT NOT NULL,
+                    claim_count    INTEGER DEFAULT 0,
+                    episode_count  INTEGER DEFAULT 0,
+                    tokens_used    INTEGER DEFAULT 0,
+                    model          TEXT,
+                    created_at     TEXT NOT NULL
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_distillations_created "
+                "ON distillations(created_at)"
+            )
+
             # P17: named, reusable custom extraction schemas. `fields` is the
             # JSON list fed to the CUSTOM extraction prompt
             # ([{name, type, description}, ...]).

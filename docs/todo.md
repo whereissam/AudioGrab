@@ -110,7 +110,7 @@ Follow-up (completed 2026-06-22):
 | Ask Audio (RAG Chat Interface) | High | Very High | P11 🚧 (Phase 1 shipped) |
 | Agentic Ingest Pipeline | Medium | Very High | P12 🚧 (Phase 1 shipped) |
 | Psychographic Mapping & Contradiction Detection | Medium | High | P13 🚧 (Contradictions shipped) |
-| Content Distiller (Multi-Source Briefing) | Medium | High | P14 |
+| Content Distiller (Multi-Source Briefing) | Medium | High | P14 🚧 (Phase 1 shipped) |
 | Neural Audio Reconstruction | Very High | Medium | P15 |
 | Intelligent Webhooks & Agentic Notifications | Low | High | P16 🚧 (Phase 1 shipped) |
 | Structured Data Extraction | Medium | High | P17 ✅ (Notion deferred) |
@@ -868,31 +868,73 @@ credibility scores, Rhetoric Map UI, topic/timeframe filters on
 
 ---
 
-## P14: Content Distiller (Multi-Source Briefing)
+## P14: Content Distiller (Multi-Source Briefing) 🚧 (Phase 1 shipped)
 
 **Goal:** Feed multiple URLs and get a single synthesized output — a "Daily Briefing" that combines insights from all sources.
 
+> **Phase 1 status (✅ SHIPPED):** on-demand distillation over an explicit
+> job set, as a thin layer on the P20 synthesis machinery (same synthesizer,
+> same markdown renderer — the two paths can't drift). The scheduled/
+> subscription case was already delivered by P20 digests; topic deep-dive by
+> `GET /api/topics/{id}/synthesis`. Audio briefing (TTS) and the Web UI
+> remain deferred. See "P14 Phase 1 — what shipped".
+
 ### Tasks
 
-- [ ] Create content distiller service (`app/core/distiller.py`):
-  - [ ] Accept multiple job IDs or URLs as input
-  - [ ] Cross-reference transcripts to find common themes, disagreements, unique insights
-  - [ ] Generate unified output formats:
-    - [ ] Written briefing (Markdown, 1-2 pages)
+- [~] Create content distiller service (`app/core/distiller.py`):
+  - [x] Accept multiple job IDs as input (URLs enter via `POST /api/ingest`
+        first — job ids are the stable handle)
+  - [x] Cross-reference to find common themes, disagreements, unique
+        insights (P18 claims → `DigestSynthesizer`, `synthesize` preset)
+  - [~] Generate unified output formats:
+    - [x] Written briefing (Markdown) — `GET /api/distill/{id}/markdown`
+          (deterministic `render_digest_markdown`)
     - [ ] Audio briefing (TTS-generated 5-minute summary — future, depends on P9 dubbing)
-    - [ ] Structured JSON (topics, per-source positions, consensus/disagreement)
-- [ ] Distillation modes:
-  - [ ] **Daily Digest**: Combine all downloads from today into one summary
-  - [ ] **Topic Deep-Dive**: Filter across library for a specific topic, synthesize all mentions
-  - [ ] **Debate Summary**: Compare two opposing viewpoints from different sources
-- [ ] Web UI:
-  - [ ] "Distill" button to select multiple jobs
-  - [ ] Briefing viewer with per-source attribution
-  - [ ] Schedule daily/weekly auto-distillation from subscriptions
-- [ ] API endpoints:
-  - [ ] `POST /api/distill` - Create a distillation from job IDs
-  - [ ] `GET /api/distill/{id}` - Get distillation result
-  - [ ] `POST /api/distill/schedule` - Schedule recurring distillation
+    - [x] Structured JSON (themes, consensus, disagreements, predictions,
+          narratives) — the stored `DigestSynthesis`
+- [x] Distillation modes:
+  - [x] **Daily Digest**: delivered by **P20 digests** (scheduled runner over
+        subscription windows)
+  - [x] **Topic Deep-Dive**: delivered by **P20's** `GET /api/topics/{id}/synthesis`
+  - [x] **Debate Summary**: `mode=debate` — synthesis framing leads with
+        disagreements and each side's strongest sourced position
+- [~] Web UI:
+  - [ ] "Distill" button to select multiple jobs — deferred
+  - [ ] Briefing viewer with per-source attribution — deferred
+  - [x] Schedule daily/weekly auto-distillation from subscriptions —
+        delivered by **P20 digests**
+- [~] API endpoints:
+  - [x] `POST /api/distill` - Create a distillation from job IDs
+  - [x] `GET /api/distill/{id}` - Get distillation result
+        (+ `/markdown` rendering + `GET /api/distillations` history)
+  - [x] `POST /api/distill/schedule` - delivered by **P20** (`POST /api/digests`
+        with a cadence is exactly a scheduled recurring distillation)
+
+### P14 Phase 1 — what shipped
+
+- `app/core/digest_synthesizer.py` — `synthesize(..., framing="")`: optional
+  instruction prepended to the prompt so distill modes steer the synthesis
+  without forking the pipeline (additive; digests pass nothing).
+- `app/core/distiller.py` (new) — `gather_claims_for_jobs` (explicit job
+  list, claim_id dedup, confidence floor — mirrors the digest gatherer) and
+  `Distiller.distill(job_ids, mode, min_confidence)`: gather → synthesize
+  (`synthesis` | `debate` framing) → persist run. No-claims and
+  failed-synthesis degrade to `{success: False, error}` without persisting.
+- `app/core/job_store/_distillations.py` (new `_DistillationsMixin`) +
+  `distillations` table — `dst_<id>` runs with job set, mode, synthesis
+  JSON, counts, tokens, model.
+- `app/api/distill_routes.py` (new) — `POST /api/distill` (min 2 job ids,
+  404 on unknown jobs, 400 on unknown mode / no extracted claims,
+  synchronous, 5/min, spend recorded in the shared daily ledger),
+  `GET /api/distill/{id}`, `GET /api/distill/{id}/markdown`,
+  `GET /api/distillations`.
+- `README.md` — Distiller paragraph under Subscription Digests.
+- `tests/test_distiller.py` — **14 new tests** (gather/dedup/floor, persist,
+  debate framing, unknown-mode, degradation without persistence, store
+  round-trip/listing, route end-to-end incl. markdown + budget, guards),
+  816/816 suite green (1 skipped).
+
+Deferred: audio briefing (needs P9 TTS), the Distill/briefing Web UI.
 
 **Example:** Subscribe to 5 crypto podcasts. Every morning, get a single 5-minute briefing: *"3 of 5 hosts are bullish on ETH, 2 flagged regulatory concerns, 1 mentioned a potential airdrop for Project X."*
 

@@ -351,6 +351,8 @@ curl http://localhost:8000/api/topics/{topic_id}/synthesis -H "X-API-Key: $KEY"
 
 Endpoints: `POST/GET/PATCH/DELETE /api/digests`, `GET /api/digests/{id}` (config + latest run), `POST /api/digests/{id}/run`, `GET /api/digests/{id}/runs`, `GET /api/topics/{id}/synthesis`. The runner respects the same per-day LLM budget guardrail as knowledge extraction (`KNOWLEDGE_DAILY_BUDGET_USD`); toggle the worker with `DIGEST_ENABLED`. Email / Notion / Obsidian delivery channels land with P21.
 
+**On-demand distillation:** the same cross-source synthesis, but over episodes *you pick* instead of a subscription window. `POST /api/distill {"job_ids": [...], "mode": "synthesis" | "debate"}` returns one brief (debate mode leads with the disagreements and each side's strongest sourced position); fetch it later as structured JSON (`GET /api/distill/{id}`), rendered markdown (`GET /api/distill/{id}/markdown`), or browse history at `GET /api/distillations`.
+
 ## Semantic Search
 
 Every completed transcription is automatically chunked and embedded with a local sentence-transformers model (no LLM cost) into the same embedding store the knowledge layer uses. Query by meaning, not keywords:
