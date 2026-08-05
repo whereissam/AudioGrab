@@ -204,16 +204,24 @@ class WebhookNotifier:
         retries = max_retries if max_retries is not None else self._max_retries
         last_error = None
 
+        # P22 Slice 4: serialize once so the signature is computed over the
+        # exact bytes we send (httpx json= could serialize differently).
+        import json as _json
+
+        body = _json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "xdownloader-webhook/1.0",
+        }
+        headers.update(self._signature_headers(body))
+
         for attempt in range(retries + 1):
             try:
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.post(
                         url,
-                        json=payload,
-                        headers={
-                            "Content-Type": "application/json",
-                            "User-Agent": "xdownloader-webhook/1.0",
-                        },
+                        content=body.encode("utf-8"),
+                        headers=headers,
                     )
 
                     if response.status_code >= 200 and response.status_code < 300:
@@ -238,6 +246,29 @@ class WebhookNotifier:
                 await asyncio.sleep(delay)
 
         return False, last_error
+
+    @staticmethod
+    def _signature_headers(body: str) -> dict:
+        """P22 Slice 4: HMAC signature headers when a signing secret is set.
+
+        Signature = HMAC-SHA256(secret, f"{timestamp}.{body}") — binding the
+        timestamp prevents replaying an old signed body later.
+        """
+        secret = get_settings().webhook_signing_secret
+        if not secret:
+            return {}
+        import hashlib
+        import hmac as _hmac
+        import time
+
+        ts = str(int(time.time()))
+        digest = _hmac.new(
+            secret.encode(), f"{ts}.{body}".encode(), hashlib.sha256
+        ).hexdigest()
+        return {
+            "X-Sift-Timestamp": ts,
+            "X-Sift-Signature": f"sha256={digest}",
+        }
 
 
 # Global instance

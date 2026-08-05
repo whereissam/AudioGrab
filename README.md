@@ -244,6 +244,36 @@ API_KEY=my-secret-key
 curl -H "X-API-Key: my-secret-key" http://localhost:8000/api/health
 ```
 
+### Issued API keys, usage & quotas
+
+Beyond the single master key, you can mint per-client **principal keys** (only their SHA-256 is stored; the plaintext is shown once):
+
+```bash
+# Mint a key with an optional daily request quota (master key required)
+curl -X POST http://localhost:8000/api/principals -H "X-API-Key: my-secret-key" \
+  -H "Content-Type: application/json" -d '{"name": "acme-integration", "daily_request_quota": 5000}'
+# → {"api_key": "sk_sift_...", ...}  ← save it now, it is never shown again
+
+curl http://localhost:8000/api/principals -H "X-API-Key: my-secret-key"       # list (no key material)
+curl -X DELETE http://localhost:8000/api/principals/pr_xxxx -H "X-API-Key: my-secret-key"  # revoke
+```
+
+Every request made with a principal key is counted in a per-day **usage ledger** (`GET /api/usage` — a principal sees its own usage, the master key sees everything), and once a principal's `daily_request_quota` is exhausted further requests get `429`. Only the master key can manage principals — a principal key can never mint or revoke keys.
+
+### Signed webhooks
+
+Set `WEBHOOK_SIGNING_SECRET` and every webhook delivery carries `X-Sift-Timestamp` and `X-Sift-Signature: sha256=<hex>`, where the signature is `HMAC-SHA256(secret, "<timestamp>.<raw body>")`. Verify on your receiver:
+
+```python
+import hashlib, hmac
+
+def verify(secret: str, body: bytes, ts: str, signature: str) -> bool:
+    expected = hmac.new(secret.encode(), f"{ts}.".encode() + body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(signature, f"sha256={expected}")
+```
+
+Reject stale timestamps (e.g. older than 5 minutes) to block replays.
+
 ## Build & Run
 
 ### Available Commands

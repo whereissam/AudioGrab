@@ -519,6 +519,35 @@ class _SchemaMixin:
                 "ON contradictions(episode_id_a, episode_id_b)"
             )
 
+            # P22 Slice 4: API-key principals. Only the SHA-256 of a key is
+            # stored — the plaintext is shown once at creation.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS api_principals (
+                    principal_id        TEXT PRIMARY KEY,
+                    name                TEXT NOT NULL UNIQUE,
+                    key_hash            TEXT NOT NULL UNIQUE,
+                    active              INTEGER NOT NULL DEFAULT 1,
+                    daily_request_quota INTEGER,
+                    created_at          TEXT NOT NULL,
+                    last_used_at        TEXT
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_principals_hash "
+                "ON api_principals(key_hash)"
+            )
+
+            # P22 Slice 4: per-principal, per-UTC-day usage counters.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS usage_ledger (
+                    principal_id TEXT NOT NULL,
+                    day          TEXT NOT NULL,
+                    requests     INTEGER NOT NULL DEFAULT 0,
+                    tokens       INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (principal_id, day)
+                )
+            """)
+
             # P14: on-demand distillation runs (explicit job sets; the
             # scheduled/subscription case lives in digest_runs).
             conn.execute("""

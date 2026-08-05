@@ -153,6 +153,11 @@ class Settings(BaseSettings):
     # full_intelligence. Per-job `webhook_template` overrides this.
     webhook_template: str = "minimal"
 
+    # P22 Slice 4: when set, every webhook delivery carries
+    # X-Sift-Signature (HMAC-SHA256 of "<timestamp>.<body>") and
+    # X-Sift-Timestamp headers so receivers can verify authenticity.
+    webhook_signing_secret: str | None = None
+
     # P20: subscription digest pipeline (cross-episode synthesis)
     digest_enabled: bool = True  # Background digest runner worker
     digest_interval: int = 3600  # Runner tick interval (seconds) — hourly

@@ -1,33 +1,79 @@
-"""Optional API authentication via X-API-Key header."""
+"""API authentication via X-API-Key header.
+
+Two kinds of credentials (P22 Slice 4):
+
+* **Principal keys** (``sk_sift_…``) — issued via ``POST /api/principals``,
+  stored hashed. A principal key authenticates whenever it matches an active
+  principal, gets its usage recorded per UTC day, and is refused with 429
+  once its ``daily_request_quota`` is exhausted.
+* **The legacy master key** (the ``API_KEY`` setting) — behaves exactly as
+  before, and is additionally the only credential that may manage
+  principals. When ``API_KEY`` is unset and no principal matches,
+  authentication stays disabled (open access) for backward compatibility.
+"""
 
 import hmac
 
 from fastapi import Header, HTTPException
+from starlette.requests import HTTPConnection
 
 from ..config import get_settings
 
 
-async def verify_api_key(x_api_key: str | None = Header(None)) -> None:
+def _resolve_principal(x_api_key: str):
+    """Active principal for a presented key, or None. Never raises — a
+    storage hiccup must not lock out the legacy-key path."""
+    if not x_api_key or not x_api_key.startswith("sk_sift_"):
+        return None
+    try:
+        from ..core.job_store import get_job_store
+
+        return get_job_store().get_principal_by_key(x_api_key)
+    except Exception:
+        return None
+
+
+async def verify_api_key(
+    # HTTPConnection (not Request) so the same dependency serves both HTTP
+    # routes and the realtime WebSocket route.
+    request: HTTPConnection,
+    x_api_key: str | None = Header(None),
+) -> None:
     """
     Verify API key if authentication is enabled.
 
-    If API_KEY is not set in config, authentication is disabled (open access).
-    If API_KEY is set, requests must include a matching X-API-Key header.
-
-    Usage:
-        # In .env file:
-        API_KEY=your-secret-key
-
-        # In requests:
-        curl -H "X-API-Key: your-secret-key" http://localhost:8000/api/health
+    Principal keys are checked first; the legacy single API_KEY setting is
+    the fallback. With no API_KEY configured, requests without a principal
+    key remain open (original behavior).
     """
     settings = get_settings()
 
-    # Auth disabled if no API_KEY configured
+    principal = _resolve_principal(x_api_key) if x_api_key else None
+    if principal is not None:
+        from ..core.job_store import get_job_store
+
+        store = get_job_store()
+        count = store.record_usage(principal["principal_id"])
+        quota = principal.get("daily_request_quota")
+        if quota is not None and count > quota:
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    f"Daily request quota exhausted for principal "
+                    f"'{principal['name']}' ({quota}/day)."
+                ),
+            )
+        try:
+            store.touch_principal(principal["principal_id"])
+        except Exception:  # last_used_at is cosmetic — never block a request
+            pass
+        request.state.principal = principal
+        return
+
+    # Legacy path — unchanged semantics.
     if settings.api_key is None:
         return
 
-    # Auth enabled - verify header
     if x_api_key is None:
         raise HTTPException(
             status_code=401,
@@ -40,4 +86,20 @@ async def verify_api_key(x_api_key: str | None = Header(None)) -> None:
             status_code=401,
             detail="Invalid API key",
             headers={"WWW-Authenticate": "ApiKey"},
+        )
+    request.state.principal = None  # master key — no principal scoping
+
+
+async def verify_master_key(x_api_key: str | None = Header(None)) -> None:
+    """Guard for principal management: only the legacy master ``API_KEY``
+    qualifies — a principal key must never mint or revoke other keys. When
+    no master key is configured the instance is open, so management is too
+    (consistent with every other route)."""
+    settings = get_settings()
+    if settings.api_key is None:
+        return
+    if x_api_key is None or not hmac.compare_digest(x_api_key, settings.api_key):
+        raise HTTPException(
+            status_code=403,
+            detail="Principal management requires the master API key",
         )

@@ -1674,13 +1674,35 @@ unified async `/v1/ingestions` API, keeping all legacy endpoints working.
 - [x] Legacy `/api` endpoints untouched (adapters deferred until /v1 is the
       primary surface); 13 tests (`tests/test_ingestion_api.py`)
 
-### Deferred (Slices 4–5)
+### Slice 4 — commercial reliability ✅ (shipped 2026-08-05)
 
-- [ ] Commercial reliability: API-key principals, usage ledger, quotas,
-      signed webhooks. Note (2026-07-12): YouTube bot-blocks unauthenticated
-      requests from this network — cookies-from-browser support added
-      (`YOUTUBE_COOKIES_FROM_BROWSER`); hosted acquisition will need proxy /
-      session infrastructure, as anticipated in the product plan
+- [x] **API-key principals** — `api_principals` table (SHA-256 key hashes
+      only; plaintext `sk_sift_<32 hex>` returned once at mint), resolved in
+      `verify_api_key` ahead of the legacy master `API_KEY` (which keeps its
+      exact old semantics, incl. open access when unset). Principal stashed
+      on `request.state`; dependency annotated `HTTPConnection` so the same
+      auth serves HTTP routes and the realtime WebSocket.
+      `POST/GET/DELETE /api/principals` guarded by the master key only — a
+      principal key can never mint or revoke keys.
+- [x] **Usage ledger** — `usage_ledger` (principal × UTC day, requests +
+      tokens) with atomic upsert-increment inside the auth dependency;
+      `GET /api/usage` (principals see only themselves, master sees all).
+- [x] **Quotas** — per-principal `daily_request_quota` → 429 once today's
+      count exceeds it (increment-then-check, race-tolerant).
+- [x] **Signed webhooks** — optional `WEBHOOK_SIGNING_SECRET`; deliveries
+      carry `X-Sift-Timestamp` + `X-Sift-Signature: sha256=<HMAC-SHA256 of
+      "<ts>.<body>">` computed over the exact bytes sent (body serialized
+      once); timestamp binding blocks replay. Verification snippet in README.
+- Tests: `tests/test_principals.py` — **17 new tests** (mint/hash/dedup,
+  resolve + deactivate, ledger increment + day isolation, auth flows incl.
+  quota 429 + master-key compatibility, management guard, usage scoping,
+  signature verification), 833/833 suite green (1 skipped).
+- Note (2026-07-12, still open): YouTube bot-blocks unauthenticated requests
+  from this network — cookies-from-browser support added
+  (`YOUTUBE_COOKIES_FROM_BROWSER`); hosted acquisition will need proxy /
+  session infrastructure, as anticipated in the product plan.
+
+### Deferred (Slice 5)
 - [~] Evidence retrieval: segment embeddings + semantic search + MCP
       `search_segments` shipped with P10 Phase 1; *hybrid* (keyword+vector)
       search still open
