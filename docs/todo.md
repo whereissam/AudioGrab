@@ -113,7 +113,7 @@ Follow-up (completed 2026-06-22):
 | Content Distiller (Multi-Source Briefing) | Medium | High | P14 |
 | Neural Audio Reconstruction | Very High | Medium | P15 |
 | Intelligent Webhooks & Agentic Notifications | Low | High | P16 🚧 (Phase 1 shipped) |
-| Structured Data Extraction | Medium | High | P17 |
+| Structured Data Extraction | Medium | High | P17 ✅ (Notion deferred) |
 
 ### v2.5 — Capability Surface & Knowledge Pipeline (Planned)
 
@@ -1001,34 +1001,67 @@ templates, smart per-content routing, urgency detection.
 
 ---
 
-## P17: Structured Data Extraction
+## P17: Structured Data Extraction ✅ (Notion deferred)
 
 **Goal:** Transcription output shouldn't just be text — it should be structured, machine-readable data ready for downstream consumption.
 
+> **Status:** the extraction service, five presets, ad-hoc custom schemas,
+> the Web UI Extract section, and the JSON surface all shipped in earlier
+> work (this section was never checked off). The 2026-08-05 completion pass
+> added the two genuinely missing pieces: **saved reusable schemas**
+> (`/api/extraction-schemas` CRUD + `schema_id` on the extract call) and
+> **deterministic markdown/CSV export**. Notion pages remain deferred (same
+> external-integration dependency as P21's Notion target).
+
 ### Tasks
 
-- [ ] Create structured extraction service (`app/core/extractor.py`):
-  - [ ] LLM-powered extraction from transcript text
-  - [ ] Configurable extraction schemas (user-defined or preset)
-- [ ] Built-in extraction presets:
-  - [ ] **Meeting Notes**: Attendees, agenda items, decisions, action items, deadlines
-  - [ ] **Interview**: Questions asked, answers given, key quotes
-  - [ ] **Tutorial**: Steps, tools mentioned, prerequisites, links
-  - [ ] **News/Analysis**: Claims, evidence, sources cited, predictions
-  - [ ] **Product Review**: Product name, pros, cons, rating, comparisons
-- [ ] Output formats:
-  - [ ] JSON (structured, machine-readable)
-  - [ ] Markdown (human-readable, Obsidian/Notion-ready)
-  - [ ] CSV (for spreadsheet import)
-  - [ ] Notion page (via API integration)
-- [ ] Web UI:
-  - [ ] "Extract" button with preset/schema selector
-  - [ ] Extracted data viewer with editable fields
-  - [ ] Export to various formats
-- [ ] API endpoints:
-  - [ ] `POST /jobs/{id}/extract` - Extract structured data
-  - [ ] `GET /jobs/{id}/extracted` - Get extraction results
-  - [ ] `POST /api/extraction-schemas` - Define custom extraction schema
+- [x] Create structured extraction service (`app/core/extractor.py`):
+  - [x] LLM-powered extraction from transcript text *(shipped pre-completion-pass)*
+  - [x] Configurable extraction schemas (user-defined or preset) — ad-hoc
+        `custom_schema` per request *(earlier)* + saved named schemas via
+        `schema_id` *(completion pass)*
+- [x] Built-in extraction presets *(all shipped earlier)*:
+  - [x] **Meeting Notes**: Attendees, agenda items, decisions, action items, deadlines
+  - [x] **Interview**: Questions asked, answers given, key quotes
+  - [x] **Tutorial**: Steps, tools mentioned, prerequisites, links
+  - [x] **News/Analysis**: Claims, evidence, sources cited, predictions
+  - [x] **Product Review**: Product name, pros, cons, rating, comparisons
+- [~] Output formats:
+  - [x] JSON (structured, machine-readable) *(earlier)*
+  - [x] Markdown (human-readable, Obsidian/Notion-ready) —
+        `GET /jobs/{id}/extract/export?format=markdown` *(completion pass)*
+  - [x] CSV (for spreadsheet import) — `?format=csv`, flattened
+        field/index/key/value rows *(completion pass)*
+  - [ ] Notion page (via API integration) — deferred
+- [x] Web UI *(shipped earlier — `ExtractSection.tsx`)*:
+  - [x] "Extract" button with preset/schema selector
+  - [x] Extracted data viewer
+  - [x] Export to various formats (via the export endpoint)
+- [x] API endpoints:
+  - [x] `POST /jobs/{id}/extract` - Extract structured data *(earlier;
+        now also accepts `schema_id`, 404 on unknown schema)*
+  - [x] `GET /jobs/{id}/extract` - Get extraction results *(earlier)* +
+        `GET /jobs/{id}/extract/export?format=json|markdown|csv` *(completion pass)*
+  - [x] `POST /api/extraction-schemas` - Define custom extraction schema
+        (+ GET list, GET one by id-or-name, DELETE; 409 on duplicate name)
+
+### P17 completion pass — what shipped (2026-08-05)
+
+- `app/core/job_store/_extraction_schemas.py` (new `_ExtractionSchemasMixin`)
+  + `extraction_schemas` table — `xs_<hash>` IDs, UNIQUE name, fields JSON;
+  addressable by id or name everywhere.
+- `app/api/extract_routes.py` — `/extraction-schemas` CRUD router (409 on
+  duplicate name, 422 on empty fields); `POST /jobs/{id}/extract` accepts
+  `schema_id` (loads the saved schema, runs it as the CUSTOM preset;
+  `preset` is now optional — 400 when neither is given);
+  `GET /jobs/{id}/extract/export?format=` renders the cached result with no
+  LLM call (404 when nothing cached, 400 on unknown format).
+- `app/core/extractor.py` — `render_extraction_markdown` (sections per
+  field, bullet lists, object-list flattening) + `render_extraction_csv`.
+- `tests/test_extraction_schemas.py` — **17 new tests** (store CRUD +
+  duplicate handling, route CRUD flow, renderer output, export route
+  formats + guards, schema_id extract path incl. 404/400), 802/802 suite
+  green (1 skipped).
 
 ---
 

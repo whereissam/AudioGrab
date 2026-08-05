@@ -519,6 +519,19 @@ class _SchemaMixin:
                 "ON contradictions(episode_id_a, episode_id_b)"
             )
 
+            # P17: named, reusable custom extraction schemas. `fields` is the
+            # JSON list fed to the CUSTOM extraction prompt
+            # ([{name, type, description}, ...]).
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS extraction_schemas (
+                    schema_id   TEXT PRIMARY KEY,
+                    name        TEXT NOT NULL UNIQUE,
+                    description TEXT,
+                    fields      TEXT NOT NULL,
+                    created_at  TEXT NOT NULL
+                )
+            """)
+
             # P11: Ask Audio Q&A history. job_id NULL = library-wide ask.
             # sources is the JSON list of RAGSource dicts the answer cited.
             conn.execute("""

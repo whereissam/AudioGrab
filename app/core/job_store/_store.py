@@ -15,6 +15,7 @@ from ._batches import _BatchesMixin
 from ._chat import _ChatMixin
 from ._contradictions import _ContradictionsMixin
 from ._digest import _DigestMixin
+from ._extraction_schemas import _ExtractionSchemasMixin
 from ._idempotency import _IdempotencyMixin
 from ._jobs import _JobsMixin
 from ._knowledge import _KnowledgeMixin
@@ -40,6 +41,7 @@ class JobStore(
     _ChatMixin,
     _PipelineMixin,
     _ContradictionsMixin,
+    _ExtractionSchemasMixin,
 ):
     """SQLite-based persistent job storage.
 

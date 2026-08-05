@@ -1200,13 +1200,18 @@ class ExtractionPresetEnum(str, Enum):
 class ExtractRequest(BaseModel):
     """Request to extract structured data from a transcription."""
 
-    preset: ExtractionPresetEnum = Field(
-        ...,
-        description="Extraction preset to use",
+    preset: Optional[ExtractionPresetEnum] = Field(
+        default=None,
+        description="Extraction preset to use (omit when passing schema_id)",
     )
     custom_schema: Optional[dict] = Field(
         default=None,
         description='Custom schema for "custom" preset. Example: {"fields": [{"name": "topics", "type": "list", "description": "Main topics"}]}',
+    )
+    schema_id: Optional[str] = Field(
+        default=None,
+        description="Saved extraction schema (id or name) to run as the "
+        "custom preset; overrides preset/custom_schema",
     )
 
 

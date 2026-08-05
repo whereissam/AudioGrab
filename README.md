@@ -26,6 +26,7 @@
 - **LLM Summarization** - Bullet points, chapter markers, key topics, action items via any AI provider
 - **Speaker Diarization** - Identify different speakers (optional)
 - **Contradiction Detection** - AI cross-references extracted claims — within an episode or by one speaker across episodes — and surfaces pairs that can't both be true, with quotes, timestamps, and confidence. `POST /api/jobs/{id}/analyze-contradictions`, `GET /api/contradictions?speaker=`, or the MCP `find_contradictions` tool.
+- **Structured Data Extraction** - Turn a transcript into typed fields with built-in presets (meeting notes, interview, tutorial, news/analysis, product review) or your own schema — save named schemas via `POST /api/extraction-schemas` and reuse them with `schema_id`. Export any extraction as JSON, Markdown, or CSV at `GET /api/jobs/{id}/extract/export?format=`.
 
 ### Transform & Create
 - **Translation** - TranslateGemma (local) or AI providers, 55+ languages

@@ -612,3 +612,64 @@ class StructuredExtractor:
                 provider=self.provider.name if self.provider else None,
                 tokens_used=total_tokens,
             )
+
+
+# ===== P17: deterministic export rendering (no LLM) =====
+
+
+def _humanize(key: str) -> str:
+    return key.replace("_", " ").strip().title()
+
+
+def render_extraction_markdown(result: ExtractionResult) -> str:
+    """Render a cached extraction as a human-readable markdown document."""
+    lines = [f"# Extraction — {_humanize(result.preset or 'result')}", ""]
+    lines.append(f"Job: `{result.job_id}`")
+    if result.model:
+        lines.append(f"Model: {result.model}")
+    lines.append("")
+    for f in result.fields:
+        lines.append(f"## {_humanize(f.key)}")
+        lines.append("")
+        value = f.value
+        if isinstance(value, list):
+            if not value:
+                lines.append("_none_")
+            for item in value:
+                if isinstance(item, dict):
+                    parts = ", ".join(f"{k}: {v}" for k, v in item.items())
+                    lines.append(f"- {parts}")
+                else:
+                    lines.append(f"- {item}")
+        elif isinstance(value, dict):
+            for k, v in value.items():
+                lines.append(f"- **{_humanize(str(k))}**: {v}")
+        else:
+            lines.append(str(value) if value is not None else "_none_")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_extraction_csv(result: ExtractionResult) -> str:
+    """Render a cached extraction as flattened field/index/key/value rows."""
+    import csv
+    import io
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["field", "index", "key", "value"])
+    for f in result.fields:
+        value = f.value
+        if isinstance(value, list):
+            for i, item in enumerate(value):
+                if isinstance(item, dict):
+                    for k, v in item.items():
+                        writer.writerow([f.key, i, k, v])
+                else:
+                    writer.writerow([f.key, i, "", item])
+        elif isinstance(value, dict):
+            for k, v in value.items():
+                writer.writerow([f.key, "", k, v])
+        else:
+            writer.writerow([f.key, "", "", value])
+    return buf.getvalue()
