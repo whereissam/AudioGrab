@@ -30,6 +30,7 @@ from .schemas import (
 )
 from .transcription_store import transcription_jobs
 from ..core.downloader import DownloaderFactory
+from ..core.subtitles import SubtitleStyle
 
 logger = logging.getLogger(__name__)
 
@@ -179,13 +180,24 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
             # Format output based on requested format
             has_speakers = diarize and any(s.speaker for s in segments)
 
+            # getattr: this coroutine is also driven by duck-typed request
+            # objects that predate the per-request subtitle preset.
+            preset = getattr(request, "subtitle_style", None)
+            subtitle_style = SubtitleStyle.preset(preset) if preset else None
+
             if request.output_format == TranscriptionOutputFormat.SRT:
                 if has_speakers:
-                    job.formatted_output = AudioTranscriber.format_as_srt_with_speakers(segments)
+                    job.formatted_output = AudioTranscriber.format_as_srt_with_speakers(
+                        segments, subtitle_style
+                    )
                 else:
-                    job.formatted_output = AudioTranscriber.format_as_srt(segments)
+                    job.formatted_output = AudioTranscriber.format_as_srt(
+                        segments, subtitle_style
+                    )
             elif request.output_format == TranscriptionOutputFormat.VTT:
-                job.formatted_output = AudioTranscriber.format_as_vtt(segments)
+                job.formatted_output = AudioTranscriber.format_as_vtt(
+                    segments, subtitle_style
+                )
             elif request.output_format == TranscriptionOutputFormat.JSON:
                 job.formatted_output = json.dumps({
                     "text": result.text,

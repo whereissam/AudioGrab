@@ -22,47 +22,56 @@ logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 
-def _format_srt(segments: list[dict]) -> str:
-    """Format segments as SRT subtitle format."""
-    lines = []
-    for i, seg in enumerate(segments, 1):
-        start = seg["start"]
-        end = seg["end"]
-        text = seg["text"]
-        start_h, start_r = divmod(start, 3600)
-        start_m, start_s = divmod(start_r, 60)
-        end_h, end_r = divmod(end, 3600)
-        end_m, end_s = divmod(end_r, 60)
-        lines.append(str(i))
-        lines.append(
-            f"{int(start_h):02d}:{int(start_m):02d}:{start_s:06.3f}".replace(".", ",")
-            + " --> "
-            + f"{int(end_h):02d}:{int(end_m):02d}:{end_s:06.3f}".replace(".", ",")
-        )
-        lines.append(text)
-        lines.append("")
-    return "\n".join(lines)
+def _subtitle_style(request_preset: str | None = None):
+    """Configured (or per-request) subtitle style; None disables reflow."""
+    from ..config import get_settings
+    from ..core.subtitles import SubtitleStyle, style_from_settings
+
+    if request_preset:
+        return SubtitleStyle.preset(request_preset)
+    return style_from_settings(get_settings())
 
 
-def _format_vtt(segments: list[dict]) -> str:
-    """Format segments as WebVTT subtitle format."""
-    lines = ["WEBVTT", ""]
-    for seg in segments:
-        start = seg["start"]
-        end = seg["end"]
-        text = seg["text"]
-        start_h, start_r = divmod(start, 3600)
-        start_m, start_s = divmod(start_r, 60)
-        end_h, end_r = divmod(end, 3600)
-        end_m, end_s = divmod(end_r, 60)
-        lines.append(
-            f"{int(start_h):02d}:{int(start_m):02d}:{start_s:06.3f}"
-            + " --> "
-            + f"{int(end_h):02d}:{int(end_m):02d}:{end_s:06.3f}"
+def _format_srt(segments: list[dict], preset: str | None = None) -> str:
+    """SRT via the shared reflow writer.
+
+    Fetched captions are the case that most needs it: YouTube auto-captions
+    arrive as 2-3 word cues that flicker, and merging them is what makes the
+    output readable.
+    """
+    from ..core.subtitles import format_srt, reflow_to_srt
+
+    style = _subtitle_style(preset)
+    if style is None:
+        return format_srt([c for seg in segments for c in _raw_cues(seg)])
+    return reflow_to_srt(segments, style)
+
+
+def _format_vtt(segments: list[dict], preset: str | None = None) -> str:
+    """WebVTT via the shared reflow writer."""
+    from ..core.subtitles import format_vtt, reflow_to_vtt
+
+    style = _subtitle_style(preset)
+    if style is None:
+        return format_vtt([c for seg in segments for c in _raw_cues(seg)])
+    return reflow_to_vtt(segments, style)
+
+
+def _raw_cues(seg: dict):
+    """One cue per source segment, verbatim (`subtitle_reflow=False`)."""
+    from ..core.subtitles import SubtitleCue
+
+    start = float(seg.get("start", 0.0) or 0.0)
+    end = float(seg.get("end", 0.0) or 0.0)
+    return [
+        SubtitleCue(
+            start=start,
+            end=max(end, start),
+            lines=(str(seg.get("text", "")),),
+            source_start=start,
+            source_end=max(end, start),
         )
-        lines.append(text)
-        lines.append("")
-    return "\n".join(lines)
+    ]
 
 
 @router.get("/transcript/check")
@@ -135,9 +144,9 @@ async def fetch_transcript(request: FetchTranscriptRequest):
 
     # Format output
     if request.output_format == TranscriptionOutputFormat.SRT:
-        formatted = _format_srt(result.segments)
+        formatted = _format_srt(result.segments, request.subtitle_style)
     elif request.output_format == TranscriptionOutputFormat.VTT:
-        formatted = _format_vtt(result.segments)
+        formatted = _format_vtt(result.segments, request.subtitle_style)
     elif request.output_format == TranscriptionOutputFormat.JSON:
         formatted = json.dumps(
             {
