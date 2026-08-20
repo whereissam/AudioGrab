@@ -40,7 +40,7 @@
 - All new features must include tests in the appropriate test directory (`tests/` for Python, colocated `*.test.ts` in the WXT `extension/` project for JS/TS, run via `bunx vitest`).
 - Only `git add` files modified in the current task — never stage all files.
 - Conventional commit messages (`feat:`, `fix:`, `docs:`, etc.). End commit messages with `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
-- Server work spans `app/core/` (logic) and `app/api/` (HTTP); follow the existing `PlatformDownloader` contract and router patterns.
+- Server work spans `app/ingest/` (logic) and `app/api/` (HTTP); follow the existing `PlatformDownloader` contract and router patterns.
 - The extension is built with WXT: entrypoints live in `extension/entrypoints/` (`defineBackground`/`defineContentScript`/popup), pure helper logic in `extension/utils/*.ts` as ESM modules imported by both entrypoints and colocated `*.test.ts` (Vitest). Manifest is generated from `wxt.config.ts` — do not hand-edit a `manifest.json`.
 - Privacy rule (hard): the extension stores only media-typed URLs, in-memory per-tab, never persisted; nothing leaves the browser until the user clicks convert, and only the chosen URL + format/quality are sent.
 - Auth: `POST /api/capture` and the file endpoint require `X-API-Key` when `API_KEY` is configured (the `download_routes` router already enforces `verify_api_key`).
