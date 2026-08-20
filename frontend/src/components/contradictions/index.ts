@@ -1,0 +1,1 @@
+export { ContradictionSection } from './ContradictionSection'
