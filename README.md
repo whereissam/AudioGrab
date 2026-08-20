@@ -32,7 +32,7 @@
 - **Translation** - TranslateGemma (local) or AI providers, 55+ languages
 - **Social Media Clips** - AI identifies viral-worthy moments, generates captions & hashtags
 - **Audio Enhancement** - Noise reduction & voice isolation (FFmpeg-based), neural voice reconstruction on the roadmap
-- **Content Distiller** - Feed multiple URLs and get a single synthesized briefing (coming soon)
+- **Content Distiller** - Pick several episodes and get one synthesized briefing — what they agreed on, where they contradict each other, and which narratives repeat. `POST /api/distill`, or the **Library → Distill** tab.
 
 ### Automate & Integrate
 - **Vault & Note-App Export** - Turn any episode into a templated markdown note for **Obsidian / Logseq / plain markdown** — YAML frontmatter, clickable timestamp links, claim cards, pull-quote highlights, a collapsible transcript, and `[[wikilinks]]` for canonical entities. Served over the API and the MCP `export_to_vault` tool. See [Vault Export](#vault--note-app-export).
@@ -40,7 +40,7 @@
 - **MCP Server (Capability Surface)** - Expose Sift to Claude Desktop, Cursor, and custom agents as MCP tools (`ingest_url`, `get_transcript`, `get_claims`, `get_entities`, `get_topics`, `get_predictions`, …). One server, N agent skills. See [MCP Server](#mcp-server) below.
 - **Agentic Ingest Pipeline** - Paste a URL with a profile (`quick` / `deep` / `full`) and Sift runs the whole chain — transcribe, search-index, knowledge extraction, summary, sentiment, clips, webhook — with per-stage status at `GET /api/jobs/{id}/pipeline`. See [Agentic Ingest](#agentic-ingest).
 - **Telegram Research Assistant** - Send a link, then ask questions about the content — the bot answers instantly
-- **Intelligent Webhooks** - Notifications include AI-generated summaries, key findings, and detected insights (coming soon)
+- **Intelligent Webhooks** - Delivery payloads carry more than a status line: pick `minimal`, `summary` (AI summary + key topics), or `full_intelligence` (entities, sentiment, claim counts). Assembled from already-extracted data, never a fresh LLM call.
 - **Subscriptions** - Auto-monitor RSS feeds, YouTube channels, and playlists
 - **Batch Downloads** - Download multiple URLs at once with progress tracking
 - **Priority Queue** - Prioritize important downloads (1-10 levels)
@@ -110,6 +110,23 @@ xdownloader to-video --resolution 1080p -o show.mp4 podcast.m4a
 ## API
 
 Full API documentation available at http://localhost:8000/docs (Swagger UI)
+
+## Web UI
+
+`make dev-web` serves the React app on `:5173` against the API on `:8000`.
+
+| Page | What it does |
+|------|--------------|
+| **Audio** / **Video** | Paste a URL, pick a format, download |
+| **Transcribe** | Transcribe a URL or an uploaded file; the result view carries summary, translation, sentiment, structured extraction, contradictions, per-episode Ask, and pipeline progress |
+| **Clips** | AI-suggested viral moments with captions |
+| **Live** | Real-time microphone transcription |
+| **Library** | **Search** your whole library by meaning · **Ask** it questions with cited sources · **Distill** several episodes into one brief |
+| **Feeds** | RSS / YouTube channel subscriptions |
+| **Settings** | AI providers, translation, webhooks, storage |
+
+Episodes ingested through the [agentic pipeline](#agentic-ingest) show per-stage
+progress in the transcription view; ordinary transcriptions show nothing extra.
 
 ## Supported Platforms
 
