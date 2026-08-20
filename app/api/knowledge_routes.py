@@ -21,16 +21,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from ..config import get_settings
-from ..core.job_store import get_job_store
-from ..core.knowledge_backfill import (
+from ..store import get_job_store
+from ..knowledge.knowledge_backfill import (
     get_backfill_worker,
     persist_extraction_result,
     quarantine_failures,
     resolve_segments_for_job,
 )
-from ..core.knowledge_budget import get_budget_tracker
-from ..core.knowledge_extractor import KnowledgeExtractor
-from ..core.knowledge_schema import ClaimType
+from ..knowledge.knowledge_budget import get_budget_tracker
+from ..knowledge.knowledge_extractor import KnowledgeExtractor
+from ..knowledge.knowledge_schema import ClaimType
 from .auth import verify_api_key
 from .ratelimit import limiter
 from .schemas import JobStatus
@@ -197,7 +197,7 @@ async def extract_knowledge(request: Request, job_id: str):
 
     # Account spend so the synchronous path counts against the same daily
     # budget the backfill worker respects.
-    from ..core.knowledge_budget import estimate_cost_usd
+    from ..knowledge.knowledge_budget import estimate_cost_usd
 
     get_budget_tracker().record(estimate_cost_usd(result.model, result.tokens_used))
 

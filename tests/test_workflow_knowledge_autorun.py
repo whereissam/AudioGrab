@@ -14,9 +14,9 @@ from pathlib import Path
 import pytest
 
 from app.config import get_settings
-from app.core.job_store import JobStore
-from app.core.job_store._enums import JobStatus, JobType
-from app.core.workflow import WorkflowProcessor
+from app.store import JobStore
+from app.store._enums import JobStatus, JobType
+from app.pipeline.workflow import WorkflowProcessor
 
 
 @pytest.fixture
@@ -128,7 +128,7 @@ class TestProcessTranscriptionIntegration:
     async def test_completed_transcription_enqueues_knowledge(
         self, processor: WorkflowProcessor, store: JobStore, monkeypatch, tmp_path
     ):
-        import app.core.transcriber as transcriber_mod
+        import app.ingest.transcribe.transcriber as transcriber_mod
 
         monkeypatch.setattr(
             transcriber_mod, "AudioTranscriber", _FakeTranscriber

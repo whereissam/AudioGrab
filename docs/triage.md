@@ -46,7 +46,7 @@ Auto-extracted from [todo.md](todo.md) on 2026-06-23. **294 open items** across 
     - [ ] Azure Speech Services
   - [ ] Voice cloning from original speaker
   - [ ] Maintain original pacing and timing
-- [ ] Create dubbing service (`app/core/dubber.py`):
+- [ ] Create dubbing service (`app/delivery/dubber.py`):
   - [ ] Sync translated speech with original timing
   - [ ] Handle speed adjustments for different language lengths
   - [ ] Mix dubbed audio with original background sounds (optional)
@@ -71,7 +71,7 @@ Auto-extracted from [todo.md](todo.md) on 2026-06-23. **294 open items** across 
   - [ ] ChromaDB (lightweight, Python-native, good for local/self-hosted)
   - [ ] LanceDB (embedded, serverless, good for single-user)
   - [ ] Qdrant (production-grade, supports filtering)
-- [ ] Create vector indexing service (`app/core/vector_indexer.py`):
+- [ ] Create vector indexing service (`app/knowledge/vector_indexer.py`):
   - [ ] Generate embeddings for transcript segments (sentence-level or paragraph-level)
   - [ ] Support multiple embedding models:
     - [ ] `all-MiniLM-L6-v2` (fast, local, via sentence-transformers)
@@ -96,7 +96,7 @@ Auto-extracted from [todo.md](todo.md) on 2026-06-23. **294 open items** across 
 
 ## P11: Ask Audio (RAG Chat Interface) › Tasks  (22)
 
-- [ ] Create RAG service (`app/core/rag_engine.py`):
+- [ ] Create RAG service (`app/knowledge/rag_engine.py`):
   - [ ] Query vector store for relevant transcript segments
   - [ ] Construct context window from top-K results
   - [ ] Send to LLM with grounding prompt (cite timestamps, avoid hallucination)
@@ -121,7 +121,7 @@ Auto-extracted from [todo.md](todo.md) on 2026-06-23. **294 open items** across 
 
 ## P12: Agentic Ingest Pipeline › Tasks  (23)
 
-- [ ] Create pipeline orchestrator (`app/core/agentic_pipeline.py`):
+- [ ] Create pipeline orchestrator (`app/pipeline/agentic_pipeline.py`):
   - [ ] Define pipeline stages as composable agents
   - [ ] Support configurable pipeline profiles (e.g., "Quick Summary", "Deep Research", "Full Analysis")
   - [ ] Parallel execution where possible (e.g., summarization + entity extraction run concurrently)
@@ -170,7 +170,7 @@ Auto-extracted from [todo.md](todo.md) on 2026-06-23. **294 open items** across 
 
 ## P14: Content Distiller (Multi-Source Briefing) › Tasks  (19)
 
-- [ ] Create content distiller service (`app/core/distiller.py`):
+- [ ] Create content distiller service (`app/knowledge/distiller.py`):
   - [ ] Accept multiple job IDs or URLs as input
   - [ ] Cross-reference transcripts to find common themes, disagreements, unique insights
   - [ ] Generate unified output formats:
@@ -197,7 +197,7 @@ Auto-extracted from [todo.md](todo.md) on 2026-06-23. **294 open items** across 
   - [ ] **OpenVoice** (open source voice cloning)
   - [ ] **Resemble.AI** (voice cloning + enhancement)
   - [ ] **AudioSR** (audio super-resolution, open source)
-- [ ] Create neural enhancement service (`app/core/neural_enhancer.py`):
+- [ ] Create neural enhancement service (`app/ingest/media/neural_enhancer.py`):
   - [ ] Speaker voice profiling: analyze audio to build speaker voice model
   - [ ] Re-synthesize speech using the voice profile at higher fidelity
   - [ ] Preserve original timing, emphasis, and prosody
@@ -234,7 +234,7 @@ Auto-extracted from [todo.md](todo.md) on 2026-06-23. **294 open items** across 
 
 ## P17: Structured Data Extraction › Tasks  (22)
 
-- [ ] Create structured extraction service (`app/core/extractor.py`):
+- [ ] Create structured extraction service (`app/knowledge/extractor.py`):
   - [ ] LLM-powered extraction from transcript text
   - [ ] Configurable extraction schemas (user-defined or preset)
 - [ ] Built-in extraction presets:
@@ -269,17 +269,17 @@ Auto-extracted from [todo.md](todo.md) on 2026-06-23. **294 open items** across 
 ## P18: AI-Friendly Knowledge Schema › Tasks  (42)
 
 - [ ] Schema spec doc (`docs/knowledge-schema.md`) with explicit `schema_version` and `extraction_version` policy + re-extraction rules
-- [ ] Task preset registry (`app/core/llm_presets.py`):
+- [ ] Task preset registry (`app/knowledge/llm_presets.py`):
   - [ ] Map `extract | summarize | synthesize | chat` → provider+model
   - [ ] Default presets in code, overridable via `ai_settings` table (new `task_presets` JSON column)
   - [ ] `get_provider_for_task(task)` helper used by extractor / summarizer / RAG / digest
-- [ ] Knowledge extractor service (`app/core/knowledge_extractor.py`):
+- [ ] Knowledge extractor service (`app/knowledge/knowledge_extractor.py`):
   - [ ] LLM-powered extraction with structured output (function calling / JSON mode via litellm)
   - [ ] Per-segment processing (~3000 tokens, 200-token overlap) with episode metadata as context
   - [ ] Pulls model from `get_provider_for_task("extract")`, not directly from AI Settings
   - [ ] One unified prompt per chunk → `{claims, entities, topics, predictions}`
   - [ ] Schema validation on every LLM output (malformed → quarantine table, never crash pipeline)
-- [ ] Embedding store (`app/core/embedding_store.py`):
+- [ ] Embedding store (`app/knowledge/embedding_store.py`):
   - [ ] Thin retrieval interface (`embed`, `upsert`, `query_topk`, `cosine`)
   - [ ] SQLite blob backend with cached `norm` for fast cosine
   - [ ] Driver pattern → swap to Chroma / pgvector later without touching callers

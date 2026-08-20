@@ -11,16 +11,16 @@ from fastapi.testclient import TestClient
 from app.api import contradiction_routes
 from app.api.contradiction_routes import router as contradiction_router
 from app.api.ratelimit import limiter
-from app.core import job_store as job_store_module
-from app.core.contradiction_detector import (
+from app import store as job_store_module
+from app.knowledge.contradiction_detector import (
     Contradiction,
     ContradictionRunResult,
     compute_contradiction_id,
 )
-from app.core.job_store import JobStore
-from app.core.job_store._enums import JobType
-from app.core.knowledge_budget import get_budget_tracker
-from app.core.knowledge_schema import (
+from app.store import JobStore
+from app.store._enums import JobType
+from app.knowledge.knowledge_budget import get_budget_tracker
+from app.knowledge.knowledge_schema import (
     EXTRACTION_VERSION,
     SCHEMA_VERSION,
     Claim,

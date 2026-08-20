@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from .auth import verify_api_key
-from ..core.cloud import (
+from ..delivery.cloud import (
     get_export_manager,
     ProviderConfig,
     ProviderType,
@@ -188,7 +188,7 @@ async def get_oauth_url(
 
     Only applicable for OAuth-based providers (google_drive, dropbox).
     """
-    from ..core.cloud.base import OAuthProvider
+    from ..delivery.cloud.base import OAuthProvider
 
     manager = get_export_manager()
     provider = manager.get_provider(provider_id)
@@ -213,7 +213,7 @@ async def oauth_callback(provider_id: str, request: OAuthCallbackRequest):
 
     Call this after user completes OAuth authorization.
     """
-    from ..core.cloud.base import OAuthProvider
+    from ..delivery.cloud.base import OAuthProvider
 
     manager = get_export_manager()
     provider = manager.get_provider(provider_id)

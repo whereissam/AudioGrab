@@ -14,7 +14,7 @@ from .schemas import (
     ExtractionPresetInfo,
     JobStatus,
 )
-from ..core.extractor import (
+from ..knowledge.extractor import (
     StructuredExtractor,
     ExtractionPreset,
     ExtractionResult,
@@ -99,7 +99,7 @@ async def extract_structured_data(request: Request, job_id: str, body: ExtractRe
     custom_schema = body.custom_schema
     if body.schema_id:
         # P17: run a saved schema as the CUSTOM preset.
-        from ..core.job_store import get_job_store
+        from ..store import get_job_store
 
         saved = get_job_store().get_extraction_schema(body.schema_id)
         if not saved:
@@ -203,7 +203,7 @@ async def export_extraction(job_id: str, format: str = "json"):
     """
     from fastapi.responses import Response
 
-    from ..core.extractor import (
+    from ..knowledge.extractor import (
         render_extraction_csv,
         render_extraction_markdown,
     )
@@ -293,7 +293,7 @@ class SchemaResponse(BaseModel):
 @schemas_router.post("", response_model=SchemaResponse)
 async def create_extraction_schema(body: CreateSchemaRequest):
     """Save a named custom extraction schema for reuse via `schema_id`."""
-    from ..core.job_store import get_job_store
+    from ..store import get_job_store
 
     try:
         row = get_job_store().create_extraction_schema(
@@ -309,7 +309,7 @@ async def create_extraction_schema(body: CreateSchemaRequest):
 @schemas_router.get("", response_model=list[SchemaResponse])
 async def list_extraction_schemas():
     """List saved extraction schemas, newest first."""
-    from ..core.job_store import get_job_store
+    from ..store import get_job_store
 
     return [SchemaResponse(**r) for r in get_job_store().list_extraction_schemas()]
 
@@ -317,7 +317,7 @@ async def list_extraction_schemas():
 @schemas_router.get("/{id_or_name}", response_model=SchemaResponse)
 async def get_extraction_schema(id_or_name: str):
     """Fetch one saved schema by id or name."""
-    from ..core.job_store import get_job_store
+    from ..store import get_job_store
 
     row = get_job_store().get_extraction_schema(id_or_name)
     if not row:
@@ -330,7 +330,7 @@ async def get_extraction_schema(id_or_name: str):
 @schemas_router.delete("/{id_or_name}")
 async def delete_extraction_schema(id_or_name: str):
     """Delete a saved schema by id or name."""
-    from ..core.job_store import get_job_store
+    from ..store import get_job_store
 
     if not get_job_store().delete_extraction_schema(id_or_name):
         raise HTTPException(

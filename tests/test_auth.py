@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import app.core.auth as auth_mod
+import app.ingest.fetch.auth as auth_mod
 from app.config import get_settings
-from app.core.auth import AuthManager
+from app.ingest.fetch.auth import AuthManager
 
 
 def test_get_headers_uses_configured_bearer_token(monkeypatch):

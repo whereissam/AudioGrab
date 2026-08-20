@@ -11,11 +11,11 @@ import json
 
 import pytest
 
-from app.core.digest_schema import (
+from app.knowledge.digest_schema import (
     DigestSynthesis,
     render_digest_markdown,
 )
-from app.core.digest_synthesizer import (
+from app.knowledge.digest_synthesizer import (
     MIN_CLAIMS_FOR_SYNTHESIS,
     DigestSynthesizer,
     _format_claims_for_prompt,

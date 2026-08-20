@@ -6,14 +6,14 @@ import json
 
 import pytest
 
-from app.core.knowledge_extractor import (
+from app.knowledge.knowledge_extractor import (
     KnowledgeExtractor,
     STORAGE_CONFIDENCE_FLOOR,
     _chunk_segments,
     _format_segments_for_prompt,
     _parse_llm_json,
 )
-from app.core.knowledge_schema import ClaimType, Entity, EntityType
+from app.knowledge.knowledge_schema import ClaimType, Entity, EntityType
 
 
 class _FakeCanonicalizer:
@@ -29,8 +29,8 @@ class _FakeCanonicalizer:
         self.calls: list[tuple[str, str]] = []
 
     async def canonicalize(self, *, name: str, entity_type, confidence: float = 1.0):
-        from app.core.entity_canonicalizer import CanonicalizedEntity
-        from app.core.knowledge_schema import normalize_entity_name
+        from app.knowledge.entity_canonicalizer import CanonicalizedEntity
+        from app.knowledge.knowledge_schema import normalize_entity_name
 
         etype = (
             entity_type
@@ -524,7 +524,7 @@ class _FakeTopicAggregator:
     """
 
     def __init__(self, scripted=None):
-        from app.core.knowledge_schema import ClaimTopicEdge, Topic
+        from app.knowledge.knowledge_schema import ClaimTopicEdge, Topic
 
         self._scripted = scripted or {}
         self._Topic = Topic
@@ -541,7 +541,7 @@ class _FakeTopicAggregator:
 async def test_extract_runs_topic_pass_when_claims_above_threshold():
     """Happy path: extractor passes deduped claims to the aggregator and
     surfaces topics + edges on the result."""
-    from app.core.knowledge_schema import ClaimTopicEdge, Topic
+    from app.knowledge.knowledge_schema import ClaimTopicEdge, Topic
 
     # Build a canned LLM response with 3 simple claims.
     response = json.dumps(
@@ -735,7 +735,7 @@ class _FakePredictionExtractor:
         self.calls: list[int] = []
 
     async def enrich(self, claims):
-        from app.core.knowledge_schema import ClaimType, Prediction
+        from app.knowledge.knowledge_schema import ClaimType, Prediction
 
         self.calls.append(len(claims))
         out = [

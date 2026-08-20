@@ -35,7 +35,30 @@ A native desktop app with an embedded Rust backend. No Python or server required
 
 Self-hosted server mode with full feature set including transcription, LLM summarization, Telegram bot.
 
-1. **Core Library** (`app/core/`) - Downloads audio/video from various platforms and converts formats
+## Layers
+
+The codebase is organized as five layers, in dependency order. Each may import
+the ones above it in this list, never the ones below.
+
+```
+app/ingest/      THE CORE — platforms/ fetch/ media/ transcribe/
+app/store/       SQLite persistence (jobs, assets, artifacts, knowledge, ...)
+app/knowledge/   claims, entities, topics, search, synthesis
+app/delivery/    notes, clips, webhooks, cloud, websockets
+app/pipeline/    workflows, queue, scheduler, subscriptions, batches
+app/api/         FastAPI routers  ·  app/mcp_server/  ·  app/bot/
+```
+
+`app/ingest/` is the layer the product is built on and the one that must stay
+extractable on its own, so it may not import from any layer above it.
+`tests/test_layering.py` asserts this per-file on every test run — the fence is
+enforced by CI, not by discipline. When a module in ingest needs something from
+a higher layer, the fix is to move the caller up or invert the dependency
+(see `register_warm_segment_source` in `app/knowledge/knowledge_backfill.py`
+and the injected polisher in `RealtimeTranscriptionSession`), never to add the
+import.
+
+1. **Ingestion Core** (`app/ingest/`) - Downloads audio/video from every supported platform, converts formats, and transcribes. Nothing in this layer may import `app/knowledge`, `app/delivery`, or `app/pipeline` — enforced by `tests/test_layering.py`
 2. **FastAPI Backend** (`app/api/`) - REST API for external integrations
 3. **Telegram Bot** (`app/bot/`) - User-friendly chat interface
 4. **CLI** (`app/cli.py`) - Command-line interface
@@ -525,10 +548,10 @@ Browser Microphone
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| `AudioBuffer` | `app/core/realtime_transcriber.py` | Circular buffer for streaming audio |
-| `SegmentMerger` | `app/core/realtime_transcriber.py` | Deduplication and segment finalization |
-| `TranscriptPolisher` | `app/core/realtime_transcriber.py` | LLM-powered transcript cleanup |
-| `RealtimeTranscriptionSession` | `app/core/realtime_transcriber.py` | Orchestrates the streaming pipeline |
+| `AudioBuffer` | `app/ingest/transcribe/realtime_transcriber.py` | Circular buffer for streaming audio |
+| `SegmentMerger` | `app/ingest/transcribe/realtime_transcriber.py` | Deduplication and segment finalization |
+| `TranscriptPolisher` | `app/ingest/transcribe/realtime_transcriber.py` | LLM-powered transcript cleanup |
+| `RealtimeTranscriptionSession` | `app/ingest/transcribe/realtime_transcriber.py` | Orchestrates the streaming pipeline |
 | `useAudioCapture` | `frontend/src/hooks/` | MediaRecorder API hook |
 | `useRealtimeTranscription` | `frontend/src/hooks/` | WebSocket hook for transcription |
 | `LiveTranscriber` | `frontend/src/components/live/` | Main UI component |

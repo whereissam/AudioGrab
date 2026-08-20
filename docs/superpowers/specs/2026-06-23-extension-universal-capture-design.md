@@ -96,7 +96,7 @@ Today the extension only badge-detects a fixed whitelist of platforms, requires 
 
 ## 5. Server: generic downloader + capture API
 
-**`GenericDownloader(PlatformDownloader)`** (new, `app/core/platforms/generic.py`):
+**`GenericDownloader(PlatformDownloader)`** (new, `app/ingest/platforms/generic.py`):
 - `PLATFORM = Platform.GENERIC` (new enum member).
 - `can_handle_url()` → `True` for any `http(s)` URL. Registered **last** in `_get_platform_downloaders()` so specific platforms always win; it is the fallback only.
 - `download()`:

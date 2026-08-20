@@ -6,10 +6,10 @@ import logging
 import sys
 from pathlib import Path
 
-from .core import download_audio
-from .core.converter import AudioConverter
-from .core.downloader import DownloaderFactory
-from .core.video import AudioToVideo
+from .ingest import download_audio
+from .ingest.media.converter import AudioConverter
+from .ingest.fetch.downloader import DownloaderFactory
+from .ingest.media.video import AudioToVideo
 
 
 async def download_command(args):

@@ -16,10 +16,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from ..core.digest_schema import DigestSynthesis, render_digest_markdown
-from ..core.distiller import DEFAULT_MIN_CONFIDENCE, DISTILL_MODES, Distiller
-from ..core.job_store import get_job_store
-from ..core.knowledge_budget import estimate_cost_usd, get_budget_tracker
+from ..knowledge.digest_schema import DigestSynthesis, render_digest_markdown
+from ..knowledge.distiller import DEFAULT_MIN_CONFIDENCE, DISTILL_MODES, Distiller
+from ..store import get_job_store
+from ..knowledge.knowledge_budget import estimate_cost_usd, get_budget_tracker
 from .auth import verify_api_key
 from .ratelimit import limiter
 

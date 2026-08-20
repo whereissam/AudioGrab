@@ -14,9 +14,9 @@ from fastapi.testclient import TestClient
 from app.api.auth import verify_api_key
 from app.api.principal_routes import router as principal_router
 from app.config import get_settings
-from app.core import job_store as job_store_module
-from app.core.job_store import JobStore
-from app.core.job_store._principals import hash_api_key
+from app import store as job_store_module
+from app.store import JobStore
+from app.store._principals import hash_api_key
 
 
 @pytest.fixture
@@ -196,12 +196,12 @@ class TestUsageRoute:
 
 class TestSignedWebhooks:
     def test_no_secret_no_headers(self):
-        from app.core.webhook_notifier import WebhookNotifier
+        from app.delivery.webhook_notifier import WebhookNotifier
 
         assert WebhookNotifier._signature_headers('{"a":1}') == {}
 
     def test_signature_verifies(self, monkeypatch):
-        from app.core.webhook_notifier import WebhookNotifier
+        from app.delivery.webhook_notifier import WebhookNotifier
 
         monkeypatch.setattr(
             get_settings(), "webhook_signing_secret", "topsecret"

@@ -26,7 +26,7 @@ def _resolve_principal(x_api_key: str):
     if not x_api_key or not x_api_key.startswith("sk_sift_"):
         return None
     try:
-        from ..core.job_store import get_job_store
+        from ..store import get_job_store
 
         return get_job_store().get_principal_by_key(x_api_key)
     except Exception:
@@ -50,7 +50,7 @@ async def verify_api_key(
 
     principal = _resolve_principal(x_api_key) if x_api_key else None
     if principal is not None:
-        from ..core.job_store import get_job_store
+        from ..store import get_job_store
 
         store = get_job_store()
         count = store.record_usage(principal["principal_id"])

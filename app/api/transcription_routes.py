@@ -29,8 +29,8 @@ from .schemas import (
     TranscriptionOutputFormat,
 )
 from .transcription_store import transcription_jobs
-from ..core.downloader import DownloaderFactory
-from ..core.subtitles import SubtitleStyle
+from ..ingest.fetch.downloader import DownloaderFactory
+from ..ingest.transcribe.subtitles import SubtitleStyle
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +39,8 @@ router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 async def _process_transcription(job_id: str, request: TranscribeRequest, audio_path: Path):
     """Background task to process transcription with checkpoint and diarization support."""
-    from ..core.transcriber import AudioTranscriber, TranscriptionSegment
-    from ..core.transcription_engine import (
+    from ..ingest.transcribe.transcriber import AudioTranscriber, TranscriptionSegment
+    from ..ingest.transcribe.transcription_engine import (
         TranscriptionEngine,
         get_engine,
         get_best_engine,
@@ -58,7 +58,7 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
         # Apply audio enhancement if requested
         enhance = getattr(request, 'enhance', False)
         if enhance:
-            from ..core.enhancer import AudioEnhancer, EnhancementPreset as CoreEnhancementPreset
+            from ..ingest.media.enhancer import AudioEnhancer, EnhancementPreset as CoreEnhancementPreset
 
             enhancer = AudioEnhancer()
             preset_value = getattr(request, 'enhancement_preset', 'medium')
@@ -125,7 +125,7 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
 
             if diarize:
                 try:
-                    from ..core.diarizer import SpeakerDiarizer
+                    from ..ingest.transcribe.diarizer import SpeakerDiarizer
 
                     if SpeakerDiarizer.is_available():
                         logger.info(f"[{job_id}] Running speaker diarization...")
@@ -272,7 +272,7 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
             # fails the user's transcription.
             transcription_jobs[job_id] = job
             try:
-                from ..core.job_store import get_job_store
+                from ..store import get_job_store
 
                 store = get_job_store()
                 model_label = getattr(getattr(request, "model", None), "value", None)
@@ -311,7 +311,7 @@ async def _process_transcription(job_id: str, request: TranscribeRequest, audio_
 @router.get("/transcribe/engines")
 async def list_transcription_engines():
     """List available transcription engines and their status."""
-    from ..core.transcription_engine import get_available_engines, get_best_engine
+    from ..ingest.transcribe.transcription_engine import get_available_engines, get_best_engine
 
     engines = get_available_engines()
     best = get_best_engine()
@@ -438,7 +438,7 @@ async def start_transcription(
 @router.get("/transcribe/resumable")
 async def list_resumable_transcriptions():
     """List all transcription jobs that can be resumed."""
-    from ..core.transcriber import AudioTranscriber
+    from ..ingest.transcribe.transcriber import AudioTranscriber
 
     transcriber = AudioTranscriber()
     jobs = transcriber.get_resumable_jobs()
@@ -469,7 +469,7 @@ async def resume_transcription(
     background_tasks: BackgroundTasks,
 ):
     """Resume a previously interrupted transcription job."""
-    from ..core.checkpoint import CheckpointManager
+    from ..ingest.transcribe.checkpoint import CheckpointManager
 
     checkpoint_manager = CheckpointManager()
     checkpoint = checkpoint_manager.load(job_id)
