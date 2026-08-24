@@ -42,7 +42,11 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=5.0.0",
-    "ruff>=0.2.0",
+    # Pinned below 0.15: ruff 0.16 widened its default rule set, and
+    # [tool.ruff] selects no explicit rules — so upgrading turns 1631
+    # pre-existing style findings into CI failures on unchanged code.
+    # Adopting the newer rules is its own triage, not a dep refresh.
+    "ruff>=0.2.0,<0.15",
 ]
 desktop = [
     "nuitka>=2.1",
@@ -99,7 +103,11 @@ dev-dependencies = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=5.0.0",
-    "ruff>=0.2.0",
+    # Pinned below 0.15: ruff 0.16 widened its default rule set, and
+    # [tool.ruff] selects no explicit rules — so upgrading turns 1631
+    # pre-existing style findings into CI failures on unchanged code.
+    # Adopting the newer rules is its own triage, not a dep refresh.
+    "ruff>=0.2.0,<0.15",
     # Pinned below 2.0: mcp 2.0 removed mcp.server.fastmcp, which the
     # server is built on. Upgrading is an API migration for all 17
     # tools, not a dependency bump.
