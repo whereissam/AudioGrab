@@ -1,7 +1,14 @@
 import * as React from 'react'
 import { useSpring, animated, config } from '@react-spring/web'
 
-const AnimatedDiv = animated.div as React.FC<React.HTMLAttributes<HTMLDivElement> & { style?: Record<string, unknown>; ref?: React.Ref<HTMLDivElement> }>
+// `style` is replaced rather than intersected: React's CSSProperties now
+// declares `x`/`y` (SVG), which collide with react-spring's SpringValue.
+const AnimatedDiv = animated.div as React.FC<
+  Omit<React.HTMLAttributes<HTMLDivElement>, 'style'> & {
+    style?: Record<string, unknown>
+    ref?: React.Ref<HTMLDivElement>
+  }
+>
 import { useDrag } from '@use-gesture/react'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
