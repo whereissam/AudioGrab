@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.llm_presets import TaskType, get_provider_for_task, list_defaults
+from app.knowledge.llm_presets import TaskType, get_provider_for_task, list_defaults
 
 
 class _FakeStore:
@@ -55,7 +55,7 @@ class _NoEnv:
 def _patch_defaults(monkeypatch):
     """Default fixture: empty DB ai_settings, empty env."""
     monkeypatch.setattr(
-        "app.core.job_store.get_job_store", lambda: _FakeStore(None)
+        "app.store.get_job_store", lambda: _FakeStore(None)
     )
     monkeypatch.setattr("app.config.get_settings", lambda: _NoEnv())
     yield
@@ -63,7 +63,7 @@ def _patch_defaults(monkeypatch):
 
 def _set_store(monkeypatch, **kwargs):
     monkeypatch.setattr(
-        "app.core.job_store.get_job_store", lambda: _FakeStore(**kwargs)
+        "app.store.get_job_store", lambda: _FakeStore(**kwargs)
     )
 
 
@@ -209,7 +209,7 @@ def test_malformed_task_preset_is_skipped_not_crashed(monkeypatch):
             # ever didn't, llm_presets should still recover gracefully.
             return {"extract": "this-is-not-a-dict"}  # type: ignore[dict-item]
 
-    monkeypatch.setattr("app.core.job_store.get_job_store", lambda: _BadStore())
+    monkeypatch.setattr("app.store.get_job_store", lambda: _BadStore())
     # Should not raise; should fall through to defaults / fallback.
     result = get_provider_for_task(TaskType.EXTRACT)
     # No env, no usable preset, no DB ai_settings → None
@@ -233,21 +233,21 @@ def test_unknown_task_raises():
 
 
 def test_downgrade_model_swaps_known_models():
-    from app.core.llm_presets import downgrade_model
+    from app.knowledge.llm_presets import downgrade_model
 
     assert downgrade_model("gpt-4o") == "gpt-4o-mini"
     assert downgrade_model("gemini-1.5-pro") == "gemini-1.5-flash"
 
 
 def test_downgrade_model_longest_substring_no_double_downgrade():
-    from app.core.llm_presets import downgrade_model
+    from app.knowledge.llm_presets import downgrade_model
 
     # gpt-4o-mini is already cheap — must not be shifted to something else.
     assert downgrade_model("gpt-4o-mini") == "gpt-4o-mini"
 
 
 def test_downgrade_model_passthrough_for_unknown():
-    from app.core.llm_presets import downgrade_model
+    from app.knowledge.llm_presets import downgrade_model
 
     assert downgrade_model("llama3.2") == "llama3.2"
     assert downgrade_model("") == ""

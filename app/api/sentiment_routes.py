@@ -18,7 +18,7 @@ from .schemas import (
     HeatedMomentsResponse,
     JobStatus,
 )
-from ..core.sentiment_analyzer import (
+from ..knowledge.sentiment_analyzer import (
     SentimentAnalyzer,
     SegmentSentiment,
     TimeWindowAggregate,

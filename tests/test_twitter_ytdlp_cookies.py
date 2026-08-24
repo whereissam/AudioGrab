@@ -2,8 +2,8 @@
 
 import os
 
-from app.core import auth
-from app.core.auth import _netscape_cookie_content, twitter_ytdlp_cookies
+from app.ingest.fetch import auth
+from app.ingest.fetch.auth import _netscape_cookie_content, twitter_ytdlp_cookies
 
 
 class _FakeSettings:

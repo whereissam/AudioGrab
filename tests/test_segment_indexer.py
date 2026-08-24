@@ -11,15 +11,15 @@ from pathlib import Path
 
 import pytest
 
-from app.core import embedding_store
-from app.core.embedding_store import (
+from app.knowledge import embedding_store
+from app.knowledge.embedding_store import (
     DEFAULT_TEXT_MODEL,
     EmbeddingStore,
     clear_embedding_cache,
 )
-from app.core.job_store import JobStore
-from app.core.job_store._enums import JobType
-from app.core.segment_indexer import (
+from app.store import JobStore
+from app.store._enums import JobType
+from app.knowledge.segment_indexer import (
     CHUNK_CHAR_TARGET,
     SEGMENT_OBJECT_TYPE,
     SegmentIndexer,

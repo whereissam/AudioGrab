@@ -11,18 +11,18 @@ from pathlib import Path
 
 import pytest
 
-from app.core import embedding_store
-from app.core.embedding_store import (
+from app.knowledge import embedding_store
+from app.knowledge.embedding_store import (
     DEFAULT_TEXT_MODEL,
     EmbeddingStore,
     clear_embedding_cache,
 )
-from app.core.job_store import JobStore
-from app.core.topic_canonicalizer import (
+from app.store import JobStore
+from app.knowledge.topic_canonicalizer import (
     COSINE_MATCH_THRESHOLD,
     TopicCanonicalizer,
 )
-from app.core.topic_normalization import (
+from app.knowledge.topic_normalization import (
     TICKER_MAP,
     _collapse_last_word_plural,
     normalize_topic_for_match,
@@ -200,7 +200,7 @@ class TestCosineReuse:
         # Guardrail — locking the 0.90 choice.
         assert COSINE_MATCH_THRESHOLD == 0.90
         # And strictly higher than the entity canonicalizer's 0.85.
-        from app.core.entity_canonicalizer import (
+        from app.knowledge.entity_canonicalizer import (
             COSINE_MATCH_THRESHOLD as ENTITY_THRESHOLD,
         )
 

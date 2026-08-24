@@ -12,7 +12,7 @@ from .schemas import (
     BatchResponse,
     BatchStatus,
 )
-from ..core.batch_manager import get_batch_manager
+from ..pipeline.batch_manager import get_batch_manager
 
 logger = logging.getLogger(__name__)
 

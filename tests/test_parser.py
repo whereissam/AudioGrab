@@ -1,8 +1,8 @@
 """Tests for URL parsing functionality."""
 
 import pytest
-from app.core.parser import SpaceURLParser
-from app.core.exceptions import SpaceNotFoundError, SpaceNotAvailableError
+from app.ingest.fetch.parser import SpaceURLParser
+from app.ingest.exceptions import SpaceNotFoundError, SpaceNotAvailableError
 
 
 class TestSpaceURLParser:

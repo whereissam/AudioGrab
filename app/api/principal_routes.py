@@ -19,7 +19,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from ..core.job_store import get_job_store
+from ..store import get_job_store
 from .auth import verify_api_key, verify_master_key
 
 logger = logging.getLogger(__name__)

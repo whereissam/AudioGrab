@@ -11,7 +11,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import app.core.job_store as job_store_pkg
+import app.store as job_store_pkg
 from app.api.durable_jobs import DurableDownloadJobs, DurableTranscriptionJobs
 from app.api.schemas import (
     ContentInfo,
@@ -21,7 +21,7 @@ from app.api.schemas import (
     TranscriptionJob,
     TranscriptionSegment,
 )
-from app.core.job_store import JobStatus as StoreStatus, JobType
+from app.store import JobStatus as StoreStatus, JobType
 
 
 @pytest.fixture
@@ -232,7 +232,7 @@ def test_download_endpoint_job_survives_restart(store, db_path, monkeypatch, tmp
     from app.api import auth as auth_module
     from app.api import download_routes
     from app.api.ratelimit import limiter
-    from app.core.base import Platform as CorePlatform
+    from app.ingest.base import Platform as CorePlatform
 
     class _NoAuth:
         api_key = None

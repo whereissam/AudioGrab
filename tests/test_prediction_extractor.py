@@ -7,14 +7,14 @@ from typing import Optional
 
 import pytest
 
-from app.core.knowledge_schema import (
+from app.knowledge.knowledge_schema import (
     EXTRACTION_VERSION,
     SCHEMA_VERSION,
     Claim,
     ClaimType,
     compute_claim_id,
 )
-from app.core.prediction_extractor import (
+from app.knowledge.prediction_extractor import (
     MAX_PREDICTIONS_PER_CALL,
     PredictionExtractor,
     _format_predictions_for_prompt,

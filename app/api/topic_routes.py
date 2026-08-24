@@ -19,8 +19,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from ..core.job_store import get_job_store
-from ..core.knowledge_schema import ClaimType
+from ..store import get_job_store
+from ..knowledge.knowledge_schema import ClaimType
 from .auth import verify_api_key
 
 logger = logging.getLogger(__name__)

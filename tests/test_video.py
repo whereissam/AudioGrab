@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.core.exceptions import FFmpegError
-from app.core.video import (
+from app.ingest.exceptions import FFmpegError
+from app.ingest.media.video import (
     AudioToVideo,
     _default_output_path,
     _resolution_dims,
@@ -21,7 +21,7 @@ from app.core.video import (
 @pytest.fixture
 def maker(monkeypatch):
     """AudioToVideo with ffmpeg/ffprobe presence faked."""
-    monkeypatch.setattr("app.core.video.shutil.which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr("app.ingest.media.video.shutil.which", lambda name: f"/usr/bin/{name}")
     return AudioToVideo()
 
 
@@ -45,7 +45,7 @@ def test_resolution_dims_unknown_raises():
 
 
 def test_missing_ffmpeg_raises(monkeypatch):
-    monkeypatch.setattr("app.core.video.shutil.which", lambda name: None)
+    monkeypatch.setattr("app.ingest.media.video.shutil.which", lambda name: None)
     with pytest.raises(FFmpegError, match="not found in PATH"):
         AudioToVideo()
 
@@ -211,7 +211,7 @@ def test_preflight_missing_image_raises(maker, tmp_path):
 def test_preflight_unwritable_destination(maker, tmp_path, monkeypatch):
     src = tmp_path / "in.m4a"
     src.write_bytes(b"x")
-    monkeypatch.setattr("app.core.video.os.access", lambda p, m: False)
+    monkeypatch.setattr("app.ingest.media.video.os.access", lambda p, m: False)
     with pytest.raises(FFmpegError, match="not writable"):
         maker._preflight(src, tmp_path / "out.mp4", None)
 

@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.core.url_validator import (
+from app.ingest.fetch.url_validator import (
     _PinnedTransport,
     _resolve_and_pin,
     safe_get,

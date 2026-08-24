@@ -19,9 +19,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from ..core.contradiction_detector import ContradictionDetector
-from ..core.job_store import get_job_store
-from ..core.knowledge_budget import estimate_cost_usd, get_budget_tracker
+from ..knowledge.contradiction_detector import ContradictionDetector
+from ..store import get_job_store
+from ..knowledge.knowledge_budget import estimate_cost_usd, get_budget_tracker
 from .auth import verify_api_key
 from .ratelimit import limiter
 

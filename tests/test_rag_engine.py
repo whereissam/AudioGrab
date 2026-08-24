@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.core import rag_engine
-from app.core.rag_engine import RAGEngine, _build_prompt, _fmt_ts, RAGSource
+from app.knowledge import rag_engine
+from app.knowledge.rag_engine import RAGEngine, _build_prompt, _fmt_ts, RAGSource
 
 
 class FakeProvider:

@@ -14,17 +14,17 @@ from pathlib import Path
 import pytest
 
 from app.config import get_settings
-from app.core import knowledge_backfill as kb
-from app.core import job_store as job_store_module
-from app.core.job_store import JobStore
-from app.core.job_store._enums import JobType
-from app.core.knowledge_backfill import (
+from app.knowledge import knowledge_backfill as kb
+from app import store as job_store_module
+from app.store import JobStore
+from app.store._enums import JobType
+from app.knowledge.knowledge_backfill import (
     KnowledgeBackfillWorker,
     get_backfill_worker,
     start_backfill_worker,
     stop_backfill_worker,
 )
-from app.core.knowledge_budget import get_budget_tracker
+from app.knowledge.knowledge_budget import get_budget_tracker
 
 
 @pytest.fixture(autouse=True)
@@ -144,7 +144,7 @@ class TestBuildExtractorDefault:
     def test_default_factory_uses_from_settings(self, monkeypatch):
         sentinel = object()
         monkeypatch.setattr(
-            "app.core.knowledge_backfill.KnowledgeExtractor.from_settings",
+            "app.knowledge.knowledge_backfill.KnowledgeExtractor.from_settings",
             classmethod(lambda cls, *, downgrade=False: sentinel),
         )
         worker = KnowledgeBackfillWorker()  # no injected factory
