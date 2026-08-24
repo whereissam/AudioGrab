@@ -1,6 +1,6 @@
 import { createRootRoute, Outlet, Link, useLocation } from '@tanstack/react-router'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { FileAudio, FileVideo, FileText, Scissors, Rss, Settings, Mic } from 'lucide-react'
+import { FileAudio, FileVideo, FileText, Scissors, Rss, Settings, Mic, Library } from 'lucide-react'
 
 const NAV_ITEMS = [
   { to: '/audio', label: 'Audio', icon: FileAudio },
@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: '/transcribe', label: 'Transcribe', icon: FileText },
   { to: '/clips', label: 'Clips', icon: Scissors },
   { to: '/live', label: 'Live', icon: Mic },
+  { to: '/library', label: 'Library', icon: Library },
 ] as const
 
 const UTIL_ITEMS = [
@@ -18,7 +19,7 @@ const UTIL_ITEMS = [
 export const Route = createRootRoute({
   component: () => {
     const location = useLocation()
-    const isMainPage = ['/audio', '/video', '/transcribe', '/clips', '/live', '/'].includes(location.pathname)
+    const isMainPage = ['/audio', '/video', '/transcribe', '/clips', '/live', '/library', '/'].includes(location.pathname)
 
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col">

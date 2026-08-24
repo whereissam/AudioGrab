@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AudioRouteImport } from './routes/audio'
 import { Route as ClipsRouteImport } from './routes/clips'
+import { Route as LibraryRouteImport } from './routes/library'
 import { Route as LiveRouteImport } from './routes/live'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SubscriptionsRouteImport } from './routes/subscriptions'
@@ -31,6 +32,11 @@ const AudioRoute = AudioRouteImport.update({
 const ClipsRoute = ClipsRouteImport.update({
   id: '/clips',
   path: '/clips',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LiveRoute = LiveRouteImport.update({
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audio': typeof AudioRoute
   '/clips': typeof ClipsRoute
+  '/library': typeof LibraryRoute
   '/live': typeof LiveRoute
   '/settings': typeof SettingsRoute
   '/subscriptions': typeof SubscriptionsRoute
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audio': typeof AudioRoute
   '/clips': typeof ClipsRoute
+  '/library': typeof LibraryRoute
   '/live': typeof LiveRoute
   '/settings': typeof SettingsRoute
   '/subscriptions': typeof SubscriptionsRoute
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/audio': typeof AudioRoute
   '/clips': typeof ClipsRoute
+  '/library': typeof LibraryRoute
   '/live': typeof LiveRoute
   '/settings': typeof SettingsRoute
   '/subscriptions': typeof SubscriptionsRoute
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/audio'
     | '/clips'
+    | '/library'
     | '/live'
     | '/settings'
     | '/subscriptions'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/audio'
     | '/clips'
+    | '/library'
     | '/live'
     | '/settings'
     | '/subscriptions'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/'
     | '/audio'
     | '/clips'
+    | '/library'
     | '/live'
     | '/settings'
     | '/subscriptions'
@@ -127,6 +139,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AudioRoute: typeof AudioRoute
   ClipsRoute: typeof ClipsRoute
+  LibraryRoute: typeof LibraryRoute
   LiveRoute: typeof LiveRoute
   SettingsRoute: typeof SettingsRoute
   SubscriptionsRoute: typeof SubscriptionsRoute
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/clips'
       fullPath: '/clips'
       preLoaderRoute: typeof ClipsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/live': {
@@ -199,6 +219,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AudioRoute: AudioRoute,
   ClipsRoute: ClipsRoute,
+  LibraryRoute: LibraryRoute,
   LiveRoute: LiveRoute,
   SettingsRoute: SettingsRoute,
   SubscriptionsRoute: SubscriptionsRoute,
