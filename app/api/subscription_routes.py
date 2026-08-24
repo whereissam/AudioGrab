@@ -19,14 +19,14 @@ from .subscription_schemas import (
     SubscriptionPlatform,
     SubscriptionItemStatus,
 )
-from ..core.subscription_store import (
+from ..store.subscription_store import (
     get_subscription_store,
     SubscriptionStore,
     SubscriptionType as StoreSubscriptionType,
     SubscriptionPlatform as StorePlatform,
     SubscriptionItemStatus as StoreItemStatus,
 )
-from ..core.subscription_fetcher import get_fetcher
+from ..pipeline.subscription_fetcher import get_fetcher
 
 logger = logging.getLogger(__name__)
 
@@ -263,7 +263,7 @@ async def check_subscription(
     items_queued = min(len(new_items), sub.get("download_limit", 10))
 
     if items_queued > 0:
-        from ..core.subscription_worker import process_subscription_items
+        from ..pipeline.subscription_worker import process_subscription_items
         background_tasks.add_task(
             process_subscription_items,
             subscription_id,
@@ -337,7 +337,7 @@ async def retry_item(
     store.set_item_status(item_id, StoreItemStatus.PENDING, error=None)
 
     # Queue for download
-    from ..core.subscription_worker import process_single_item
+    from ..pipeline.subscription_worker import process_single_item
     background_tasks.add_task(process_single_item, subscription_id, item_id)
 
     return {

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from app.core.job_store import JobStatus, JobStore, JobType
+from app.store import JobStatus, JobStore, JobType
 
 
 @pytest.fixture

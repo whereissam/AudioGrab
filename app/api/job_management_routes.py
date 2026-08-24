@@ -21,7 +21,7 @@ async def list_all_jobs(
     limit: int = 50,
 ):
     """List all jobs with optional filtering."""
-    from ..core.job_store import get_job_store, JobStatus as StoreJobStatus
+    from ..store import get_job_store, JobStatus as StoreJobStatus
 
     job_store = get_job_store()
 
@@ -49,7 +49,7 @@ async def list_all_jobs(
 @router.get("/jobs/resumable")
 async def list_resumable_jobs():
     """List all jobs that can be resumed (failed or interrupted)."""
-    from ..core.job_store import get_job_store
+    from ..store import get_job_store
 
     job_store = get_job_store()
     jobs = job_store.get_resumable_jobs()
@@ -66,8 +66,8 @@ async def retry_job(
     background_tasks: BackgroundTasks,
 ):
     """Retry a failed or interrupted job from its last successful phase."""
-    from ..core.job_store import get_job_store
-    from ..core.workflow import WorkflowProcessor
+    from ..store import get_job_store
+    from ..pipeline.workflow import WorkflowProcessor
 
     job_store = get_job_store()
     job = job_store.get_job(job_id)
@@ -95,7 +95,7 @@ async def retry_job(
 @router.delete("/jobs/{job_id}")
 async def delete_job(job_id: str):
     """Delete a job and its associated files."""
-    from ..core.job_store import get_job_store
+    from ..store import get_job_store
 
     job_store = get_job_store()
     job = job_store.get_job(job_id)
@@ -127,8 +127,8 @@ async def cleanup_storage(
     - max_age_hours: Delete checkpoints/jobs older than this (default: 24)
     - delete_all: If true, delete ALL checkpoints (use with caution)
     """
-    from ..core.job_store import get_job_store
-    from ..core.checkpoint import CheckpointManager
+    from ..store import get_job_store
+    from ..ingest.transcribe.checkpoint import CheckpointManager
 
     job_store = get_job_store()
     checkpoint_manager = CheckpointManager()
@@ -153,7 +153,7 @@ async def cleanup_storage(
 @router.post("/backup")
 async def create_backup():
     """Create a backup of the jobs database."""
-    from ..core.job_store import get_job_store
+    from ..store import get_job_store
 
     job_store = get_job_store()
     backup_path = job_store.backup()
@@ -168,7 +168,7 @@ async def create_backup():
 @router.get("/backups")
 async def list_backups():
     """List available database backups."""
-    from ..core.job_store import get_job_store
+    from ..store import get_job_store
 
     job_store = get_job_store()
     backups = job_store.list_backups()
@@ -182,8 +182,8 @@ async def list_backups():
 @router.get("/storage")
 async def get_storage_info():
     """Get storage usage information."""
-    from ..core.job_store import get_job_store
-    from ..core.checkpoint import CheckpointManager
+    from ..store import get_job_store
+    from ..ingest.transcribe.checkpoint import CheckpointManager
     from ..config import get_settings
 
     settings = get_settings()

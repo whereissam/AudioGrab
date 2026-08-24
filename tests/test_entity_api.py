@@ -15,8 +15,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.entity_routes import router as entity_router
-from app.core import job_store as job_store_module
-from app.core.job_store import JobStore
+from app import store as job_store_module
+from app.store import JobStore
 
 
 @pytest.fixture

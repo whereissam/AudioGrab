@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import patch
 
-from app.core.transcription_engine import (
+from app.ingest.transcribe.transcription_engine import (
     TranscriptionEngine,
     WhisperEngine,
     SenseVoiceEngine,
@@ -208,10 +208,10 @@ class TestBackwardCompatibility:
     """Tests for backward compatibility aliases."""
 
     def test_audiograb_error_alias(self):
-        from app.core.exceptions import SiftError, AudioGrabError, XDownloaderError
+        from app.ingest.exceptions import SiftError, AudioGrabError, XDownloaderError
         assert AudioGrabError is SiftError
         assert XDownloaderError is SiftError
 
     def test_audiograb_error_importable_from_core(self):
-        from app.core import AudioGrabError, SiftError
+        from app.ingest import AudioGrabError, SiftError
         assert AudioGrabError is SiftError

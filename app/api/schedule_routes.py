@@ -12,8 +12,8 @@ from .schemas import (
     ScheduleDownloadRequest,
     ScheduledJob,
 )
-from ..core.job_store import get_job_store, JobType, JobStatus
-from ..core.downloader import DownloaderFactory
+from ..store import get_job_store, JobType, JobStatus
+from ..ingest.fetch.downloader import DownloaderFactory
 
 logger = logging.getLogger(__name__)
 

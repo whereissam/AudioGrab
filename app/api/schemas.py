@@ -285,7 +285,13 @@ class TranscribeRequest(BaseModel):
         default=False,
         description="Keep the enhanced audio file after transcription (only applies if enhance=True)",
     )
-
+    subtitle_style: Optional[str] = Field(
+        default=None,
+        description=(
+            "Subtitle layout preset for SRT/VTT output: broadcast | balanced | "
+            "youtube | single_line. Defaults to the configured preset."
+        ),
+    )
 
 class TranscriptionSegment(BaseModel):
     """A segment of transcribed text with timestamps."""
@@ -367,6 +373,13 @@ class FetchTranscriptRequest(BaseModel):
 
 
 # ============ Summarization Schemas ============
+    subtitle_style: Optional[str] = Field(
+        default=None,
+        description=(
+            "Subtitle layout preset for SRT/VTT output: broadcast | balanced | "
+            "youtube | single_line. Defaults to the configured preset."
+        ),
+    )
 
 
 class SummaryType(str, Enum):

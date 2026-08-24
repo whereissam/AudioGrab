@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from app.core.job_store import JobStore
-from app.core.knowledge_schema import (
+from app.store import JobStore
+from app.knowledge.knowledge_schema import (
     EXTRACTION_VERSION,
     SCHEMA_VERSION,
     Claim,
@@ -61,13 +61,13 @@ def _make_claim(
 class TestKnowledgeStatus:
     def test_default_is_none_string(self, store: JobStore):
         # Need a job row to read status from
-        from app.core.job_store import JobType
+        from app.store import JobType
 
         store.create_job("j1", JobType.TRANSCRIBE, source_url="https://x")
         assert store.get_knowledge_status("j1") == "none"
 
     def test_set_and_read_status(self, store: JobStore):
-        from app.core.job_store import JobType
+        from app.store import JobType
 
         store.create_job("j1", JobType.TRANSCRIBE, source_url="https://x")
         store.set_knowledge_status("j1", "extracting")

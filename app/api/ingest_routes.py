@@ -19,15 +19,15 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, HttpUrl
 
-from ..core.agentic_pipeline import (
+from ..pipeline.agentic_pipeline import (
     DEFAULT_PROFILE,
     PIPELINE_PROFILES,
     PROFILE_DESCRIPTIONS,
     PipelineRunner,
     init_pipeline_state,
 )
-from ..core.job_store import get_job_store
-from ..core.job_store._enums import JobType
+from ..store import get_job_store
+from ..store._enums import JobType
 from .auth import verify_api_key
 from .ratelimit import limiter
 
@@ -112,7 +112,7 @@ async def ingest(request: Request, body: IngestRequest, background_tasks: Backgr
             f"Valid: {sorted(PIPELINE_PROFILES)}",
         )
     if body.webhook_template is not None:
-        from ..core.webhook_intelligence import WEBHOOK_TEMPLATES
+        from ..delivery.webhook_intelligence import WEBHOOK_TEMPLATES
 
         if body.webhook_template not in WEBHOOK_TEMPLATES:
             raise HTTPException(

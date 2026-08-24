@@ -13,8 +13,8 @@ from .schemas import (
     UpdateAnnotationRequest,
     AnnotationResponse,
 )
-from ..core.job_store import get_job_store
-from ..core.websocket_manager import get_websocket_manager
+from ..store import get_job_store
+from ..delivery.websocket_manager import get_websocket_manager
 
 logger = logging.getLogger(__name__)
 

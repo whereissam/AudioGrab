@@ -27,7 +27,7 @@ async def summarize_text(request: Request, body: SummarizeRequest):
     - action_items: Tasks and follow-ups (for meetings)
     - full: Comprehensive summary with all elements
     """
-    from ..core.summarizer import TranscriptSummarizer, SummaryType as CoreSummaryType
+    from ..knowledge.summarizer import TranscriptSummarizer, SummaryType as CoreSummaryType
 
     text = body.text
     summary_type_str = body.summary_type.value
@@ -79,7 +79,7 @@ async def summarize_job(request: Request, job_id: str, summary_type: str = "bull
 
     Takes the job_id of a completed transcription and generates a summary.
     """
-    from ..core.summarizer import TranscriptSummarizer, SummaryType as CoreSummaryType
+    from ..knowledge.summarizer import TranscriptSummarizer, SummaryType as CoreSummaryType
 
     # Find the transcription job
     job = transcription_jobs.get(job_id)
@@ -138,7 +138,7 @@ async def list_summarization_providers():
     List available LLM providers and their status.
     """
     from ..config import get_settings
-    from ..core.summarizer import OllamaProvider
+    from ..knowledge.summarizer import OllamaProvider
 
     settings = get_settings()
 

@@ -115,7 +115,8 @@ Requires a `sp_dc` cookie for authentication. To get it:
 - [Test Links](./test-links.md) (reusable sample URLs per platform)
 - [Queue & Scheduling](./queue-scheduling.md) (batch downloads, priority queue)
 - [Webhooks & Annotations](./webhooks-annotations.md) (notifications, collaboration)
-- [Feature Roadmap](./todo.md) (phased plan; P18–P20 shipped)
+- [Feature Roadmap](./todo.md) — open work only
+- [Shipped](./shipped.md) — completed phases and their implementation notes
 
 ## License
 

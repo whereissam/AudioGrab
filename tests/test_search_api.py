@@ -14,11 +14,11 @@ from fastapi.testclient import TestClient
 
 from app.api.ratelimit import limiter
 from app.api.search_routes import router as search_router
-from app.core import embedding_store
-from app.core import job_store as job_store_module
-from app.core.embedding_store import DEFAULT_TEXT_MODEL, clear_embedding_cache
-from app.core.job_store import JobStore
-from app.core.job_store._enums import JobType
+from app.knowledge import embedding_store
+from app import store as job_store_module
+from app.knowledge.embedding_store import DEFAULT_TEXT_MODEL, clear_embedding_cache
+from app.store import JobStore
+from app.store._enums import JobType
 
 
 class _ScriptedEncoder:

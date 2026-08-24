@@ -9,7 +9,7 @@ from app.api import auth as auth_module
 from app.api import obsidian_routes
 from app.api import ai_settings_routes
 from app.api import realtime_routes
-from app.core.subscription_store import SubscriptionStore
+from app.store.subscription_store import SubscriptionStore
 
 
 class _FakeSettings:
@@ -172,8 +172,8 @@ def test_update_item_allows_known_column(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_create_subscription_rejects_out_of_scope_output_dir(monkeypatch, tmp_path):
-    from app.core import subscription_store as ss
-    from app.core.subscription_store import (
+    from app.store import subscription_store as ss
+    from app.store.subscription_store import (
         SubscriptionType,
         SubscriptionPlatform,
     )
@@ -199,8 +199,8 @@ def test_create_subscription_rejects_out_of_scope_output_dir(monkeypatch, tmp_pa
 
 def test_update_subscription_output_dir_scope(monkeypatch, tmp_path):
     """A valid output_dir update is allowed; an out-of-scope one is rejected."""
-    from app.core import subscription_store as ss
-    from app.core.subscription_store import (
+    from app.store import subscription_store as ss
+    from app.store.subscription_store import (
         SubscriptionType,
         SubscriptionPlatform,
     )

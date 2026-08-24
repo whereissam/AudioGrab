@@ -8,8 +8,9 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from .auth import verify_api_key
-from ..core.realtime_transcriber import RealtimeTranscriptionSession, TranscriptPolisher
-from ..core.transcriber import WhisperModel
+from ..ingest.transcribe.realtime_transcriber import RealtimeTranscriptionSession
+from ..knowledge.transcript_polisher import TranscriptPolisher
+from ..ingest.transcribe.transcriber import WhisperModel
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,7 @@ async def live_transcription(websocket: WebSocket):
                     min_chunk_duration=min_chunk,
                     use_context_prompt=use_context,
                     enable_llm_polish=llm_polish,
+                    polisher=TranscriptPolisher() if llm_polish else None,
                 )
 
                 # Check LLM availability

@@ -11,14 +11,14 @@ from pathlib import Path
 
 import pytest
 
-from app.core import job_store as job_store_module
-from app.core.embedding_store import (
+from app import store as job_store_module
+from app.knowledge.embedding_store import (
     EmbeddingStore,
     embed,
     get_embedding_store,
     normalize_for_embedding,
 )
-from app.core.job_store import JobStore
+from app.store import JobStore
 
 
 @pytest.fixture
@@ -109,7 +109,7 @@ class TestSingletonAndDefault:
     def test_get_embedding_store_is_singleton(self, monkeypatch, store: JobStore):
         monkeypatch.setattr(job_store_module, "_job_store", store)
         # Reset module singleton so the default db_path path runs.
-        import app.core.embedding_store as es
+        import app.knowledge.embedding_store as es
 
         monkeypatch.setattr(es, "_default_store", None)
         a = get_embedding_store()
