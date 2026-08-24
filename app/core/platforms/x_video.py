@@ -4,16 +4,68 @@ import asyncio
 import json
 import logging
 import re
-import shutil
 from pathlib import Path
 from typing import Optional
 
 from ...config import get_settings
 from ..auth import twitter_ytdlp_cookies
-from ..base import Platform, PlatformDownloader, AudioMetadata, DownloadResult
-from ..exceptions import SiftError, ContentNotFoundError, ToolNotFoundError
+from ..base import Platform, PlatformDownloader, AudioMetadata, DownloadResult, resolve_yt_dlp, yt_dlp_available
+from ..exceptions import SiftError, ContentNotFoundError
 
 logger = logging.getLogger(__name__)
+
+
+# X cookies expire, and yt-dlp treats a rejected cookie as a hard failure —
+# so a stale session makes public posts fail that would have worked with no
+# auth at all. Auth must never be worse than no auth.
+_AUTH_REJECTED = (
+    "could not authenticate you",
+    "logged out",
+    "401 unauthorized",
+    "missing or invalid csrf token",
+)
+
+
+def _is_auth_rejection(stderr: str) -> bool:
+    lowered = stderr.lower()
+    return any(marker in lowered for marker in _AUTH_REJECTED)
+
+
+async def _run_ytdlp(base_cmd: list[str], url: str):
+    """Run yt-dlp with X auth, retrying anonymously if the cookies are rejected.
+
+    Returns ``(returncode, stdout, stderr)``. Protected and sensitive posts
+    need the cookies; public ones do not, and this keeps both working whether
+    or not the configured session is still valid.
+    """
+    with twitter_ytdlp_cookies() as cookies_file:
+        cmd = list(base_cmd)
+        if cookies_file:
+            cmd.extend(["--cookies", cookies_file])
+        cmd.append(url)
+
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await process.communicate()
+
+    if process.returncode == 0 or not cookies_file:
+        return process.returncode, stdout, stderr
+
+    if not _is_auth_rejection(stderr.decode(errors="replace")):
+        return process.returncode, stdout, stderr
+
+    logger.warning("X cookies were rejected; retrying without authentication")
+    retry = await asyncio.create_subprocess_exec(
+        *base_cmd,
+        url,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await retry.communicate()
+    return retry.returncode, stdout, stderr
 
 
 class XVideoDownloader(PlatformDownloader):
@@ -39,13 +91,8 @@ class XVideoDownloader(PlatformDownloader):
         self._yt_dlp_path = self._find_yt_dlp()
 
     def _find_yt_dlp(self) -> str:
-        """Find yt-dlp binary in system PATH."""
-        yt_dlp = shutil.which("yt-dlp")
-        if not yt_dlp:
-            raise ToolNotFoundError(
-                "yt-dlp not found in PATH. Please install it: brew install yt-dlp"
-            )
-        return yt_dlp
+        """Resolve yt-dlp, preferring the pinned build over a system one."""
+        return resolve_yt_dlp()
 
     @property
     def platform(self) -> Platform:
@@ -68,7 +115,7 @@ class XVideoDownloader(PlatformDownloader):
     @classmethod
     def is_available(cls) -> bool:
         """Check if yt-dlp is available."""
-        return shutil.which("yt-dlp") is not None
+        return yt_dlp_available()
 
     async def download(
         self,
@@ -103,8 +150,13 @@ class XVideoDownloader(PlatformDownloader):
             # format). Log it so callers know what to expect.
             logger.info("X video output format: mp4 (default)")
 
-            with twitter_ytdlp_cookies() as cookies_file:
-                cmd = [
+            # Auth (TWITTER_COOKIE_FILE, or TWITTER_AUTH_TOKEN + TWITTER_CT0)
+            # is needed for protected / sensitive / age-restricted posts and
+            # ignored for public ones. _run_ytdlp retries anonymously if the
+            # session has expired.
+            logger.info("Running yt-dlp for X video...")
+            returncode, stdout, stderr = await _run_ytdlp(
+                [
                     self._yt_dlp_path,
                     "--no-progress",
                     "-f", format_spec,
@@ -114,27 +166,11 @@ class XVideoDownloader(PlatformDownloader):
                     # Parallel fragment downloads
                     "--concurrent-fragments", "16",
                     "--fragment-retries", "5",
-                ]
+                ],
+                url,
+            )
 
-                # Pass Twitter/X auth (from TWITTER_COOKIE_FILE or
-                # TWITTER_AUTH_TOKEN + TWITTER_CT0) for protected / sensitive /
-                # age-restricted posts. Public posts work without it.
-                if cookies_file:
-                    cmd.extend(["--cookies", cookies_file])
-
-                cmd.append(url)
-
-                logger.info("Running yt-dlp for X video...")
-
-                process = await asyncio.create_subprocess_exec(
-                    *cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-
-                stdout, stderr = await process.communicate()
-
-            if process.returncode != 0:
+            if returncode != 0:
                 error_msg = stderr.decode() if stderr else "Unknown error"
                 logger.error(f"yt-dlp error: {error_msg}")
 
@@ -234,22 +270,13 @@ class XVideoDownloader(PlatformDownloader):
         try:
             post_id = self.extract_content_id(url)
 
-            cmd = [
-                self._yt_dlp_path,
-                "--no-download",
-                "--print-json",
-                url,
-            ]
-
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            # Auth matters here too: without it, metadata fails on protected
+            # and sensitive posts that the download path handles fine.
+            returncode, stdout, stderr = await _run_ytdlp(
+                [self._yt_dlp_path, "--no-download", "--print-json"], url
             )
 
-            stdout, stderr = await process.communicate()
-
-            if process.returncode != 0:
+            if returncode != 0:
                 return None
 
             output = stdout.decode().strip()

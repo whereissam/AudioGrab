@@ -8,7 +8,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     git \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# YouTube needs a JavaScript runtime so yt-dlp can solve the `n` challenge.
+# Without one it warns "extraction without a JS runtime has been deprecated"
+# and silently drops formats.
+RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh -s -- --yes \
+    && deno --version
 
 # Install uv for faster package management
 RUN pip install uv

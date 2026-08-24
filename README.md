@@ -181,6 +181,11 @@ TELEGRAM_BOT_MODE=polling         # "polling" or "webhook"
 # Optional
 HUGGINGFACE_TOKEN=hf_xxx  # For speaker diarization
 
+# yt-dlp binary. Adapters prefer the version pinned in pyproject.toml (the one
+# `uv sync` installs) over a system-wide install, so a stale `brew install
+# yt-dlp` can't silently shadow it. Set this to force a specific binary.
+# YT_DLP_PATH=/usr/local/bin/yt-dlp
+
 # Queue & Scheduling
 QUEUE_ENABLED=true
 MAX_CONCURRENT_QUEUE_JOBS=5

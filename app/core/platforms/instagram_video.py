@@ -4,15 +4,32 @@ import asyncio
 import json
 import logging
 import re
-import shutil
 from pathlib import Path
 from typing import Optional
 
 from ...config import get_settings
-from ..base import Platform, PlatformDownloader, AudioMetadata, DownloadResult
-from ..exceptions import SiftError, ContentNotFoundError, ToolNotFoundError
+from ..base import Platform, PlatformDownloader, AudioMetadata, DownloadResult, resolve_yt_dlp, yt_dlp_available
+from ..exceptions import SiftError, ContentNotFoundError
 
 logger = logging.getLogger(__name__)
+
+
+def instagram_cookie_args(settings) -> list[str]:
+    """yt-dlp cookie flags for Instagram.
+
+    Shared by the download and metadata paths. Instagram requires an
+    authenticated session for almost everything, so a command built without
+    these fails with "login required" — which is exactly what happened while
+    only the download path carried them.
+
+    Browser cookies take precedence over an exported cookies.txt: they stay
+    fresh without the user re-exporting.
+    """
+    if settings.instagram_cookies_from_browser:
+        return ["--cookies-from-browser", settings.instagram_cookies_from_browser]
+    if settings.instagram_cookies_file:
+        return ["--cookies", settings.instagram_cookies_file]
+    return []
 
 
 class InstagramVideoDownloader(PlatformDownloader):
@@ -39,13 +56,8 @@ class InstagramVideoDownloader(PlatformDownloader):
         self._yt_dlp_path = self._find_yt_dlp()
 
     def _find_yt_dlp(self) -> str:
-        """Find yt-dlp binary in system PATH."""
-        yt_dlp = shutil.which("yt-dlp")
-        if not yt_dlp:
-            raise ToolNotFoundError(
-                "yt-dlp not found in PATH. Please install it: brew install yt-dlp"
-            )
-        return yt_dlp
+        """Resolve yt-dlp, preferring the pinned build over a system one."""
+        return resolve_yt_dlp()
 
     @property
     def platform(self) -> Platform:
@@ -68,7 +80,7 @@ class InstagramVideoDownloader(PlatformDownloader):
     @classmethod
     def is_available(cls) -> bool:
         """Check if yt-dlp is available."""
-        return shutil.which("yt-dlp") is not None
+        return yt_dlp_available()
 
     async def download(
         self,
@@ -115,16 +127,7 @@ class InstagramVideoDownloader(PlatformDownloader):
                 "--fragment-retries", "5",
             ]
 
-            # Instagram requires an authenticated session for most content.
-            # Prefer reading cookies straight from a local browser; fall back to
-            # an exported Netscape cookies.txt file.
-            if self.settings.instagram_cookies_from_browser:
-                cmd.extend(
-                    ["--cookies-from-browser", self.settings.instagram_cookies_from_browser]
-                )
-            elif self.settings.instagram_cookies_file:
-                cmd.extend(["--cookies", self.settings.instagram_cookies_file])
-
+            cmd.extend(instagram_cookie_args(self.settings))
             cmd.append(url)
 
             logger.info("Running yt-dlp for Instagram video...")
@@ -242,6 +245,7 @@ class InstagramVideoDownloader(PlatformDownloader):
                 "--no-download",
                 "--print-json",
                 "--add-header", "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                *instagram_cookie_args(self.settings),
                 url,
             ]
 

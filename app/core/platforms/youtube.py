@@ -4,13 +4,12 @@ import asyncio
 import json
 import logging
 import re
-import shutil
 from pathlib import Path
 from typing import Optional
 
 from ...config import get_settings
-from ..base import Platform, PlatformDownloader, AudioMetadata, DownloadResult
-from ..exceptions import SiftError, ContentNotAvailableError, ContentNotFoundError, ToolNotFoundError
+from ..base import Platform, PlatformDownloader, AudioMetadata, DownloadResult, resolve_yt_dlp, yt_dlp_available
+from ..exceptions import SiftError, ContentNotAvailableError, ContentNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -55,13 +54,8 @@ class YouTubeDownloader(PlatformDownloader):
         self._yt_dlp_path = self._find_yt_dlp()
 
     def _find_yt_dlp(self) -> str:
-        """Find yt-dlp binary in system PATH."""
-        yt_dlp = shutil.which("yt-dlp")
-        if not yt_dlp:
-            raise ToolNotFoundError(
-                "yt-dlp not found in PATH. Please install it: brew install yt-dlp"
-            )
-        return yt_dlp
+        """Resolve yt-dlp, preferring the pinned build over a system one."""
+        return resolve_yt_dlp()
 
     @property
     def platform(self) -> Platform:
@@ -84,7 +78,7 @@ class YouTubeDownloader(PlatformDownloader):
     @classmethod
     def is_available(cls) -> bool:
         """Check if yt-dlp is available."""
-        return shutil.which("yt-dlp") is not None
+        return yt_dlp_available()
 
     def _sanitize_filename(self, name: str) -> str:
         """Sanitize a string for use as a filename."""
@@ -267,6 +261,10 @@ class YouTubeDownloader(PlatformDownloader):
                 "--remote-components", "ejs:github",
                 "--no-download",
                 "--print-json",
+                # Without these, metadata fails on exactly the videos that need
+                # auth (age-restricted, or a bot-checked IP) while the download
+                # path succeeds.
+                *youtube_cookie_args(self.settings),
                 url,
             ]
 
