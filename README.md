@@ -15,6 +15,7 @@
 - **Video Downloads** - X/Twitter, YouTube, Instagram, 小红书 (480p/720p/1080p)
 - **Transcription** - Local Whisper or API models (OpenAI, Groq, etc.), 99+ languages
 - **Fetch Transcript** - Instantly grab existing YouTube captions or Spotify Read Along transcripts (no Whisper needed)
+- **Subtitle-Grade SRT/VTT** - Subtitle output is reflowed into readable cues rather than dumped one-per-ASR-segment: width-capped lines, max two lines, breaks at punctuation and never mid-word, CJK-aware (16 chars/line, not 8), fragmentary auto-captions merged. See [Subtitle Output](#subtitle-output).
 - **Live Transcription** - Real-time microphone transcription via WebSocket
 - **Smart Metadata** - Auto-embed ID3/MP4 tags with artwork
 
@@ -229,6 +230,34 @@ For **Spotify** transcripts, you need to provide your `sp_dc` cookie:
    ```
 
 > Note: The `sp_dc` cookie expires periodically. If Spotify transcript fetching stops working, repeat the steps above to get a fresh cookie.
+
+### Subtitle Output
+
+Raw ASR segments are not subtitles. Whisper emits 10-30 second segments that overflow any player; fetched YouTube auto-captions arrive as 2-3 word cues that flicker. Every `srt` / `vtt` response is therefore reflowed through one shared writer that caps line width, keeps cues to two lines, breaks at punctuation instead of mid-word, and merges fragmentary cues.
+
+Measurement is script-aware and chosen from the text itself, not from the declared language — so a Chinese episode quoting English product names gets the right rule per line (16 characters for a CJK line, 42 display-width units for a Latin one).
+
+Four presets, selected globally or per request:
+
+| preset | line width | max lines | notes |
+|---|---|---|---|
+| `balanced` *(default)* | 42 Latin / 16 CJK | 2 | comfortable reading pace |
+| `broadcast` | 42 / 16 | 2 | Netflix-derived timing |
+| `youtube` | 42 / 16 | 2 | aggressive merging for auto-captions |
+| `single_line` | 32 / 12 | 1 | burned-in / clip captions |
+
+```env
+SUBTITLE_REFLOW=true          # false restores the raw one-cue-per-segment output
+SUBTITLE_STYLE_PRESET=balanced
+```
+
+```bash
+curl -X POST localhost:8000/api/transcript/fetch \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://youtu.be/...", "output_format": "srt", "subtitle_style": "youtube"}'
+```
+
+Some sources cannot satisfy every subtitle rule — 60 characters spoken in 2 seconds reads at 30 cps no matter where you cut it, and splitting cannot change that. Rather than fail the transcription or silently emit a broken cue, the reflow emits the best legal cue and logs what it could not meet (`"12 cues, unmet targets: 3 reading_speed"`).
 
 ### API Authentication
 

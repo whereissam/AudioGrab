@@ -2,7 +2,7 @@
 
 import logging
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -13,6 +13,12 @@ if TYPE_CHECKING:
     import numpy as np
 
 from .checkpoint import CheckpointManager, TranscriptionCheckpoint
+from .subtitles import (
+    SubtitleStyle,
+    reflow_to_srt,
+    reflow_to_vtt,
+    style_from_settings,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -401,29 +407,26 @@ class AudioTranscriber:
         return self.checkpoint_manager.exists(job_id)
 
     @staticmethod
-    def format_as_srt(segments: list[TranscriptionSegment]) -> str:
-        """Format segments as SRT subtitle."""
-        lines = []
-        for i, seg in enumerate(segments, 1):
-            start = _format_timestamp_srt(seg.start)
-            end = _format_timestamp_srt(seg.end)
-            lines.append(f"{i}")
-            lines.append(f"{start} --> {end}")
-            lines.append(seg.text)
-            lines.append("")
-        return "\n".join(lines)
+    def format_as_srt(
+        segments: list[TranscriptionSegment],
+        style: Optional[SubtitleStyle] = None,
+    ) -> str:
+        """Format segments as SRT subtitle, reflowed into readable cues."""
+        style = style or _configured_subtitle_style()
+        if style is None:
+            return _format_as_srt_raw(segments)
+        return reflow_to_srt(segments, style)
 
     @staticmethod
-    def format_as_vtt(segments: list[TranscriptionSegment]) -> str:
-        """Format segments as WebVTT subtitle."""
-        lines = ["WEBVTT", ""]
-        for seg in segments:
-            start = _format_timestamp_vtt(seg.start)
-            end = _format_timestamp_vtt(seg.end)
-            lines.append(f"{start} --> {end}")
-            lines.append(seg.text)
-            lines.append("")
-        return "\n".join(lines)
+    def format_as_vtt(
+        segments: list[TranscriptionSegment],
+        style: Optional[SubtitleStyle] = None,
+    ) -> str:
+        """Format segments as WebVTT subtitle, reflowed into readable cues."""
+        style = style or _configured_subtitle_style()
+        if style is None:
+            return _format_as_vtt_raw(segments)
+        return reflow_to_vtt(segments, style)
 
     def transcribe_audio_array(
         self,
@@ -553,25 +556,79 @@ class AudioTranscriber:
         return "\n".join(lines)
 
     @staticmethod
-    def format_as_srt_with_speakers(segments: list[TranscriptionSegment]) -> str:
+    def format_as_srt_with_speakers(
+        segments: list[TranscriptionSegment],
+        style: Optional[SubtitleStyle] = None,
+    ) -> str:
         """
         Format as SRT with speaker prefixes.
+
+        The prefix is charged against the first line's capacity during reflow
+        rather than prepended afterwards -- appending it at write time would
+        break the line-width invariant that reflow already validated.
 
         Example output:
             1
             00:00:01,000 --> 00:00:03,500
             [SPEAKER_00] Hello everyone.
         """
-        lines = []
-        for i, seg in enumerate(segments, 1):
-            start = _format_timestamp_srt(seg.start)
-            end = _format_timestamp_srt(seg.end)
-            speaker = seg.speaker or "SPEAKER_UNKNOWN"
-            lines.append(str(i))
-            lines.append(f"{start} --> {end}")
-            lines.append(f"[{speaker}] {seg.text}")
-            lines.append("")
-        return "\n".join(lines)
+        style = style or _configured_subtitle_style()
+        if style is None:
+            return _format_as_srt_with_speakers_raw(segments)
+        labelled = [
+            seg if seg.speaker else replace(seg, speaker="SPEAKER_UNKNOWN")
+            for seg in segments
+        ]
+        return reflow_to_srt(labelled, style, speaker_prefix=True)
+
+
+def _configured_subtitle_style() -> Optional[SubtitleStyle]:
+    """The configured style, or None when `subtitle_reflow` is off."""
+    try:
+        from ..config import get_settings
+
+        return style_from_settings(get_settings())
+    except Exception:  # pragma: no cover - config unavailable
+        return SubtitleStyle.preset("balanced")
+
+
+def _format_as_srt_raw(segments: list[TranscriptionSegment]) -> str:
+    """One cue per segment, verbatim. Reachable via `subtitle_reflow=False`."""
+    lines = []
+    for i, seg in enumerate(segments, 1):
+        lines.append(f"{i}")
+        lines.append(
+            f"{_format_timestamp_srt(seg.start)} --> {_format_timestamp_srt(seg.end)}"
+        )
+        lines.append(seg.text)
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _format_as_vtt_raw(segments: list[TranscriptionSegment]) -> str:
+    """One cue per segment, verbatim. Reachable via `subtitle_reflow=False`."""
+    lines = ["WEBVTT", ""]
+    for seg in segments:
+        lines.append(
+            f"{_format_timestamp_vtt(seg.start)} --> {_format_timestamp_vtt(seg.end)}"
+        )
+        lines.append(seg.text)
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _format_as_srt_with_speakers_raw(segments: list[TranscriptionSegment]) -> str:
+    """One cue per segment, verbatim. Reachable via `subtitle_reflow=False`."""
+    lines = []
+    for i, seg in enumerate(segments, 1):
+        speaker = seg.speaker or "SPEAKER_UNKNOWN"
+        lines.append(str(i))
+        lines.append(
+            f"{_format_timestamp_srt(seg.start)} --> {_format_timestamp_srt(seg.end)}"
+        )
+        lines.append(f"[{speaker}] {seg.text}")
+        lines.append("")
+    return "\n".join(lines)
 
 
 def _format_timestamp_srt(seconds: float) -> str:

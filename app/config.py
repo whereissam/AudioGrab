@@ -144,6 +144,13 @@ class Settings(BaseSettings):
     # backfill worker picks them up; enqueue is non-blocking and idempotent.
     knowledge_auto_extract: bool = True
 
+    # P23: subtitle reflow. Raw ASR segments are not subtitles -- Whisper
+    # emits 10-30 s cues, fetched YouTube captions emit 2-3 word ones. On by
+    # default because the un-reflowed output is the bug; set False to restore
+    # the raw one-cue-per-segment path.
+    subtitle_reflow: bool = True
+    subtitle_style_preset: str = "balanced"  # broadcast | balanced | youtube | single_line
+
     # P10: semantic search. Auto-index transcript segments into the embedding
     # store when a transcription completes (local model, no LLM cost).
     # Best-effort — an index failure never fails the transcription.

@@ -1725,6 +1725,242 @@ unified async `/v1/ingestions` API, keeping all legacy endpoints working.
       fallback (always DRM-failed). Verified live: Web3 101 E82, 102 MB,
       correct title/show/duration. 10 tests (`tests/test_spotify_episode_rss.py`).
 
+## P23: Subtitle-Grade Line Breaking (SRT/VTT Reflow) ✅ (shipped 2026-08-19)
+
+**Goal:** Turn raw ASR segments into cues that are actually readable as subtitles — width-capped lines, ≤2 lines per cue, sane durations, breaks at punctuation and never mid-word, CJK-aware. One shared module behind *every* SRT/VTT path (local Whisper, remote whisper service, API models, fetched YouTube/Spotify captions, diarized output).
+
+> Today `format_as_srt` emits one cue per raw segment. Whisper segments run 10–30 s and overflow any player; fetched YouTube auto-captions run 2–3 words per cue and flicker. Same bug in opposite directions — nobody is enforcing subtitle constraints.
+
+> **Why it earns a day:** deterministic, no LLM cost, improves an output every user already touches, and it is the prerequisite for clip captioning (Social Media Clips) and any future editor-format export.
+
+### The constraint model (decide this first — everything else follows)
+
+Text is immutable and (by default) cues may not leave their source time envelope. Under those two locks, **some ASR output cannot satisfy every subtitle rule** — no algorithm can fix it, so the spec must not pretend otherwise.
+
+The proof: a segment of 60 characters spanning 2.0 s reads at 30 cps. Split it anywhere and each half still reads at 30 cps. **Splitting cannot lower reading speed** — reading speed is a property of source density, not of segmentation. Likewise a 0.4 s `"Okay."` can never reach a 833 ms minimum while staying inside its own envelope.
+
+So constraints are tiered, and `reflow()` neither throws nor silently cheats:
+
+| Tier | Constraint | On conflict |
+|---|---|---|
+| **Hard** (invariant — never violated) | text preserved · timestamps monotonic · no overlap · `max_lines` · line capacity · no mid-word Latin split (except over-long tokens) · `max_duration` · speaker boundaries · cue within `[source_start, source_end + max_lead_out]` | restructure until satisfied |
+| **Soft** (target — best effort, then reported) | reading speed · minimum duration · minimum gap | emit the best achievable cue **and** record a `SubtitleViolation` |
+
+Hard constraints are always reachable: worst case you hard-cut on width and the cue is ugly but legal. Soft ones are not, so they get measured and logged instead of enforced.
+
+### Locked design decisions (v1)
+
+- **New module** `app/core/subtitles.py` — pure functions, zero I/O, no transcriber import. Segments in, cues out. Keeps `transcriber.py` from growing and makes the whole thing table-testable.
+- **Structural segmentation and timing are separate responsibilities.** `split_text()` decides where the breaks go; `allocate_times()` decides when cues start and end. The public entry point stays `split_segment(seg, style)`, but internally they must not be one function — Phase 2 (word timestamps) replaces *only* `allocate_times`, swapping width interpolation for word-boundary snapping, and leaves segmentation untouched.
+- **Splitting runs before merging** so the merger never receives cues that already violate hard spatial or maximum-duration constraints. Minimum duration and reading speed are handled as best-effort timing concerns *after* structural segmentation — a post-split cue is spatially legal, not globally legal.
+- **No word timestamps in v1.** `TranscriptionSegment` has no `words` field and `word_timestamps` defaults to `False` on every path. Split times are interpolated proportional to display width across the source span. Documented as approximate (±~150 ms); word-accurate timing is Phase 2.
+- **Line capacity is measured per script profile, not by one universal `width` number.** East-asian width and Netflix's CJK character limits are different units and mixing them is off by 2×: `display_width("你好") == 4`, so `max_width = 16` would allow only 8 Chinese characters instead of 16.
+- **The script profile is chosen from the candidate chunk's own text**, not from the job's declared language and not from the whole parent segment — a Chinese episode quoting English API terminology must be able to switch profile mid-segment.
+- **Merging is triggered by undershoot, not by legality.** Merge only cues that are materially too short or too fragmentary; never merge simply because the merged result would also be legal. This is what makes reflow idempotent.
+- **Text is never altered.** Reflow inserts line breaks and cue boundaries; whitespace normalization is the sole permitted mutation. The preservation invariant is checked against cue text *excluding* any rendered speaker prefix, which is presentation, not source.
+- **Behaviour flag** `subtitle_reflow: bool = True` — on by default, because the current output *is* the bug, but one setting restores the raw-segment path for anyone diffing against old artifacts. Risk is low: no existing test asserts SRT text (only `test_mcp_server_tools.py:45` passes `output_format="srt"`), though the flip does change bytes in newly written artifacts.
+
+### Pipeline
+
+```text
+normalize source segments      strip, drop empties, clamp end<=start, sort
+        ↓
+split_text                     hard spatial + max_duration only
+        ↓
+merge_fragments                undershoot-triggered, respects speaker + gap
+        ↓
+allocate_times                 width-proportional interpolation (Phase 2: word snapping)
+        ↓
+refine_timing                  best-effort extend into available slack
+        ↓
+validate                       assert hard invariants, collect soft violations
+```
+
+### Cue model — "parent segment" stops existing after a merge
+
+A merged cue has two sources, so a single `parent` reference is wrong:
+
+```python
+@dataclass(frozen=True)
+class SubtitleCue:
+    start: float
+    end: float
+    lines: tuple[str, ...]          # already broken; len() <= style.max_lines
+    speaker: str | None
+    source_segment_indices: tuple[int, ...]
+    source_start: float             # min start of contributing segments
+    source_end: float               # max end of contributing segments
+```
+
+Merging `seg[4] 1.0–1.8` with `seg[5] 1.9–2.7` gives `source_segment_indices=(4, 5)`, `source_start=1.0`, `source_end=2.7`. The envelope invariant then states precisely, and tests trivially:
+
+```text
+cue.start >= cue.source_start
+cue.end   <= cue.source_end + style.max_lead_out
+```
+
+### Timing: one "extend into slack" operation, two purposes
+
+Minimum duration and reading speed are both improved by the same move — giving a cue more time when time is available. So there is no `enforce_min_duration()`, only:
+
+```python
+desired_end = max(start + style.min_duration, start + needed_for_reading_speed)
+actual_end  = min(
+    desired_end,
+    next_cue.start - style.min_gap,      # never overlap the neighbour
+    cue.source_end + style.max_lead_out, # never outrun the audio
+)
+```
+
+`cue.duration < style.min_duration` is an accepted outcome when no legal slack exists; it becomes a reported violation, not an exception.
+
+**`max_lead_out` defaults to `0.0` in v1** (strict envelope), which keeps the invariant clean and the output faithful to the audio. Raising it is the single knob that makes minimum duration achievable far more often, and it is the natural follow-up once the strict version is shipped and trusted.
+
+### Line measurement
+
+```python
+def line_capacity_ok(text: str, profile: ScriptProfile, style: SubtitleStyle) -> bool:
+    if profile is ScriptProfile.CJK:
+        return cjk_equivalent_chars(text) <= style.cjk_max_chars      # 16
+    return display_width(text) <= style.latin_max_display_width       # 42
+```
+
+- `display_width` — `unicodedata.east_asian_width`, `W`/`F` = 2, else 1. Used for Latin-dominant and as the tiebreaker for mixed text.
+- `cjk_equivalent_chars` — a CJK character costs 1 unit; run-length ASCII costs ~0.5–1 unit per character (calibrate against real 小宇宙 / 小红书 transcripts, then freeze the constant). Capacity is 16 CJK-equivalent characters.
+- **Profile resolution, chicken-and-egg resolved:** seed capacity from the profile of the whole segment to generate break candidates, then re-measure each candidate chunk under *its own* profile and reject any that overflow. Two passes, terminating, and mixed zh/en lands on the right rule per chunk.
+
+### Break scoring — additive, not a strict hierarchy
+
+A pure priority ladder produces `"I went," / "to the store because I needed some milk."` — it takes the comma because a comma outranks whitespace, and wrecks the line balance. Score instead:
+
+```text
+score = punctuation_score
+      + balance_score            # how close to an even two-line split
+      + target_width_score       # prefer ~70–90% of capacity, not a full line
+      - orphan_penalty           # a 1–2 char / 1-word fragment
+      - bad_syntactic_break_penalty
+```
+
+Netflix's own template guidance asks that breaks respect syntactic units — don't separate an article from its noun, or a subject from its verb. v1 does not need a parser, only two word lists:
+
+```python
+AVOID_BREAK_AFTER   = {"a", "an", "the", "to", "of", "in", "for"}
+PREFER_BREAK_BEFORE = {"but", "because", "although", "and", "so", "which"}
+```
+
+CJK gets the analogous treatment: penalize breaking before a trailing particle (的/了/嗎/呢) or between a number and its measure word.
+
+### Hard rules and their explicit exceptions
+
+- Never split inside a Latin word — **unless a single token itself exceeds line capacity** (URL, hash, UUID, unbroken identifier), in which case a hard width cut is permitted. Without this exception the `single_line` preset plus an 80-character URL has no legal output at all.
+- Scripts with neither spaces nor CJK width (Thai, Lao) fall back to a hard width cut.
+- Never merge across a speaker change (`seg.speaker`), across a silence gap > 1.5 s, or when the merged result would violate a hard constraint.
+- **Speaker prefix is capacity, applied before reflow, never prepended after.** The writer must not append `"SPEAKER_01: "` to already-validated lines — that breaks the width invariant retroactively. Segmentation receives `first_line_capacity = capacity - display_width(prefix)` and full capacity for line two.
+- Output invariants: cues sorted, non-overlapping, within the source envelope, concatenated text equal to input modulo whitespace (prefix excluded). No text lost, none duplicated.
+
+### Presets
+
+Defaults are **inspired primarily by Netflix timed-text constraints**, with product-specific presets — not a claim of conformance. General requirements (min 5/6 s, max 7 s, max 2 lines) and the Chinese guides (16 chars/line, adult ≤9 cps) are well-supported; the Latin reading-speed number is not one single Netflix value — the current English guides say 20 cps adult / 17 cps children, while the template guidance still shows 17 cps cases. So the Netflix-derived preset uses 20 and the more comfortable 17 lives under a differently-named preset rather than borrowing the brand for a number it doesn't specify.
+
+| preset | latin width | cjk chars | max lines | latin cps | cjk cps | notes |
+|---|---|---|---|---|---|---|
+| `broadcast` | 42 | 16 | 2 | 20 | 9 | Netflix-derived defaults |
+| `balanced` *(default)* | 42 | 16 | 2 | 17 | 9 | slower, more comfortable Latin pacing |
+| `youtube` | 42 | 16 | 2 | 20 | 9 | aggressive fragment merging for auto-captions |
+| `single_line` | 32 | 12 | 1 | 20 | 9 | burned-in / clip captions |
+
+References: [General Requirements](https://partnerhelp.netflixstudios.com/hc/en-us/articles/215758617), [Chinese (Traditional)](https://partnerhelp.netflixstudios.com/hc/en-us/articles/215994807), [English (USA)](https://partnerhelp.netflixstudios.com/hc/en-us/articles/217350977), [Subtitle Templates](https://partnerhelp.netflixstudios.com/hc/en-us/articles/219375728).
+
+### Tasks
+
+- [x] `app/core/subtitles.py`:
+  - [x] `SubtitleStyle` dataclass + `broadcast` / `balanced` / `youtube` / `single_line` presets
+  - [x] `SubtitleCue` (with `source_segment_indices` / `source_start` / `source_end`)
+  - [x] `display_width`, `cjk_equivalent_chars`, `profile_for_text` (two-pass candidate resolution)
+  - [x] `split_text(text, capacity, style)` — additive break scoring, long-token exception
+  - [x] `merge_fragments(cues, style)` — undershoot-triggered only
+  - [x] `allocate_times(...)` — width-proportional; the Phase 2 swap point
+  - [x] `refine_timing(...)` — the single extend-into-slack operation
+  - [x] `validate(cues, style)` → `list[SubtitleViolation]`; hard invariants assert, soft ones report
+  - [x] `reflow(segments, style)` orchestrating the pipeline
+  - [x] `format_srt(cues)` / `format_vtt(cues)` — the single canonical writer
+- [x] Soft-violation reporting:
+  - [x] `SubtitleViolation(cue_index, kind: Literal["reading_speed","min_duration","min_gap"], actual, limit)`
+  - [x] `reflow` returns cues + violations; callers log a one-line summary (`"12 cues exceed reading speed"`), never fail the transcription
+- [x] Wire the one writer everywhere:
+  - [x] `transcriber.format_as_srt` / `format_as_vtt` / `format_as_srt_with_speakers` delegate to it (speaker becomes capacity, not a post-prepend)
+  - [x] `app/api/transcript_fetch_routes.py` — delete the duplicated `_format_srt` / `_format_vtt` (a second, already-drifting implementation) and call the shared module, so fetched YouTube/Spotify cues get merged too
+  - [x] `app/core/workflow.py` + `app/api/transcription_routes.py` pass the configured style
+- [x] `app/config.py`: `subtitle_reflow: bool = True`, `subtitle_style_preset: str = "balanced"`
+- [x] Optional per-request `subtitle_style` on the transcription + transcript-fetch schemas
+- [x] `tests/test_subtitles.py` (below)
+- [x] README: short subsection under Transcription
+
+### Test plan (`tests/test_subtitles.py`)
+
+- [x] Table-driven splits: long Latin sentence · long CJK sentence · mixed zh/en switching profile mid-segment · punctuation vs balance tradeoff (the `"I went,"` case must **not** win) · never-mid-word · 80-char URL token takes the hard-cut exception · no-space script fallback
+- [x] Line capacity: 16 Chinese characters fit one CJK line (regression against the `display_width`/`cjk_max_chars` 2× confusion)
+- [x] Merge: 2-word YouTube auto-caption cues coalesce; two already-conformant cues 80 ms apart are **not** merged; no merge across speaker change or a 3 s gap
+- [x] Timing: extension never overlaps the next cue; never exceeds `source_end + max_lead_out`; `max_duration` respected
+- [x] **Impossible-input tests** — the ones that would have been bugs: 60 chars in 2.0 s emits legal cues plus a `reading_speed` violation and does not raise; `"Okay."` at 10.0–10.4 emits a 0.4 s cue plus a `min_duration` violation
+- [x] **Invariant test across every fixture**: monotonic, non-overlapping, inside `[source_start, source_end + max_lead_out]`, text preserved exactly (whitespace-normalized, prefix excluded), `len(lines) <= max_lines`, every line within capacity
+- [x] **Idempotency**: `reflow(reflow(x)) == reflow(x)` over the whole fixture set
+- [x] Speaker prefix: first line honours reduced capacity; the writer prepends nothing
+- [x] Degenerate input: empty text, `end <= start`, one segment spanning 300 s
+- [x] Route level: SRT from `/api/transcript/fetch` and from a transcription job both come back reflowed; `subtitle_reflow=False` reproduces the old raw-segment output
+
+### Phase 2 (not in this pass)
+
+- [ ] Word-level timing: add `words` to `TranscriptionSegment`, plumb `word_timestamps=True` (local faster-whisper + `timestamp_granularities` on the API models), swap `allocate_times` to snap to real word boundaries — segmentation untouched
+- [ ] Raise `max_lead_out` above 0 once strict mode is trusted; measure how many `min_duration` violations it clears
+- [ ] Burned-in caption output for Social Media Clips (`single_line` + ASS/SSA)
+- [ ] Scene-cut alignment — snap cue boundaries to camera cuts (needs the ffmpeg scene-detection work)
+- [ ] Surface `SubtitleViolation` counts in the job artifact so an editor UI can highlight unfixable cues
+
+### P23 — what shipped
+
+`app/core/subtitles.py` (pure, no I/O, no transcriber import) plus 69 tests in
+`tests/test_subtitles.py`. Every SRT/VTT path now runs through one writer: the
+duplicated `_format_srt` / `_format_vtt` in `transcript_fetch_routes.py` are
+gone, and `transcriber.format_as_srt` / `format_as_vtt` /
+`format_as_srt_with_speakers` delegate. `subtitle_reflow=False` still reaches
+the verbatim one-cue-per-segment path, which is covered by a test.
+
+Five places where writing the code changed the spec:
+
+- **`_split_text` is two-phase, and that is load-bearing.** Chunk extent (how
+  much text one cue holds) is decided by max-fill; line layout inside a chunk
+  is decided by scoring. Running the scorer against a stream instead of a
+  settled chunk breaks idempotency — the balance term looks at the tail, so
+  re-flowing an already-flowed cue picked a *different* break than the first
+  pass. Caught by the round-trip test on the `speakers` fixture.
+- **Reading speed never shortens a cue.** The first `_refine_timing` used
+  `start + max(min_duration, needed_for_speed)` as the end, which pulled a
+  4.19 s cue back to 2.71 s and opened a 1.5 s dead gap in the middle of
+  continuous speech. Reading speed is a *maximum*, so it only ever raises the
+  extension target — never caps an already-long cue.
+- **`max_duration` divides, it does not clamp.** Clamping a 9.2 s cue to 7 s
+  drops the caption while the words are still being spoken. `_divide_over_long`
+  re-splits at a legal break near the middle and allocates time proportionally,
+  recursing until every cue fits; only indivisible text (a single token) falls
+  back to clamping.
+- **`min_gap` is actively created.** It was only ever an upper bound, so
+  contiguous cues from one segment reported a violation on every cue.
+  `_refine_timing` now pulls the end back to `next.start - min_gap` when the
+  cue can afford it, and reports the gap only when pulling back would starve
+  the cue.
+- **`allocate_times` runs inside the split stage, not between split and
+  merge.** The merger needs timings to test the silence gap and
+  `max_duration`, so the order is: normalize → (split_text + allocate_times +
+  divide) per segment → merge → refine → validate. The responsibilities stay
+  separate — Phase 2 still swaps only `allocate_times`.
+
+Wired: `subtitle_reflow` / `subtitle_style_preset` in `app/config.py`, an
+optional `subtitle_style` on `TranscribeRequest` and `FetchTranscriptRequest`,
+and `reflow` returning `ReflowResult(cues, violations)` so unmet soft targets
+are logged (`"12 cues, unmet targets: 3 reading_speed"`) and never fail a
+transcription.
+
 ## Transcription Engine Ideas
 
 - [ ] **Breeze-ASR-25 engine** (MediaTek, Whisper-large-v2 fine-tune) for
