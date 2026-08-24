@@ -6,6 +6,9 @@ import { ContentInfo, TranscriptionResult, formatDuration } from './types'
 import { useState, useMemo, useEffect } from 'react'
 import { SentimentSection } from '@/components/sentiment'
 import { ExtractSection } from '@/components/extract'
+import { PipelineProgress } from '@/components/pipeline'
+import { ContradictionSection } from '@/components/contradictions'
+import { AskPanel } from '@/components/library'
 
 const SUMMARY_TYPES = [
   { value: 'bullet_points', label: 'Bullet Points', desc: 'Key ideas as bullets' },
@@ -634,6 +637,22 @@ export function TranscriptionSuccess({
             </div>
           )}
         </div>
+      )}
+
+      {/* Pipeline Progress (agentic ingest only — renders nothing otherwise) */}
+      {jobId && <PipelineProgress jobId={jobId} />}
+
+      {/* Ask this episode */}
+      {jobId && result.text && (
+        <div className="border border-border rounded-lg p-3 mb-4">
+          <h3 className="text-xs sm:text-sm font-medium mb-3">Ask this episode</h3>
+          <AskPanel jobId={jobId} />
+        </div>
+      )}
+
+      {/* Contradictions */}
+      {jobId && result.text && (
+        <ContradictionSection jobId={jobId} hasTranscript={!!result.text} />
       )}
 
       {/* Sentiment Analysis Section */}
