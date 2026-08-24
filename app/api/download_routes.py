@@ -19,9 +19,9 @@ from .schemas import (
     ContentInfo,
     Platform,
 )
-from ..core.downloader import DownloaderFactory
-from ..core.base import Platform as CorePlatform
-from ..core.exceptions import ContentNotFoundError, UnsupportedPlatformError
+from ..ingest.fetch.downloader import DownloaderFactory
+from ..ingest.base import Platform as CorePlatform
+from ..ingest.exceptions import ContentNotFoundError, UnsupportedPlatformError
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ async def _process_download(job_id: str, request: DownloadRequest):
             # Embed metadata if requested
             if request.embed_metadata and result.metadata:
                 try:
-                    from ..core.metadata import MetadataEmbedder
+                    from ..ingest.metadata import MetadataEmbedder
                     embedder = MetadataEmbedder()
                     await embedder.embed_metadata(final_path, result.metadata)
                     logger.info(f"[{job_id}] Metadata embedded successfully")
@@ -128,7 +128,7 @@ async def _process_download(job_id: str, request: DownloadRequest):
             # Send webhook notification
             if request.webhook_url:
                 try:
-                    from ..core.webhook_notifier import get_webhook_notifier
+                    from ..delivery.webhook_notifier import get_webhook_notifier
                     notifier = get_webhook_notifier()
                     await notifier.notify_job_complete({
                         "job_id": job_id,
@@ -240,7 +240,7 @@ async def update_download_priority(job_id: str, priority: int):
     Priority levels: 1 (lowest) to 10 (highest).
     Only affects jobs that are still in the queue.
     """
-    from ..core.queue_manager import get_queue_manager
+    from ..pipeline.queue_manager import get_queue_manager
 
     queue_manager = get_queue_manager()
 
@@ -258,7 +258,7 @@ async def update_download_priority(job_id: str, priority: int):
 @router.get("/queue")
 async def get_queue_status():
     """Get the current queue status."""
-    from ..core.queue_manager import get_queue_manager
+    from ..pipeline.queue_manager import get_queue_manager
 
     queue_manager = get_queue_manager()
     if not queue_manager:
@@ -329,7 +329,7 @@ async def cancel_download(job_id: str):
 @router.get("/platforms")
 async def get_platforms():
     """Get list of supported platforms and their availability."""
-    from ..core.platforms import (
+    from ..ingest.platforms import (
         XSpacesDownloader,
         ApplePodcastsDownloader,
         SpotifyDownloader,

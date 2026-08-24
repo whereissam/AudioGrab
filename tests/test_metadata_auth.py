@@ -12,12 +12,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.core.platforms.instagram_video import (
+from app.ingest.platforms.instagram_video import (
     InstagramVideoDownloader,
     instagram_cookie_args,
 )
-from app.core.platforms.x_video import _is_auth_rejection, _run_ytdlp
-from app.core.platforms.youtube import youtube_cookie_args
+from app.ingest.platforms.x_video import _is_auth_rejection, _run_ytdlp
+from app.ingest.platforms.youtube import youtube_cookie_args
 
 
 # ---------------------------------------------------------------- cookie args
@@ -143,7 +143,7 @@ async def test_x_retries_anonymously_when_cookies_are_rejected(monkeypatch):
 
     monkeypatch.setattr("asyncio.create_subprocess_exec", fake_exec)
     monkeypatch.setattr(
-        "app.core.platforms.x_video.twitter_ytdlp_cookies",
+        "app.ingest.platforms.x_video.twitter_ytdlp_cookies",
         lambda: _fake_cookie_ctx("/tmp/x.txt"),
     )
 
@@ -170,7 +170,7 @@ async def test_x_does_not_retry_when_the_failure_is_not_about_auth(monkeypatch):
 
     monkeypatch.setattr("asyncio.create_subprocess_exec", fake_exec)
     monkeypatch.setattr(
-        "app.core.platforms.x_video.twitter_ytdlp_cookies",
+        "app.ingest.platforms.x_video.twitter_ytdlp_cookies",
         lambda: _fake_cookie_ctx("/tmp/x.txt"),
     )
 
@@ -195,7 +195,7 @@ async def test_x_makes_one_call_when_no_cookies_are_configured(monkeypatch):
 
     monkeypatch.setattr("asyncio.create_subprocess_exec", fake_exec)
     monkeypatch.setattr(
-        "app.core.platforms.x_video.twitter_ytdlp_cookies", lambda: _fake_cookie_ctx(None)
+        "app.ingest.platforms.x_video.twitter_ytdlp_cookies", lambda: _fake_cookie_ctx(None)
     )
 
     await _run_ytdlp(["yt-dlp"], "https://x.com/a/status/1")
@@ -219,7 +219,7 @@ class _fake_cookie_ctx:
 
 def test_yt_dlp_path_override_wins(monkeypatch, tmp_path):
     """Packaged builds ship their own binary and must be able to name it."""
-    from app.core.base import resolve_yt_dlp
+    from app.ingest.base import resolve_yt_dlp
 
     binary = tmp_path / "yt-dlp"
     binary.write_text("#!/bin/sh\n")
@@ -228,8 +228,8 @@ def test_yt_dlp_path_override_wins(monkeypatch, tmp_path):
 
 
 def test_a_bogus_override_fails_loudly(monkeypatch, tmp_path):
-    from app.core.base import resolve_yt_dlp
-    from app.core.exceptions import ToolNotFoundError
+    from app.ingest.base import resolve_yt_dlp
+    from app.ingest.exceptions import ToolNotFoundError
 
     monkeypatch.setenv("YT_DLP_PATH", str(tmp_path / "nope"))
     with pytest.raises(ToolNotFoundError):
@@ -240,7 +240,7 @@ def test_pinned_build_is_preferred_over_a_system_install(monkeypatch, tmp_path):
     """The regression this guards: adapters resolved from PATH, so a stale
     system yt-dlp shadowed the version pinned in pyproject.toml whenever the
     app was started outside `uv run`."""
-    from app.core import base
+    from app.ingest import base
 
     monkeypatch.delenv("YT_DLP_PATH", raising=False)
     env_bin = tmp_path / "bin"
@@ -254,7 +254,7 @@ def test_pinned_build_is_preferred_over_a_system_install(monkeypatch, tmp_path):
 
 
 def test_falls_back_to_path_when_no_pinned_build_exists(monkeypatch, tmp_path):
-    from app.core import base
+    from app.ingest import base
 
     monkeypatch.delenv("YT_DLP_PATH", raising=False)
     monkeypatch.setattr(base.sys, "executable", str(tmp_path / "python"))
@@ -266,7 +266,7 @@ def test_falls_back_to_path_when_no_pinned_build_exists(monkeypatch, tmp_path):
 def test_availability_agrees_with_resolution(monkeypatch, tmp_path):
     """is_available() used to check PATH directly, so it reported 'missing' on
     a normal `uv sync` layout where only the pinned build exists."""
-    from app.core import base
+    from app.ingest import base
 
     monkeypatch.delenv("YT_DLP_PATH", raising=False)
     monkeypatch.setattr(base.sys, "executable", str(tmp_path / "python"))

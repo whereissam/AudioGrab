@@ -11,7 +11,7 @@ from .schemas import (
     WebhookTestResponse,
 )
 from ..config import get_settings
-from ..core.webhook_notifier import get_webhook_notifier
+from ..delivery.webhook_notifier import get_webhook_notifier
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ async def list_webhook_templates():
     The global default comes from the WEBHOOK_TEMPLATE setting; each job can
     override it via `webhook_template` (e.g. on POST /api/ingest).
     """
-    from ..core.webhook_intelligence import (
+    from ..delivery.webhook_intelligence import (
         TEMPLATE_DESCRIPTIONS,
         WEBHOOK_TEMPLATES,
     )

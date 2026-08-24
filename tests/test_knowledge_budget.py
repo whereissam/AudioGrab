@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.knowledge_budget import (
+from app.knowledge.knowledge_budget import (
     KnowledgeBudgetTracker,
     estimate_cost_usd,
     get_budget_tracker,

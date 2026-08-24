@@ -12,7 +12,7 @@ from .schemas import (
     SupportedLanguagesResponse,
     TranslatorType,
 )
-from ..core.translator import (
+from ..knowledge.translator import (
     TranslateGemmaTranslator,
     AITranslator,
     normalize_language_code,
@@ -20,7 +20,7 @@ from ..core.translator import (
     SUPPORTED_LANGUAGES,
     COMMON_LANGUAGES,
 )
-from ..core.job_store import get_job_store
+from ..store import get_job_store
 
 logger = logging.getLogger(__name__)
 

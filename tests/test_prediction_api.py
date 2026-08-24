@@ -9,9 +9,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.prediction_routes import router as prediction_router
-from app.core import job_store as job_store_module
-from app.core.job_store import JobStore
-from app.core.knowledge_schema import (
+from app import store as job_store_module
+from app.store import JobStore
+from app.knowledge.knowledge_schema import (
     EXTRACTION_VERSION,
     SCHEMA_VERSION,
     Claim,

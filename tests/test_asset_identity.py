@@ -7,13 +7,13 @@ from datetime import datetime
 
 import pytest
 
-import app.core.job_store as job_store_pkg
-from app.core.asset_identity import (
+import app.store as job_store_pkg
+from app.ingest.asset_identity import (
     canonical_source_for_job,
     canonicalize_url,
     fingerprint_file,
 )
-from app.core.job_store import JobType
+from app.store import JobType
 
 
 # ---------------------------------------------------------------------------
@@ -278,7 +278,7 @@ def test_download_endpoint_shares_asset_for_same_url(store, tmp_path, monkeypatc
     from app.api import auth as auth_module
     from app.api import download_routes
     from app.api.ratelimit import limiter
-    from app.core.base import Platform as CorePlatform
+    from app.ingest.base import Platform as CorePlatform
 
     class _NoAuth:
         api_key = None

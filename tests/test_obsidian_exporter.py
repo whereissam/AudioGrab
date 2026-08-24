@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import yaml
 
-from app.core.obsidian_exporter import ObsidianExporter
+from app.delivery.obsidian_exporter import ObsidianExporter
 
 
 def _parse_frontmatter(fm: str) -> dict:

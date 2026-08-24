@@ -10,14 +10,14 @@ from fastapi.testclient import TestClient
 
 from app.api.distill_routes import router as distill_router
 from app.api.ratelimit import limiter
-from app.core import job_store as job_store_module
-from app.core.digest_schema import DigestSynthesis
-from app.core.digest_synthesizer import DigestRunResult
-from app.core.distiller import Distiller, gather_claims_for_jobs
-from app.core.job_store import JobStore
-from app.core.job_store._enums import JobType
-from app.core.knowledge_budget import get_budget_tracker
-from app.core.knowledge_schema import (
+from app import store as job_store_module
+from app.knowledge.digest_schema import DigestSynthesis
+from app.knowledge.digest_synthesizer import DigestRunResult
+from app.knowledge.distiller import Distiller, gather_claims_for_jobs
+from app.store import JobStore
+from app.store._enums import JobType
+from app.knowledge.knowledge_budget import get_budget_tracker
+from app.knowledge.knowledge_schema import (
     EXTRACTION_VERSION,
     SCHEMA_VERSION,
     Claim,

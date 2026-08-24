@@ -14,9 +14,9 @@ from .schemas import (
     AITestRequest,
     AITestResponse,
 )
-from ..core.job_store import get_job_store
-from ..core.summarizer import LiteLLMProvider, TranscriptSummarizer
-from ..core.url_validator import validate_url_ssrf
+from ..store import get_job_store
+from ..knowledge.summarizer import LiteLLMProvider, TranscriptSummarizer
+from ..ingest.fetch.url_validator import validate_url_ssrf
 
 logger = logging.getLogger(__name__)
 

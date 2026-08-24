@@ -9,10 +9,10 @@ be cross-referenced across episodes.
 This document is the contract. If you change a wire format, bump the version (see
 [Versioning](#versioning)) and update this file in the same change.
 
-- **Source of truth for models:** `app/core/knowledge_schema.py`
-- **Persistence:** `app/core/job_store/` (`_knowledge.py`, `_backfill.py`, `_schema.py`)
-- **Extraction:** `app/core/knowledge_extractor.py` (+ `entity_canonicalizer.py`, `topic_canonicalizer.py`, prediction enrichment)
-- **Orchestration:** `app/core/knowledge_backfill.py`, auto-run hook in `app/core/workflow.py`
+- **Source of truth for models:** `app/knowledge/knowledge_schema.py`
+- **Persistence:** `app/store/` (`_knowledge.py`, `_backfill.py`, `_schema.py`)
+- **Extraction:** `app/knowledge/knowledge_extractor.py` (+ `entity_canonicalizer.py`, `topic_canonicalizer.py`, prediction enrichment)
+- **Orchestration:** `app/knowledge/knowledge_backfill.py`, auto-run hook in `app/pipeline/workflow.py`
 
 ---
 
@@ -68,7 +68,7 @@ each successful backfill run — distinct from the per-record `extraction_versio
 
 ## Models
 
-All models live in `app/core/knowledge_schema.py` as Pydantic v2 (`extra="ignore"`,
+All models live in `app/knowledge/knowledge_schema.py` as Pydantic v2 (`extra="ignore"`,
 so unexpected LLM keys are dropped rather than crashing the pipeline). Each model
 has a `*Draft` sibling = the raw shape the LLM emits, before the canonical IDs
 and version stamps are attached.
@@ -235,7 +235,7 @@ process restart never *locks out* extraction (the safe direction for a guardrail
 
 ## LLM task presets
 
-`app/core/llm_presets.py` — `get_provider_for_task(task, *, downgrade=False)`.
+`app/knowledge/llm_presets.py` — `get_provider_for_task(task, *, downgrade=False)`.
 Resolution chain: `ai_settings.task_presets` override → baked-in default preset
 (if the user has a working provider) → user's configured provider.
 
@@ -253,7 +253,7 @@ creds/base_url still apply); already-cheap models aren't double-downgraded.
 
 ## Storage tables
 
-Created/migrated in `app/core/job_store/_schema.py`:
+Created/migrated in `app/store/_schema.py`:
 
 - `claims`, `entities`, `entity_mentions`, `topics`, `claim_topics`, `predictions`
 - `embeddings` (generic, see above)

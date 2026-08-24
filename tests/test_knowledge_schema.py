@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.knowledge_schema import (
+from app.knowledge.knowledge_schema import (
     EXTRACTION_VERSION,
     PREDICTION_EXTRACTION_SCHEMA,
     SCHEMA_VERSION,

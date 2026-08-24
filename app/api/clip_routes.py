@@ -18,12 +18,12 @@ from .schemas import (
     SocialPlatform,
     JobStatus,
 )
-from ..core.clip_generator import (
+from ..delivery.clip_generator import (
     ClipGenerator,
     ClipSuggestion,
     SocialPlatform as CoreSocialPlatform,
 )
-from ..core.clip_exporter import ClipExporter
+from ..delivery.clip_exporter import ClipExporter
 from .transcription_store import transcription_jobs
 
 logger = logging.getLogger(__name__)
