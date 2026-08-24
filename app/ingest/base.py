@@ -1,11 +1,64 @@
 """Abstract base classes for platform downloaders."""
 
+import os
+import shutil
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Optional
+
+
+def resolve_yt_dlp() -> str:
+    """Absolute path to the yt-dlp binary the adapters should run.
+
+    Order matters. The project pins a yt-dlp version in pyproject.toml, but
+    every adapter shells out to a *binary* — so a system-wide install (brew,
+    apt) silently shadows the pinned one whenever the app is started outside
+    `uv run`. yt-dlp extractors break constantly, so running a months-old
+    binary while the lockfile claims a current one is a confusing failure that
+    looks like a broken platform.
+
+    1. ``YT_DLP_PATH`` — explicit override, for packaged builds
+    2. the current interpreter's own environment — this is the pinned version
+    3. ``PATH`` — whatever is installed system-wide
+    """
+    from .exceptions import ToolNotFoundError
+
+    override = os.environ.get("YT_DLP_PATH")
+    if override:
+        if Path(override).exists():
+            return override
+        raise ToolNotFoundError(f"YT_DLP_PATH is set but does not exist: {override}")
+
+    for name in ("yt-dlp", "yt-dlp.exe"):
+        candidate = Path(sys.executable).with_name(name)
+        if candidate.exists():
+            return str(candidate)
+
+    found = shutil.which("yt-dlp")
+    if found:
+        return found
+
+    raise ToolNotFoundError(
+        "yt-dlp not found. Install it with `uv sync` (preferred, matches the "
+        "pinned version), `brew install yt-dlp`, or set YT_DLP_PATH."
+    )
+
+
+def yt_dlp_available() -> bool:
+    """Whether a usable yt-dlp exists, by the same rules as `resolve_yt_dlp`.
+
+    Checking PATH directly would report "unavailable" on an install where only
+    the pinned build exists, which is the normal `uv sync` layout.
+    """
+    try:
+        resolve_yt_dlp()
+    except Exception:
+        return False
+    return True
 
 
 class Platform(str, Enum):
