@@ -299,6 +299,11 @@ def test_model_routes_mount_under_single_api_prefix():
 
     api = FastAPI()
     api.include_router(model_routes.router, prefix="/api")
-    paths = {r.path for r in api.routes}
+
+    # Assert against the OpenAPI schema rather than walking `app.routes`:
+    # Starlette 1.x keeps an included router as one opaque entry there, so a
+    # flat scan both misses the paths and trips over entries with no `.path`.
+    paths = set(api.openapi()["paths"])
+
     assert "/api/models/whisper" in paths
     assert not any(p.startswith("/api/api/") for p in paths)

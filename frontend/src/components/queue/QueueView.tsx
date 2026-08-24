@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { animated } from '@react-spring/web'
 
-const AnimatedDiv = animated.div as React.FC<React.HTMLAttributes<HTMLDivElement> & { style?: Record<string, unknown> }>
+// `style` is replaced rather than intersected: React's CSSProperties now
+// declares `x`/`y` (SVG), which collide with react-spring's SpringValue.
+const AnimatedDiv = animated.div as React.FC<
+  Omit<React.HTMLAttributes<HTMLDivElement>, 'style'> & { style?: Record<string, unknown> }
+>
 import { Button } from '@/components/ui/button'
 import { RefreshCw, Loader2, Clock, ArrowUp, ArrowDown, Trash2, Play, ChevronUp, ChevronDown } from 'lucide-react'
 import { useSwipeGesture } from '@/hooks/useSwipeGesture'
