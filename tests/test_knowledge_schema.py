@@ -1,4 +1,4 @@
-"""Tests for app/core/knowledge_schema.py."""
+"""Tests for app/knowledge/knowledge_schema.py."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Tests for app/core/obsidian_exporter.py YAML-safe frontmatter."""
+"""Tests for app/delivery/obsidian_exporter.py YAML-safe frontmatter."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Tests for app/core/topic_canonicalizer.py and topic_normalization.py.
+"""Tests for app/knowledge/topic_canonicalizer.py and topic_normalization.py.
 
 Embedding model is mocked so every assertion runs in milliseconds. What
 we care about is the canonicalizer's logic: normalization, cache, reuse

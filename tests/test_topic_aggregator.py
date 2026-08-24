@@ -1,4 +1,4 @@
-"""Tests for app/core/topic_aggregator.py — mocked LLM + mocked canonicalizer."""
+"""Tests for app/knowledge/topic_aggregator.py — mocked LLM + mocked canonicalizer."""
 
 from __future__ import annotations
 

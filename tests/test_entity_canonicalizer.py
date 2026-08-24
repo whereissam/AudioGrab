@@ -1,4 +1,4 @@
-"""Tests for app/core/entity_canonicalizer.py.
+"""Tests for app/knowledge/entity_canonicalizer.py.
 
 We mock the embedding model so tests run in milliseconds and stay
 deterministic — the canonicalizer's logic (cache, threshold, slug

@@ -1,4 +1,4 @@
-"""Tests for app/core/prediction_extractor.py — mocked LLM provider."""
+"""Tests for app/knowledge/prediction_extractor.py — mocked LLM provider."""
 
 from __future__ import annotations
 

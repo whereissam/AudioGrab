@@ -1,4 +1,4 @@
-"""Tests for app/core/knowledge_backfill.py (P18 Phase C.3).
+"""Tests for app/knowledge/knowledge_backfill.py (P18 Phase C.3).
 
 The worker's testable surface is ``tick`` / ``process_job`` driven with an
 injected extractor factory — no real LLM calls, no asyncio loop.

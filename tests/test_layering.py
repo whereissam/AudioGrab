@@ -2,7 +2,7 @@
 
 `app/ingest/` is the core: platform adapters, download, media conversion,
 transcription. Everything else is built on top of it. That direction already
-held when the layers were carved out of the old flat `app/core/`, but nothing
+held when the layers were carved out of the old flat `app/ingest/`, but nothing
 kept it true — this test does.
 
 It exists because the failure mode is invisible: one convenient import from
@@ -76,12 +76,12 @@ def test_the_old_flat_core_package_is_gone():
     """A leftover app/core would let new code re-enter the flat layout.
 
     Checks for source, not for the directory: switching to a branch that
-    predates the split and running the suite there leaves an `app/core/
+    predates the split and running the suite there leaves an `app/ingest/
     __pycache__` behind, and stale bytecode is not a layering violation.
     """
     core = APP / "core"
     stale = sorted(p.name for p in core.rglob("*.py")) if core.exists() else []
-    assert not stale, f"app/core/ is back ({', '.join(stale)}) — put it in a layer"
+    assert not stale, f"app/ingest/ is back ({', '.join(stale)}) — put it in a layer"
 
 
 def test_every_layer_is_a_real_package():

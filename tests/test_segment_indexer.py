@@ -1,4 +1,4 @@
-"""Tests for app/core/segment_indexer.py (P10).
+"""Tests for app/knowledge/segment_indexer.py (P10).
 
 Chunk windowing is pure logic; index_job runs against a real temp SQLite DB
 with the embedding model mocked (same _ScriptedEncoder approach as the

@@ -1,4 +1,4 @@
-"""Tests for P23 subtitle reflow (app/core/subtitles.py).
+"""Tests for P23 subtitle reflow (app/ingest/transcribe/subtitles.py).
 
 The interesting cases are the ones the constraint model exists for: sources
 that *cannot* satisfy every subtitle rule. Those must produce legal cues plus
