@@ -1,4 +1,4 @@
-"""Tests for app/core/rag_engine.py (P11).
+"""Tests for app/knowledge/rag_engine.py (P11).
 
 Retrieval is stubbed at the ``search_segments`` seam and the LLM at the
 provider seam, so these cover the engine's own logic: grounding-prompt

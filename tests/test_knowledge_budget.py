@@ -1,4 +1,4 @@
-"""Tests for app/core/knowledge_budget.py (P18 Phase C.3)."""
+"""Tests for app/knowledge/knowledge_budget.py (P18 Phase C.3)."""
 
 from __future__ import annotations
 

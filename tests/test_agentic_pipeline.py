@@ -1,4 +1,4 @@
-"""Tests for app/core/agentic_pipeline.py + the _pipeline.py store mixin (P12).
+"""Tests for app/pipeline/agentic_pipeline.py + the _pipeline.py store mixin (P12).
 
 The runner is exercised with stubbed stage implementations against a real
 temp store, so these cover profile/state bookkeeping, ordering, and the

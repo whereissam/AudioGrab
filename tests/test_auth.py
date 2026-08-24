@@ -1,4 +1,4 @@
-"""Tests for app/core/auth.py credential and bearer-token handling."""
+"""Tests for app/ingest/fetch/auth.py credential and bearer-token handling."""
 
 from __future__ import annotations
 

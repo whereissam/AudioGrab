@@ -1,4 +1,4 @@
-"""Tests for P14: app/core/distiller.py + _distillations mixin + distill routes."""
+"""Tests for P14: app/knowledge/distiller.py + _distillations mixin + distill routes."""
 
 from __future__ import annotations
 

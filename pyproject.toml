@@ -34,7 +34,7 @@ dependencies = [
     "onnxruntime>=1.23.2",
     "spotdl>=3.9.6",
     "sentence-transformers>=3.0",
-    "yt-dlp>=2026.6.9",
+    "yt-dlp>=2026.8.19",
 ]
 
 [project.optional-dependencies]
