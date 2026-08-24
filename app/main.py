@@ -52,8 +52,8 @@ async def lifespan(app: FastAPI):
 
     # Recover unfinished jobs from previous run
     try:
-        from .core.workflow import recover_unfinished_jobs
-        from .core.job_store import get_job_store
+        from .pipeline.workflow import recover_unfinished_jobs
+        from .store import get_job_store
 
         job_store = get_job_store()
         unfinished = job_store.get_unfinished_jobs()
@@ -67,14 +67,14 @@ async def lifespan(app: FastAPI):
 
     # Start subscription worker
     try:
-        from .core.subscription_worker import start_subscription_worker
+        from .pipeline.subscription_worker import start_subscription_worker
         await start_subscription_worker()
     except Exception as e:
         logger.error(f"Failed to start subscription worker: {e}")
 
     # Start queue manager
     try:
-        from .core.queue_manager import start_queue_manager
+        from .pipeline.queue_manager import start_queue_manager
         await start_queue_manager()
         logger.info("Queue manager started")
     except Exception as e:
@@ -82,7 +82,7 @@ async def lifespan(app: FastAPI):
 
     # Start scheduler worker
     try:
-        from .core.scheduler import start_scheduler_worker
+        from .pipeline.scheduler import start_scheduler_worker
         await start_scheduler_worker()
         logger.info("Scheduler worker started")
     except Exception as e:
@@ -90,7 +90,7 @@ async def lifespan(app: FastAPI):
 
     # Start storage manager
     try:
-        from .core.storage_manager import get_storage_manager
+        from .delivery.storage_manager import get_storage_manager
         storage_manager = get_storage_manager()
         if settings.storage_cleanup_enabled:
             await storage_manager.start_background_cleanup()
@@ -100,14 +100,14 @@ async def lifespan(app: FastAPI):
 
     # Start knowledge backfill worker (P18 Phase C.3)
     try:
-        from .core.knowledge_backfill import start_backfill_worker
+        from .knowledge.knowledge_backfill import start_backfill_worker
         await start_backfill_worker()
     except Exception as e:
         logger.error(f"Failed to start knowledge backfill worker: {e}")
 
     # Start digest runner (P20)
     try:
-        from .core.digest_runner import start_digest_runner
+        from .knowledge.digest_runner import start_digest_runner
         await start_digest_runner()
     except Exception as e:
         logger.error(f"Failed to start digest runner: {e}")
@@ -137,21 +137,21 @@ async def lifespan(app: FastAPI):
 
     # Stop knowledge backfill worker
     try:
-        from .core.knowledge_backfill import stop_backfill_worker
+        from .knowledge.knowledge_backfill import stop_backfill_worker
         await stop_backfill_worker()
     except Exception as e:
         logger.error(f"Failed to stop knowledge backfill worker: {e}")
 
     # Stop digest runner
     try:
-        from .core.digest_runner import stop_digest_runner
+        from .knowledge.digest_runner import stop_digest_runner
         await stop_digest_runner()
     except Exception as e:
         logger.error(f"Failed to stop digest runner: {e}")
 
     # Stop storage manager
     try:
-        from .core.storage_manager import get_storage_manager
+        from .delivery.storage_manager import get_storage_manager
         storage_manager = get_storage_manager()
         await storage_manager.stop_background_cleanup()
     except Exception as e:
@@ -159,14 +159,14 @@ async def lifespan(app: FastAPI):
 
     # Stop scheduler worker
     try:
-        from .core.scheduler import stop_scheduler_worker
+        from .pipeline.scheduler import stop_scheduler_worker
         await stop_scheduler_worker()
     except Exception as e:
         logger.error(f"Failed to stop scheduler worker: {e}")
 
     # Stop queue manager
     try:
-        from .core.queue_manager import stop_queue_manager
+        from .pipeline.queue_manager import stop_queue_manager
         await stop_queue_manager()
     except Exception as e:
         logger.error(f"Failed to stop queue manager: {e}")
@@ -181,7 +181,7 @@ async def lifespan(app: FastAPI):
 
     # Stop subscription worker
     try:
-        from .core.subscription_worker import stop_subscription_worker
+        from .pipeline.subscription_worker import stop_subscription_worker
         await stop_subscription_worker()
     except Exception as e:
         logger.error(f"Failed to stop subscription worker: {e}")
@@ -189,8 +189,8 @@ async def lifespan(app: FastAPI):
     # Cleanup on shutdown
     logger.info("Shutting down Sift API")
     try:
-        from .core.job_store import get_job_store
-        from .core.checkpoint import CheckpointManager
+        from .store import get_job_store
+        from .ingest.transcribe.checkpoint import CheckpointManager
 
         job_store = get_job_store()
         checkpoint_manager = CheckpointManager()

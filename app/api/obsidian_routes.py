@@ -14,8 +14,8 @@ from .schemas import (
     ObsidianValidateResponse,
 )
 from ..config import get_settings
-from ..core.job_store import get_job_store
-from ..core.obsidian_exporter import ObsidianExporter
+from ..store import get_job_store
+from ..delivery.obsidian_exporter import ObsidianExporter
 
 logger = logging.getLogger(__name__)
 

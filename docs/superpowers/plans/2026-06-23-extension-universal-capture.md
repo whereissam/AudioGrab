@@ -40,7 +40,7 @@
 - All new features must include tests in the appropriate test directory (`tests/` for Python, colocated `*.test.ts` in the WXT `extension/` project for JS/TS, run via `bunx vitest`).
 - Only `git add` files modified in the current task — never stage all files.
 - Conventional commit messages (`feat:`, `fix:`, `docs:`, etc.). End commit messages with `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
-- Server work spans `app/core/` (logic) and `app/api/` (HTTP); follow the existing `PlatformDownloader` contract and router patterns.
+- Server work spans `app/ingest/` (logic) and `app/api/` (HTTP); follow the existing `PlatformDownloader` contract and router patterns.
 - The extension is built with WXT: entrypoints live in `extension/entrypoints/` (`defineBackground`/`defineContentScript`/popup), pure helper logic in `extension/utils/*.ts` as ESM modules imported by both entrypoints and colocated `*.test.ts` (Vitest). Manifest is generated from `wxt.config.ts` — do not hand-edit a `manifest.json`.
 - Privacy rule (hard): the extension stores only media-typed URLs, in-memory per-tab, never persisted; nothing leaves the browser until the user clicks convert, and only the chosen URL + format/quality are sent.
 - Auth: `POST /api/capture` and the file endpoint require `X-API-Key` when `API_KEY` is configured (the `download_routes` router already enforces `verify_api_key`).
@@ -52,7 +52,7 @@
 ### Task 1: Add `Platform.GENERIC` enum value
 
 **Files:**
-- Modify: `app/core/base.py` (Platform enum, after `XIAOHONGSHU = "xiaohongshu"`)
+- Modify: `app/ingest/base.py` (Platform enum, after `XIAOHONGSHU = "xiaohongshu"`)
 - Modify: `app/api/schemas.py` (Platform enum, after `XIAOHONGSHU = "xiaohongshu"`)
 - Modify: `app/api/download_routes.py:34-48` (`_core_platform_to_schema` mapping)
 - Test: `tests/test_generic_platform_enum.py`
@@ -88,7 +88,7 @@ Expected: FAIL with `AttributeError: GENERIC` (enum member missing).
 
 - [ ] **Step 3: Add the enum members and mapping**
 
-In `app/core/base.py`, add after the `XIAOHONGSHU = "xiaohongshu"` line:
+In `app/ingest/base.py`, add after the `XIAOHONGSHU = "xiaohongshu"` line:
 
 ```python
     GENERIC = "generic"  # Fallback: any URL handled via yt-dlp generic extractor
@@ -114,7 +114,7 @@ Expected: PASS (3 passed).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/core/base.py app/api/schemas.py app/api/download_routes.py tests/test_generic_platform_enum.py
+git add app/ingest/base.py app/api/schemas.py app/api/download_routes.py tests/test_generic_platform_enum.py
 git commit -m "feat(capture): add Platform.GENERIC enum and schema mapping
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
@@ -125,9 +125,9 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ### Task 2: `GenericDownloader` fallback
 
 **Files:**
-- Create: `app/core/platforms/generic.py`
-- Modify: `app/core/platforms/__init__.py` (export `GenericDownloader`)
-- Modify: `app/core/downloader.py:20-46` (`_get_platform_downloaders` — import and append `GenericDownloader` **last**)
+- Create: `app/ingest/platforms/generic.py`
+- Modify: `app/ingest/platforms/__init__.py` (export `GenericDownloader`)
+- Modify: `app/ingest/fetch/downloader.py:20-46` (`_get_platform_downloaders` — import and append `GenericDownloader` **last**)
 - Test: `tests/test_generic_downloader.py`
 
 **Interfaces:**
@@ -175,7 +175,7 @@ Expected: FAIL with `ModuleNotFoundError: app.core.platforms.generic`.
 
 - [ ] **Step 3: Create the GenericDownloader**
 
-Create `app/core/platforms/generic.py`:
+Create `app/ingest/platforms/generic.py`:
 
 ```python
 """Generic fallback downloader using yt-dlp's universal extractor.
@@ -348,9 +348,9 @@ class GenericDownloader(PlatformDownloader):
 
 - [ ] **Step 4: Export and register it (last)**
 
-In `app/core/platforms/__init__.py`, add an import and include `GenericDownloader` in `__all__` (match the file's existing style — add `from .generic import GenericDownloader` and append `"GenericDownloader"` to `__all__`).
+In `app/ingest/platforms/__init__.py`, add an import and include `GenericDownloader` in `__all__` (match the file's existing style — add `from .generic import GenericDownloader` and append `"GenericDownloader"` to `__all__`).
 
-In `app/core/downloader.py`, inside `_get_platform_downloaders` (lines ~20-46): add `GenericDownloader` to the lazy import block AND append it as the **last** element of the `_platform_downloaders` list (after `XiaohongshuVideoDownloader`):
+In `app/ingest/fetch/downloader.py`, inside `_get_platform_downloaders` (lines ~20-46): add `GenericDownloader` to the lazy import block AND append it as the **last** element of the `_platform_downloaders` list (after `XiaohongshuVideoDownloader`):
 
 ```python
         from .platforms import (
@@ -389,7 +389,7 @@ Expected: PASS (5 passed). If `test_specific_platform_still_wins_over_generic` f
 - [ ] **Step 6: Commit**
 
 ```bash
-git add app/core/platforms/generic.py app/core/platforms/__init__.py app/core/downloader.py tests/test_generic_downloader.py
+git add app/ingest/platforms/generic.py app/ingest/platforms/__init__.py app/ingest/fetch/downloader.py tests/test_generic_downloader.py
 git commit -m "feat(capture): add GenericDownloader yt-dlp fallback (registered last)
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"

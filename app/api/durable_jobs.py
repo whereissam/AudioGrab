@@ -15,8 +15,8 @@ import logging
 from datetime import datetime
 from typing import Iterator, Optional
 
-from ..core.job_store import JobStatus as StoreStatus
-from ..core.job_store import JobType, get_job_store
+from ..store import JobStatus as StoreStatus
+from ..store import JobType, get_job_store
 from .schemas import (
     ContentInfo,
     DownloadJob,

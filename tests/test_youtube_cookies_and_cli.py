@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.core.platforms.youtube import youtube_cookie_args
+from app.ingest.platforms.youtube import youtube_cookie_args
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +44,7 @@ def test_settings_field_exists_with_default_none():
 
 
 def test_youtube_video_downloader_uses_shared_helper():
-    from app.core.platforms import youtube_video
+    from app.ingest.platforms import youtube_video
 
     assert youtube_video.youtube_cookie_args is youtube_cookie_args
 
@@ -60,7 +60,7 @@ def test_cli_module_imports():
 
 def test_cli_download_rejects_unsupported_url(monkeypatch, capsys):
     import app.cli as cli
-    from app.core.downloader import DownloaderFactory
+    from app.ingest.fetch.downloader import DownloaderFactory
 
     monkeypatch.setattr(
         DownloaderFactory, "detect_platform", staticmethod(lambda url: None)
@@ -74,8 +74,8 @@ def test_cli_download_rejects_unsupported_url(monkeypatch, capsys):
 
 def test_cli_download_success_path(monkeypatch, capsys, tmp_path):
     import app.cli as cli
-    from app.core.base import Platform as CorePlatform
-    from app.core.downloader import DownloaderFactory
+    from app.ingest.base import Platform as CorePlatform
+    from app.ingest.fetch.downloader import DownloaderFactory
 
     monkeypatch.setattr(
         DownloaderFactory,

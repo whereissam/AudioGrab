@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from app.core.embedding_store import EmbeddingStore
-from app.core.job_store import JobStore
-from app.core.job_store._enums import JobType
+from app.knowledge.embedding_store import EmbeddingStore
+from app.store import JobStore
+from app.store._enums import JobType
 
 
 @pytest.fixture

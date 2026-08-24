@@ -35,7 +35,30 @@ A native desktop app with an embedded Rust backend. No Python or server required
 
 Self-hosted server mode with full feature set including transcription, LLM summarization, Telegram bot.
 
-1. **Core Library** (`app/core/`) - Downloads audio/video from various platforms and converts formats
+## Layers
+
+The codebase is organized as five layers, in dependency order. Each may import
+the ones above it in this list, never the ones below.
+
+```
+app/ingest/      THE CORE — platforms/ fetch/ media/ transcribe/
+app/store/       SQLite persistence (jobs, assets, artifacts, knowledge, ...)
+app/knowledge/   claims, entities, topics, search, synthesis
+app/delivery/    notes, clips, webhooks, cloud, websockets
+app/pipeline/    workflows, queue, scheduler, subscriptions, batches
+app/api/         FastAPI routers  ·  app/mcp_server/  ·  app/bot/
+```
+
+`app/ingest/` is the layer the product is built on and the one that must stay
+extractable on its own, so it may not import from any layer above it.
+`tests/test_layering.py` asserts this per-file on every test run — the fence is
+enforced by CI, not by discipline. When a module in ingest needs something from
+a higher layer, the fix is to move the caller up or invert the dependency
+(see `register_warm_segment_source` in `app/knowledge/knowledge_backfill.py`
+and the injected polisher in `RealtimeTranscriptionSession`), never to add the
+import.
+
+1. **Ingestion Core** (`app/ingest/`) - Downloads audio/video from every supported platform, converts formats, and transcribes. Nothing in this layer may import `app/knowledge`, `app/delivery`, or `app/pipeline` — enforced by `tests/test_layering.py`
 2. **FastAPI Backend** (`app/api/`) - REST API for external integrations
 3. **Telegram Bot** (`app/bot/`) - User-friendly chat interface
 4. **CLI** (`app/cli.py`) - Command-line interface
@@ -151,103 +174,98 @@ frontend/src-tauri/src/
 
 ### Python Backend (Web)
 
+Five layers in dependency order — each may import the ones above it in this
+list, never the ones below. `tests/test_layering.py` enforces the ingest
+boundary per file on every run.
+
 ```
 xdownloader/
 ├── app/
-│   ├── __init__.py
 │   ├── main.py              # FastAPI application entry
 │   ├── cli.py               # CLI interface
 │   ├── config.py            # Configuration management
 │   │
-│   ├── core/                # Core functionality
-│   │   ├── __init__.py
-│   │   ├── downloader.py    # yt-dlp based downloader
-│   │   ├── converter.py     # FFmpeg audio converter
-│   │   ├── transcriber.py   # Whisper transcription
-│   │   ├── job_store/       # SQLite persistence (composed mixins: jobs, batches,
-│   │   │                    #   annotations, settings, knowledge, backfill, digest)
-│   │   ├── queue_manager.py # Priority-based download queue
-│   │   ├── batch_manager.py # Batch download operations
-│   │   ├── scheduler.py     # Scheduled downloads worker
-│   │   ├── webhook_notifier.py    # Webhook delivery with retry
-│   │   ├── websocket_manager.py   # Real-time annotation updates
-│   │   ├── subscription_store.py   # SQLite subscription storage
-│   │   ├── subscription_fetcher.py # RSS/YouTube fetchers
-│   │   ├── subscription_worker.py  # Background subscription worker
-│   │   ├── parser.py        # URL parsing
-│   │   ├── realtime_transcriber.py  # Real-time streaming transcription
+│   ├── ingest/              # ── THE CORE ──────────────────────────────
+│   │   │                    #   May not import knowledge/delivery/pipeline/api
+│   │   ├── base.py          # Platform, AudioMetadata, DownloadResult
 │   │   ├── exceptions.py    # Custom exceptions
-│   │   │ # ── AI Knowledge Layer (P18) ──
-│   │   ├── llm_presets.py        # Task-based LLM provider resolution
-│   │   ├── knowledge_extractor.py    # LLM claim/entity extraction
-│   │   ├── knowledge_schema.py   # Claim/Entity/Topic/Prediction models
-│   │   ├── knowledge_backfill.py # Background backfill worker
-│   │   ├── knowledge_budget.py   # Per-day LLM spend guardrail
-│   │   ├── embedding_store.py    # Embeddings + cosine search
-│   │   ├── entity_canonicalizer.py / topic_canonicalizer.py  # Cross-episode dedup
-│   │   ├── prediction_extractor.py   # Prediction lifecycle enrichment
-│   │   │ # ── Digest Pipeline (P20) ──
-│   │   ├── digest_schema.py / digest_synthesizer.py  # Cross-episode synthesis
-│   │   ├── digest_runner.py      # Scheduled digest worker
-│   │   └── note_exporter.py      # P21: Obsidian/Logseq note templater + vault writer
+│   │   ├── asset_identity.py    # Content-addressed asset identity
+│   │   ├── platforms/       # Per-site adapters — X Spaces, Apple Podcasts,
+│   │   │                    #   Spotify, YouTube, Discord, Instagram,
+│   │   │                    #   小红书, 小宇宙, 喜马拉雅
+│   │   ├── fetch/           # Reaching the bytes
+│   │   │   ├── downloader.py        # Platform dispatch + yt-dlp
+│   │   │   ├── transcript_fetcher.py # Existing YouTube/Spotify captions
+│   │   │   ├── auth.py / url_validator.py / retry.py / client.py / parser.py
+│   │   ├── media/           # Local media handling (FFmpeg lives behind here)
+│   │   │   └── converter.py / merger.py / enhancer.py / metadata_tagger.py / video.py
+│   │   └── transcribe/      # Speech to text
+│   │       ├── transcriber.py       # Whisper transcription
+│   │       ├── transcription_engine.py  # Multi-engine dispatch
+│   │       ├── realtime_transcriber.py  # Streaming transcription
+│   │       ├── diarizer.py          # Speaker diarization
+│   │       ├── subtitles.py         # P23: SRT/VTT reflow + canonical writer
+│   │       └── checkpoint.py        # Resumable transcription state
 │   │
-│   ├── api/                 # FastAPI routes (34 modules)
-│   │   ├── __init__.py
+│   ├── store/               # ── PERSISTENCE ──────────────────────────
+│   │   │                    #   SQLite, composed from mixins
+│   │   ├── _jobs.py / _assets.py / _artifacts.py / _batches.py
+│   │   ├── _knowledge.py / _backfill.py / _digest.py / _search.py / _chat.py
+│   │   ├── _contradictions.py / _distillations.py / _extraction_schemas.py
+│   │   ├── _principals.py / _idempotency.py / _settings.py / _annotations.py
+│   │   └── subscription_store.py    # Subscription persistence
+│   │
+│   ├── knowledge/           # ── WHAT THE TRANSCRIPT MEANS ────────────
+│   │   │                    #   A library upper layers call; never calls back
+│   │   ├── llm_presets.py           # Task-based LLM provider resolution
+│   │   ├── knowledge_extractor.py   # LLM claim/entity extraction (P18)
+│   │   ├── knowledge_schema.py      # Claim/Entity/Topic/Prediction models
+│   │   ├── knowledge_backfill.py    # Background backfill worker
+│   │   ├── knowledge_budget.py      # Per-day LLM spend guardrail
+│   │   ├── embedding_store.py / segment_indexer.py / semantic_search.py  # P10
+│   │   ├── rag_engine.py            # P11: grounded Q&A
+│   │   ├── entity_canonicalizer.py / topic_canonicalizer.py  # Cross-episode dedup
+│   │   ├── prediction_extractor.py  # Prediction lifecycle enrichment
+│   │   ├── contradiction_detector.py    # P13
+│   │   ├── extractor.py             # P17: structured field extraction
+│   │   ├── digest_schema.py / digest_synthesizer.py / digest_runner.py  # P20
+│   │   ├── distiller.py             # P14: on-demand multi-source briefing
+│   │   ├── summarizer.py / sentiment_analyzer.py / translator.py
+│   │   └── transcript_polisher.py   # LLM cleanup, injected into realtime
+│   │
+│   ├── delivery/            # ── GETTING RESULTS OUT ──────────────────
+│   │   ├── note_exporter.py / obsidian_exporter.py   # P21: vault templater
+│   │   ├── clip_generator.py / clip_exporter.py      # Viral clips
+│   │   ├── webhook_notifier.py / webhook_intelligence.py  # P16
+│   │   ├── storage_manager.py / websocket_manager.py
+│   │   └── cloud/           # S3, Google Drive, Dropbox
+│   │
+│   ├── pipeline/            # ── ORCHESTRATION ────────────────────────
+│   │   │                    #   The only layer that composes the others
+│   │   ├── workflow.py              # Download → transcribe → enrich
+│   │   ├── agentic_pipeline.py      # P12: profile-driven ingest chain
+│   │   ├── ingestion_service.py     # P22: async ingestion API service
+│   │   ├── queue_manager.py / scheduler.py / batch_manager.py
+│   │   └── subscription_fetcher.py / subscription_worker.py
+│   │
+│   ├── api/                 # FastAPI routers (42 modules, 36 registered)
 │   │   ├── routes.py        # Download/transcribe endpoints
-│   │   ├── batch_routes.py  # Batch download endpoints
-│   │   ├── schedule_routes.py     # Scheduled download endpoints
-│   │   ├── webhook_routes.py      # Webhook configuration
-│   │   ├── annotation_routes.py   # Annotation CRUD + WebSocket
-│   │   ├── realtime_routes.py     # Real-time transcription WebSocket
-│   │   ├── subscription_routes.py # Subscription endpoints
+│   │   ├── ingest_routes.py       # P12: agentic pipeline + status
 │   │   ├── knowledge_routes.py    # P18: knowledge / claims / backfill
-│   │   ├── entity_routes.py / topic_routes.py / prediction_routes.py  # P18
-│   │   ├── digest_routes.py       # P20: digests + topic synthesis
-│   │   ├── export_routes.py       # P21: vault/note export
+│   │   ├── entity_routes.py / topic_routes.py / prediction_routes.py
+│   │   ├── search_routes.py / ask_routes.py       # P10 / P11
+│   │   ├── contradiction_routes.py / distill_routes.py  # P13 / P14
+│   │   ├── digest_routes.py / export_routes.py    # P20 / P21
+│   │   ├── principal_routes.py    # P22: API keys, usage, quotas
 │   │   └── schemas.py       # Pydantic models
 │   │
-│   ├── mcp_server/          # MCP server (P19) — HTTP client of the API (sift-mcp)
-│   │   ├── __main__.py      # stdio entry point
-│   │   ├── server.py        # FastMCP tools
-│   │   └── client.py        # Async Sift API client
-│   │
+│   ├── mcp_server/          # MCP server (P19) — HTTP client of the API
 │   └── bot/                 # Telegram bot
-│       ├── __init__.py
-│       └── bot.py           # Bot implementation
 │
-├── frontend/                # React frontend
-│   └── src/
-│       ├── components/
-│       │   ├── downloader/  # Download & transcription components
-│       │   │   ├── DownloadForm.tsx
-│       │   │   ├── TranscribeForm.tsx
-│       │   │   ├── SuccessViews.tsx
-│       │   │   └── BatchDownloadForm.tsx
-│       │   ├── clips/       # Viral clip generation
-│       │   ├── live/        # Real-time transcription
-│       │   │   ├── LiveTranscriber.tsx
-│       │   │   └── TranscriptDisplay.tsx
-│       │   ├── queue/       # Queue view
-│       │   ├── schedule/    # Schedule modal
-│       │   ├── settings/    # AI & Translation settings
-│       │   ├── annotations/ # Annotation components
-│       │   └── subscriptions/
-│       └── routes/          # File-based routing
-│           ├── __root.tsx   # Root layout with nav
-│           ├── audio.tsx    # /audio - Audio download
-│           ├── video.tsx    # /video - Video download
-│           ├── transcribe.tsx # /transcribe - Transcription
-│           ├── clips.tsx    # /clips - Viral clips
-│           ├── live.tsx     # /live - Real-time transcription
-│           ├── settings.tsx # /settings - Configuration
-│           └── subscriptions.tsx # /subscriptions
-│
-├── tests/
-│   └── test_parser.py
-│
-├── docs/                    # Documentation
-├── pyproject.toml
-└── README.md
+├── frontend/                # React frontend (see Frontend Design System)
+├── tests/                   # 970 tests, incl. test_layering.py (the fence)
+├── docs/
+└── pyproject.toml
 ```
 
 ## Frontend Design System
@@ -282,7 +300,7 @@ The frontend uses an **Industrial Utility** aesthetic — dense, left-aligned, a
 
 ## Core Components
 
-### 1. SpaceDownloader (`core/downloader.py`)
+### 1. SpaceDownloader (`app/ingest/fetch/downloader.py`)
 
 Downloads Twitter Spaces using yt-dlp:
 
@@ -305,7 +323,7 @@ class SpaceDownloader:
         pass
 ```
 
-### 2. AudioConverter (`core/converter.py`)
+### 2. AudioConverter (`app/ingest/media/converter.py`)
 
 Converts audio between formats using FFmpeg:
 
@@ -335,7 +353,7 @@ class AudioConverter:
 
 **Quality presets:** low (64k), medium (128k), high (192k), highest (320k)
 
-### 3. SpaceURLParser (`core/parser.py`)
+### 3. SpaceURLParser (`app/ingest/fetch/parser.py`)
 
 URL validation and parsing:
 
@@ -525,10 +543,10 @@ Browser Microphone
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| `AudioBuffer` | `app/core/realtime_transcriber.py` | Circular buffer for streaming audio |
-| `SegmentMerger` | `app/core/realtime_transcriber.py` | Deduplication and segment finalization |
-| `TranscriptPolisher` | `app/core/realtime_transcriber.py` | LLM-powered transcript cleanup |
-| `RealtimeTranscriptionSession` | `app/core/realtime_transcriber.py` | Orchestrates the streaming pipeline |
+| `AudioBuffer` | `app/ingest/transcribe/realtime_transcriber.py` | Circular buffer for streaming audio |
+| `SegmentMerger` | `app/ingest/transcribe/realtime_transcriber.py` | Deduplication and segment finalization |
+| `TranscriptPolisher` | `app/ingest/transcribe/realtime_transcriber.py` | LLM-powered transcript cleanup |
+| `RealtimeTranscriptionSession` | `app/ingest/transcribe/realtime_transcriber.py` | Orchestrates the streaming pipeline |
 | `useAudioCapture` | `frontend/src/hooks/` | MediaRecorder API hook |
 | `useRealtimeTranscription` | `frontend/src/hooks/` | WebSocket hook for transcription |
 | `LiveTranscriber` | `frontend/src/components/live/` | Main UI component |

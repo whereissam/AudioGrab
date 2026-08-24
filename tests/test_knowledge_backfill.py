@@ -10,15 +10,16 @@ from pathlib import Path
 
 import pytest
 
-from app.core import job_store as job_store_module
-from app.core.job_store import JobStore
-from app.core.job_store._enums import JobType
-from app.core.knowledge_backfill import (
+from app import store as job_store_module
+from app.store import JobStore
+from app.store._enums import JobType
+from app.knowledge.knowledge_backfill import (
     KnowledgeBackfillWorker,
+    register_warm_segment_source,
     resolve_segments_for_job,
 )
-from app.core.knowledge_budget import get_budget_tracker
-from app.core.knowledge_schema import (
+from app.knowledge.knowledge_budget import get_budget_tracker
+from app.knowledge.knowledge_schema import (
     EXTRACTION_VERSION,
     SCHEMA_VERSION,
     Claim,
@@ -264,3 +265,56 @@ def test_resolve_segments_cold_path(store: JobStore):
 def test_resolve_segments_missing_returns_empty(store: JobStore):
     store.create_job("j1", JobType.TRANSCRIBE)
     assert resolve_segments_for_job("j1", store) == ([], None)
+
+
+def test_warm_segment_source_wins_over_the_cold_path(store: JobStore):
+    """The API layer registers this hook so the knowledge layer never has to
+    import upward for in-process transcripts."""
+    store.create_job("j1", JobType.TRANSCRIBE, source_url="https://x.test/cold")
+    store.update_job(
+        "j1",
+        transcription_result={
+            "segments": [{"start": 0, "end": 1, "text": "cold", "speaker": None}]
+        },
+    )
+    warm = ([{"start": 0, "end": 1, "text": "warm", "speaker": None}], "https://x.test/warm")
+    register_warm_segment_source(lambda job_id: warm if job_id == "j1" else None)
+    try:
+        segs, url = resolve_segments_for_job("j1", store)
+        assert segs[0]["text"] == "warm"
+        assert url == "https://x.test/warm"
+    finally:
+        register_warm_segment_source(None)
+
+
+def test_cold_path_used_when_no_warm_source_registered(store: JobStore):
+    store.create_job("j1", JobType.TRANSCRIBE, source_url="https://x.test/cold")
+    store.update_job(
+        "j1",
+        transcription_result={
+            "segments": [{"start": 0, "end": 1, "text": "cold", "speaker": None}]
+        },
+    )
+    register_warm_segment_source(None)
+    segs, _ = resolve_segments_for_job("j1", store)
+    assert segs[0]["text"] == "cold"
+
+
+def test_a_failing_warm_source_falls_back_instead_of_raising(store: JobStore):
+    store.create_job("j1", JobType.TRANSCRIBE, source_url="https://x.test/cold")
+    store.update_job(
+        "j1",
+        transcription_result={
+            "segments": [{"start": 0, "end": 1, "text": "cold", "speaker": None}]
+        },
+    )
+
+    def boom(job_id):
+        raise RuntimeError("in-memory store unavailable")
+
+    register_warm_segment_source(boom)
+    try:
+        segs, _ = resolve_segments_for_job("j1", store)
+        assert segs[0]["text"] == "cold"
+    finally:
+        register_warm_segment_source(None)

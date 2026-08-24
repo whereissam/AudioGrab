@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-from app.core.note_exporter import (
+from app.delivery.note_exporter import (
     EpisodeNoteData,
     NoteTarget,
     _fmt_timestamp,

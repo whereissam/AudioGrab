@@ -8,22 +8,22 @@ from pathlib import Path
 import pytest
 
 from app.config import get_settings
-from app.core import job_store as job_store_module
-from app.core import subscription_store as sub_store_module
-from app.core.digest_runner import DigestRunner, run_digest
-from app.core.digest_runner_helpers import gather_claims_for_digest
-from app.core.digest_schema import DigestRunResult, DigestSynthesis
-from app.core.job_store import JobStore
-from app.core.job_store._enums import JobType
-from app.core.knowledge_budget import get_budget_tracker
-from app.core.knowledge_schema import (
+from app import store as job_store_module
+from app.store import subscription_store as sub_store_module
+from app.knowledge.digest_runner import DigestRunner, run_digest
+from app.knowledge.digest_runner_helpers import gather_claims_for_digest
+from app.knowledge.digest_schema import DigestRunResult, DigestSynthesis
+from app.store import JobStore
+from app.store._enums import JobType
+from app.knowledge.knowledge_budget import get_budget_tracker
+from app.knowledge.knowledge_schema import (
     EXTRACTION_VERSION,
     SCHEMA_VERSION,
     Claim,
     ClaimType,
     compute_claim_id,
 )
-from app.core.subscription_store import (
+from app.store.subscription_store import (
     SubscriptionItemStatus,
     SubscriptionPlatform,
     SubscriptionStore,
@@ -173,7 +173,7 @@ class TestWorker:
                                 window_days=30, min_confidence=0.5)
         # Inject the fake synthesizer through from_settings.
         monkeypatch.setattr(
-            "app.core.digest_runner.DigestSynthesizer.from_settings",
+            "app.knowledge.digest_runner.DigestSynthesizer.from_settings",
             classmethod(lambda cls: FakeSynth()),
         )
         worker = DigestRunner()

@@ -7,7 +7,7 @@ from typing import Optional
 
 import pytest
 
-from app.core.knowledge_schema import (
+from app.knowledge.knowledge_schema import (
     EXTRACTION_VERSION,
     SCHEMA_VERSION,
     Claim,
@@ -15,7 +15,7 @@ from app.core.knowledge_schema import (
     Topic,
     compute_claim_id,
 )
-from app.core.topic_aggregator import (
+from app.knowledge.topic_aggregator import (
     MAX_CLAIMS_PER_CALL,
     MIN_CLAIMS_FOR_AGGREGATION,
     TopicAggregator,
@@ -54,7 +54,7 @@ class _FakeTopicCanonicalizer:
     """Deterministic canonicalizer — same normalized name → same topic_id."""
 
     def __init__(self):
-        from app.core.knowledge_schema import compute_topic_id
+        from app.knowledge.knowledge_schema import compute_topic_id
 
         self._store: dict[str, Topic] = {}
         self._compute = compute_topic_id
@@ -62,7 +62,7 @@ class _FakeTopicCanonicalizer:
     async def canonicalize(
         self, *, name: str, description: str = "", confidence: float = 1.0
     ):
-        from app.core.topic_canonicalizer import CanonicalizedTopic
+        from app.knowledge.topic_canonicalizer import CanonicalizedTopic
 
         if not name or not name.strip():
             return None

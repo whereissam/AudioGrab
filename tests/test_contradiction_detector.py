@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from app.core.contradiction_detector import (
+from app.knowledge.contradiction_detector import (
     MAX_PAIRS_PER_RUN,
     ContradictionDetector,
     compute_contradiction_id,

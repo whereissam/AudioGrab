@@ -535,7 +535,22 @@ URL → Ingest → Transcribe → Understand → Search → Act
                   Enhance    Entities     Ask Audio   Webhook
 ```
 
-The **Agentic Pipeline** (on the roadmap) will make this entire chain automatic: paste a URL, and Sift handles the rest — downloading, transcribing, indexing, summarizing, and making the content queryable.
+The **[Agentic Pipeline](#agentic-ingest)** makes this entire chain automatic: paste a URL with a profile, and Sift handles the rest — downloading, transcribing, indexing, summarizing, and making the content queryable, with per-stage status you can poll.
+
+### How the code is organized
+
+Five layers, in dependency order. Each may import the ones above it, never the ones below:
+
+```
+app/ingest/      THE CORE — platforms/ fetch/ media/ transcribe/
+app/store/       SQLite persistence
+app/knowledge/   claims, entities, topics, search, synthesis
+app/delivery/    notes, clips, webhooks, cloud
+app/pipeline/    workflows, queue, scheduler, subscriptions
+app/api/         FastAPI routers · app/mcp_server/ · app/bot/
+```
+
+`app/ingest/` is the layer everything else is built on — getting media off a platform and turning it into a transcript — and it must stay runnable with nothing above it loaded, so it may not import from any higher layer. `tests/test_layering.py` asserts this per file on every test run, rather than leaving it to discipline. See [Architecture](docs/architecture.md#layers).
 
 ## Documentation
 
@@ -546,7 +561,8 @@ The **Agentic Pipeline** (on the roadmap) will make this entire chain automatic:
 - [API Endpoints](docs/api-endpoints.md) - Internal API details
 - [Queue & Scheduling](docs/queue-scheduling.md) - Batch downloads, priority queue, scheduling
 - [Webhooks & Annotations](docs/webhooks-annotations.md) - Notifications and collaboration
-- [Feature Roadmap](docs/todo.md) - Full v1.x and v2.0 AI-Native roadmap
+- [Feature Roadmap](docs/todo.md) - Open work only
+- [Shipped](docs/shipped.md) - Completed phases and the notes written when they landed
 
 ## Security
 

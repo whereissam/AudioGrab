@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from app.core.job_store import JobStore
-from app.core.job_store._enums import JobType
+from app.store import JobStore
+from app.store._enums import JobType
 
 
 @pytest.fixture

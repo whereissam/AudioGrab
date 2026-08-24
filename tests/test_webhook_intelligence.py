@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 import app.config as config_module
-from app.core.webhook_intelligence import (
+from app.delivery.webhook_intelligence import (
     TEMPLATE_FULL,
     TEMPLATE_MINIMAL,
     TEMPLATE_SUMMARY,
@@ -193,7 +193,7 @@ class TestFullTemplate:
 class TestNotifierIntegration:
     @pytest.mark.asyncio
     async def test_notifier_falls_back_to_minimal_on_render_crash(self, monkeypatch):
-        from app.core import webhook_notifier as wn
+        from app.delivery import webhook_notifier as wn
 
         notifier = wn.WebhookNotifier(default_url=None)
         sent = {}
@@ -204,7 +204,7 @@ class TestNotifierIntegration:
 
         monkeypatch.setattr(notifier, "notify", fake_notify)
         monkeypatch.setattr(
-            "app.core.webhook_intelligence.build_job_completed_payload",
+            "app.delivery.webhook_intelligence.build_job_completed_payload",
             lambda job, **kw: (_ for _ in ()).throw(RuntimeError("boom")),
         )
         ok = await notifier.notify_job_complete(_job(webhook_url="https://h.example/x"))

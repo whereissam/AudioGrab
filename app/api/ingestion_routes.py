@@ -15,13 +15,13 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, 
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from ..core.asset_identity import canonical_source_for_job
-from ..core.downloader import DownloaderFactory
-from ..core.ingestion_service import (
+from ..ingest.asset_identity import canonical_source_for_job
+from ..ingest.fetch.downloader import DownloaderFactory
+from ..pipeline.ingestion_service import (
     find_cached_transcript,
     run_ingestion_job,
 )
-from ..core.job_store import JobStatus as StoreStatus, JobType, get_job_store
+from ..store import JobStatus as StoreStatus, JobType, get_job_store
 from .auth import verify_api_key
 from .ratelimit import limiter
 

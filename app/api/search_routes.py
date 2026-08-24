@@ -20,9 +20,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from ..core.job_store import get_job_store
-from ..core.segment_indexer import get_segment_indexer
-from ..core.semantic_search import DEFAULT_MIN_SCORE, search_segments
+from ..store import get_job_store
+from ..knowledge.segment_indexer import get_segment_indexer
+from ..knowledge.semantic_search import DEFAULT_MIN_SCORE, search_segments
 from .auth import verify_api_key
 from .ratelimit import limiter
 

@@ -12,15 +12,15 @@ from pathlib import Path
 
 import pytest
 
-from app.core.agentic_pipeline import (
+from app.pipeline.agentic_pipeline import (
     DEFAULT_PROFILE,
     PIPELINE_PROFILES,
     PipelineRunner,
     _StageSkipped,
     init_pipeline_state,
 )
-from app.core.job_store import JobStore
-from app.core.job_store._enums import JobType
+from app.store import JobStore
+from app.store._enums import JobType
 
 
 @pytest.fixture

@@ -7,15 +7,15 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from app.core import embedding_store
-from app.core.embedding_store import (
+from app.knowledge import embedding_store
+from app.knowledge.embedding_store import (
     DEFAULT_TEXT_MODEL,
     EmbeddingStore,
     clear_embedding_cache,
     embed,
     normalize_for_embedding,
 )
-from app.core.job_store import JobStore
+from app.store import JobStore
 
 
 class _FixedEncoder:

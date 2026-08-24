@@ -10,9 +10,9 @@ from fastapi.testclient import TestClient
 
 from app.api.export_routes import router as export_router
 from app.config import get_settings
-from app.core import job_store as job_store_module
-from app.core.job_store import JobStore
-from app.core.job_store._enums import JobType
+from app import store as job_store_module
+from app.store import JobStore
+from app.store._enums import JobType
 
 
 @pytest.fixture

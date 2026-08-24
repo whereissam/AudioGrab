@@ -15,10 +15,10 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from ..core.digest_runner import run_digest
-from ..core.digest_synthesizer import DigestSynthesizer
-from ..core.job_store import get_job_store
-from ..core.knowledge_budget import estimate_cost_usd, get_budget_tracker
+from ..knowledge.digest_runner import run_digest
+from ..knowledge.digest_synthesizer import DigestSynthesizer
+from ..store import get_job_store
+from ..knowledge.knowledge_budget import estimate_cost_usd, get_budget_tracker
 from .auth import verify_api_key
 from .ratelimit import limiter
 

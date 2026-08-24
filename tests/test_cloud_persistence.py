@@ -4,14 +4,14 @@ import sqlite3
 
 import pytest
 
-from app.core.cloud.base import ProviderConfig, ProviderType
-from app.core.cloud.export_manager import ExportManager
+from app.delivery.cloud.base import ProviderConfig, ProviderType
+from app.delivery.cloud.export_manager import ExportManager
 
 
 @pytest.fixture
 def job_db(monkeypatch, tmp_path):
     """Point the job store (which owns the cloud_providers table) at a temp DB."""
-    import app.core.job_store as job_store
+    import app.store as job_store
 
     db_path = tmp_path / "jobs.db"
 

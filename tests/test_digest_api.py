@@ -13,9 +13,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.digest_routes import router as digest_router
-from app.core import job_store as job_store_module
-from app.core.digest_schema import DigestRunResult, DigestSynthesis
-from app.core.job_store import JobStore
+from app import store as job_store_module
+from app.knowledge.digest_schema import DigestRunResult, DigestSynthesis
+from app.store import JobStore
 
 
 @pytest.fixture
@@ -100,14 +100,14 @@ class TestTopicSynthesis:
     def test_topic_synthesis_success(self, client: TestClient, store: JobStore, monkeypatch):
         # Seed a topic + a couple of claims linked to it.
         store.upsert_topic({"topic_id": "t1", "name": "Bitcoin", "description": "btc"})
-        from app.core.knowledge_schema import (
+        from app.knowledge.knowledge_schema import (
             EXTRACTION_VERSION,
             SCHEMA_VERSION,
             Claim,
             ClaimType,
             compute_claim_id,
         )
-        from app.core.job_store._enums import JobType
+        from app.store._enums import JobType
 
         store.create_job("e1", JobType.TRANSCRIBE)
         claims = []

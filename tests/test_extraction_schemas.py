@@ -18,15 +18,15 @@ from app.api.extract_routes import (
     schemas_router,
 )
 from app.api.ratelimit import limiter
-from app.core import job_store as job_store_module
-from app.core.extractor import (
+from app import store as job_store_module
+from app.knowledge.extractor import (
     ExtractedField,
     ExtractionResult,
     render_extraction_csv,
     render_extraction_markdown,
 )
-from app.core.job_store import JobStore
-from app.core.job_store._extraction_schemas import compute_schema_id
+from app.store import JobStore
+from app.store._extraction_schemas import compute_schema_id
 
 
 @pytest.fixture(autouse=True)
@@ -210,7 +210,7 @@ class TestSchemaIdExtractPath:
     ):
         from app.api import extract_routes
         from app.api.schemas import JobStatus as ApiJobStatus
-        from app.core.extractor import ExtractionPreset
+        from app.knowledge.extractor import ExtractionPreset
 
         store.create_extraction_schema(
             name="Guests", fields=[{"name": "guests", "type": "list"}]

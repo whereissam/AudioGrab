@@ -16,10 +16,10 @@ from fastapi.testclient import TestClient
 from app.api import ingest_routes
 from app.api.ingest_routes import router as ingest_router
 from app.api.ratelimit import limiter
-from app.core import job_store as job_store_module
-from app.core.agentic_pipeline import PIPELINE_PROFILES, init_pipeline_state
-from app.core.job_store import JobStore
-from app.core.job_store._enums import JobType
+from app import store as job_store_module
+from app.pipeline.agentic_pipeline import PIPELINE_PROFILES, init_pipeline_state
+from app.store import JobStore
+from app.store._enums import JobType
 
 
 @pytest.fixture(autouse=True)
