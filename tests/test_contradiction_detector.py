@@ -1,4 +1,4 @@
-"""Tests for app/core/contradiction_detector.py (P13).
+"""Tests for app/knowledge/contradiction_detector.py (P13).
 
 The LLM is faked at the provider seam; these cover pair selection (context
 filter, ranking, caps), batch judging, record validation, and the graceful-

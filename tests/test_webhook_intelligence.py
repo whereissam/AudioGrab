@@ -1,4 +1,4 @@
-"""Tests for app/core/webhook_intelligence.py (P16 payload templates).
+"""Tests for app/delivery/webhook_intelligence.py (P16 payload templates).
 
 The knowledge/topic/entity sources are faked at the job_store seam and the
 sentiment cache at the api-module seam — these cover template resolution,

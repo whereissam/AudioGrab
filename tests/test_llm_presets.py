@@ -1,4 +1,4 @@
-"""Tests for app/core/llm_presets.py.
+"""Tests for app/knowledge/llm_presets.py.
 
 We swap out the real JobStore and config singletons with tiny stubs so we can
 drive the preset resolution logic without touching SQLite or the real env.

@@ -643,7 +643,7 @@ class _SchemaMixin:
             ("knowledge_locked_at", "TEXT"),
             ("knowledge_worker_id", "TEXT"),
             # P12: agentic pipeline state — JSON {profile, stages: [{name,
-            # status, ...}]} maintained by app/core/agentic_pipeline.py.
+            # status, ...}]} maintained by app/pipeline/agentic_pipeline.py.
             ("pipeline_state", "TEXT"),
             # P16: per-job webhook payload template override
             # (minimal | summary | full_intelligence).
